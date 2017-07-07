@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+<style>
+  html, body {
+      margin: 0;
+      padding: 0;
+  }
+  canvas {
+      padding: 0;
+      margin: 0;
+      border: 1px solid black;
+  }
+  .canvas-table {
+    display: flex;
+  }
+  table, tr, td {
+    width: 300px;
+    border-collapse: collapse;
+    border: 1px solid black;
+    overflow: scroll;
+  }
+  td .editable {
+    text-decoration: underline; 
+  }
+  table a {
+    text-align: center;
+    color: red;
+    text-decoration: underline;
+  }
+  table a:hover {
+    cursor: pointer;
+  }
+  .button {
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
+  }
+  .button + label {
+    font-size: 50px;
+    display: inline-block;
+    border: 2px solid black;
+    padding: 10px;
+    background-color: rgba(200, 220, 240, 0.9);
+    border-radius: 20%;
+  }
+  .button + label {
+    cursor:pointer;
+  }
+  .button + label:hover {
+    background-color: rgba(240, 220, 200, 1);
+  }
+</style>
+<script src="lib/lodash.js"></script>
+<script type='text/javascript'>
+  let BUILDING = '';
+  let FLOOR = '';
+  let KEYS = [];
+  let labels = [];
+  let CLICKED_X = 0;
+  let CLICKED_Y = 0;
+  let IMAGE = null;
+  let ID = 1;
+  let canvas = null;
+  let ctx = null;
+
+  function init() {
+    // Set canvas dimensions
+    canvas = document.getElementById('c');
+    //canvas.width = (document.documentElement.clientWidth);
+    //canvas.height = document.documentElement.clientHeight;
+    canvas.width = 800;
+    canvas.height = 600;
+    document.getElementById('c').addEventListener('click', onClick
+    , false); 
+    ctx = document.getElementById('c').getContext('2d');
+    window.onkeyup = (e) => { KEYS[e.keyCode] = false;}
+    window.onkeydown = (e) => { KEYS[e.keyCode] = true;}
+  }
+
+  function batch_upload(file_list) {
+    console.log(file_list);
+    // FileList has no method map nor forEach
+    for (let i = 0; i < file_list.length; i++) {
+      labels.push({
+        id: ID,
+        x: null,
+        y: null,
+        title: BUILDING + FLOOR + '-' + (ID).toString(),
+        image: file_list[i]
+      })
+      ID++;
+    }
+    draw_labels(labels);
+    draw_table(labels);
+  }
+
+  function handletagImg(files) {
+    var label = {
+      id:     ID,
+      x:      CLICKED_X,
+      y:      CLICKED_Y,
+      title:  window.prompt('Enter label title: '),
+      image:  files[0]
+    };
+    ID++;
+    labels.push(label);
+    draw_labels(labels);
+    add_row(label);
+  }
+
+  function draw_labels(labels) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(IMG, 0, 0);
+    labels.map( (label) => {
+      if (label.x !== null && label.y !== null) {
+        ctx.textAlign = 'center';
+        var wid = ctx.measureText(label.title).width;
+        ctx.fillStyle = 'rgba(250, 130, 0, 0.7)';
+        ctx.fillRect(label.x-(wid+10)/2, label.y-(20/2), (wid+10 > 40? wid+10 : 40), 20);
+        ctx.strokeRect(label.x-(wid+10)/2, label.y-(20/2), (wid+10 > 40? wid+10 : 40), 20);
+        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+        ctx.font = '12px sans-serif';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label.title, label.x, label.y);
+      }
+    });
+  }
+
+  function add_row(label) {
+    const table = document.getElementById('tag-tables');
+    var tbody = document.querySelector('tbody');
+    insert_row(label, tbody)
+  }
+
+  function insert_row(label, tbody){
+    var row = tbody.insertRow();
+    row.id = label.id;
+    var c0 = row.insertCell(0);
+    var c1 = row.insertCell(1);
+    var c2 = row.insertCell(2);
+    var c3 = row.insertCell(3);
+    c1.addEventListener('click', edit_name);
+    c2.addEventListener('mouseover', (e) => {
+      return(preview_image(e.target.closest('tr').id))
+    });
+    c0.innerHTML = label.id;
+    c1.innerHTML = "<span class='editable'>" + label.title + "</span>";
+    c2.innerHTML = label.image.name;
+    c3.innerHTML = '<a onclick="delete_row(' + label.id + ')">X</a>'
+  }
+
+  function draw_table(labels){
+    const table = document.getElementById('tag-tables');
+    const old_tbody = document.querySelector('tbody');
+    var tbody = document.createElement('tbody');
+    labels.map((label) => {
+      return insert_row(label, tbody);
+    });
+    old_tbody.parentNode.replaceChild(tbody, old_tbody)
+  }
+  
+  function edit_name(e) {
+    var val = window.prompt('Edit name:');
+    if (val !== '') {
+      // this is vert fragile code
+      const id = e.target.closest('tr').id;
+      console.log('id: ', id);
+      var label = _.find(labels, ['id', parseInt(id)]);
+      console.log(label);
+      label.title = val;
+      // Need a smart way to re-draw image and table performantly
+      draw_labels(labels);
+      draw_table(labels);
+    }
+  }
+
+  function delete_row(id) {
+    //const id = e.target.parentElement.firstChild.textContent;
+    console.log(labels)
+     _.remove(labels, ['id', parseInt(id)]);
+    console.log(labels)
+    draw_labels(labels);
+    draw_table(labels);
+  }
+
+  function onClick(evt) {
+    CLICKED_X = evt.x;
+    CLICKED_Y = evt.y;
+    // If Shift key is held down, go to tag-editing mode
+    if (KEYS[16]) {
+      var id = window.prompt('Enter id of label: ');
+      label = _.find(labels, ['id', parseInt(id)]);
+      if (label === undefined) {
+        window.alert('Bad ID.');
+      }
+      else {
+        label.x = CLICKED_X;
+        label.y = CLICKED_Y;
+        // Redraw
+        draw_labels(labels);
+      }
+    }
+    else {
+      // Upload an image
+      document.getElementById('image-tag').click();
+    }
+  }
+
+  function get_plan(file_list) {
+    var plan_img = file_list[0];
+    var ctx = document.getElementById('c').getContext('2d');
+    var img = new Image();
+    img.onload = () => {
+      IMG = img;
+      ctx.drawImage(img, 0, 0);
+      ctx.stroke();
+      BUILDING = window.prompt('Enter building letter (e.g. A)');
+      FLOOR = window.prompt('Enter building floor (e.g. 1)');
+    }
+    img.src = URL.createObjectURL(plan_img);
+  }
+
+  function export_image(e){
+    const canvas = document.getElementById("c");
+    //var image = canvas.toDataURL("image/png").replace("image/png",
+    //"image/octet-stream"); 
+    var image = canvas.toDataURL("image/png");
+    //Convert image to 'octet-stream' (Just a download, really)
+    e.href = image;
+  }
+
+  function preview_image(id){
+    var file = _.find(labels, ['id', parseInt(id)]).image;
+    var img = document.getElementById('img-preview')
+    var reader = new FileReader();
+    reader.addEventListener("load", function () {
+      img.src = reader.result;
+    }, false);
+    reader.readAsDataURL(file);
+  }
+</script>
+<body onload='init()'>
+<div class='canvas-table'>
+  <canvas id = 'c'>
+  </canvas>
+  <table id = 'tag-tables'>
+    <thead>
+      <th>ID</th>
+      <th>Label</th>
+      <th>File location</th>
+      <th>X</th>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+</div>
+<input class='button' type='file' id='plan-upload' accept='image/*' onchange='get_plan(this.files)' capture='camera'>
+<label for='plan-upload'>📷</label>
+<input class='button' type='file' id='image-tag' accept='image/*' onChange='handletagImg(this.files)'>
+<label for='image-tag'>Tag</label>
+<input class='button' type='file' id='batch-upload' accept='image/*' multiple onChange='batch_upload(this.files)'>
+<label for='batch-upload'>Batch Upload</label>
+
+<a onclick="export_image(this)" href="#" target="_blank">Export floor plan</a>
+<img id='img-preview' src="" height="300" width="300" alt="Preview">
