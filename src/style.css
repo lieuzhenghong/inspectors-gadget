@@ -1,0 +1,92 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    height: 100%;
+    width: 100%;
+}
+canvas {
+    padding: 0;
+    margin: 0;
+    border: 1px solid black;
+    display: block;
+}
+.wrapper {
+  display: flex;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.col1, .col2 {
+  display: flex;
+  justify-content: space-between;
+  flex-direction: column;
+}
+
+.table-wrapper {
+  height: 100%;
+}
+
+table, tr, td {
+  width: 300px;
+  font-family: monospace;
+  text-align: center;
+  border-collapse: collapse;
+  border: 1px solid black;
+}
+
+thead {
+  display: block;
+}
+
+tbody {
+  display: block;
+  height: 468px;
+  max-height: 468px;
+  overflow-y:scroll;
+}
+
+tr:hover {
+  background-color: rgba(200, 200, 200, 1);
+}
+td .editable {
+  text-decoration: underline; 
+}
+table a {
+  text-align: center;
+  color: red;
+  text-decoration: underline;
+}
+table a:hover {
+  cursor: pointer;
+}
+
+
+.button {
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+.button + label, .label {
+  font-size: 50px;
+  display: inline-block;
+  border: 2px solid black;
+  padding: 10px;
+  background-color: rgba(200, 220, 240, 0.9);
+  color: black;
+  text-decoration: none;
+}
+.button + label, .label{
+  cursor:pointer;
+}
+.button + label:hover, .label:hover{
+  background-color: rgba(240, 220, 200, 1);
+}
+
+#img-preview {
+  min-height: 300px;
+  min-width: 300px;
+  border: 2px solid black;
+}
