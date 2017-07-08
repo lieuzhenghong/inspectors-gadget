@@ -6,6 +6,7 @@ html, body {
     width: 100%;
 }
 canvas {
+    align-self: flex-start;
     padding: 0;
     margin: 0;
     border: 1px solid black;
@@ -22,6 +23,13 @@ canvas {
   justify-content: space-between;
   flex-direction: column;
 }
+
+.col1 {
+  width: 100%;
+}
+
+.col2 {
+ }
 
 .table-wrapper {
   height: 100%;
@@ -70,11 +78,11 @@ table a:hover {
   z-index: -1;
 }
 .button + label, .label {
-  font-size: 50px;
+  font-size: 30px;
   display: inline-block;
   border: 2px solid black;
   padding: 10px;
-  background-color: rgba(200, 220, 240, 0.9);
+  background-color: rgba(255, 255, 255, 1.0);
   color: black;
   text-decoration: none;
 }

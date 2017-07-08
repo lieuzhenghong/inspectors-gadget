@@ -40,13 +40,16 @@
     canvas.height = 600;
     document.getElementById('c').addEventListener('click', onClick
     , false); 
+    var img = new Image();
+    img.src = './assets/canvas_placeholder.png';
+    IMG = img;
     ctx = document.getElementById('c').getContext('2d');
+    ctx.drawImage(img, 0, 0);
     window.onkeyup = (e) => { KEYS[e.keyCode] = false;}
     window.onkeydown = (e) => { KEYS[e.keyCode] = true;}
   }
 
   function batch_upload(file_list) {
-    console.log(file_list);
     // FileList has no method map nor forEach
     for (let i = 0; i < file_list.length; i++) {
       labels.push(new Label(ID,
@@ -206,8 +209,7 @@
     var img = new Image();
     img.onload = () => {
       IMG = img;
-      ctx.drawImage(img, 0, 0);
-      ctx.stroke();
+      draw_labels(labels);
       BUILDING = window.prompt('Enter building letter (e.g. A)');
       FLOOR = window.prompt('Enter building floor (e.g. 1)');
     }
@@ -222,8 +224,12 @@
   }
 
   function preview_image(id) {
+    function load_placeholder(e){
+      e.target.src = './assets/placeholder.png';
+    }
     var file = _.find(labels, ['id', parseInt(id)]).image;
-    var img = document.getElementById('img-preview')
+    var img = document.getElementById('img-preview');
+    img.addEventListener('error', load_placeholder);
     var reader = new FileReader();
     reader.addEventListener("load", function () {
       img.src = reader.result;
@@ -237,12 +243,15 @@
   <canvas id = 'c'>
   </canvas>
   <div class = 'button-wrapper'>
-    <input class='button' type='file' id='plan-upload' accept='image/*' onchange='get_plan(this.files)' capture='camera'>
+    <input class='button' type='file' id='plan-upload' accept='image/*'
+    onchange='get_plan(this.files)' capture='camera'>
     <label for='plan-upload'>Upload plan</label>
-    <input class='button' type='file' id='image-tag' accept='image/*' onChange='handletagImg(this.files)'>
-    <input class='button' type='file' id='batch-upload' accept='image/*' multiple onChange='batch_upload(this.files)'>
+    <input class='button' type='file' id='batch-upload' accept='image/*'
+    multiple onChange='batch_upload(this.files)'>
     <label for='batch-upload'>Batch import</label>
-    <a class='label' onclick="export_image(this)" href="#" target="_blank">Export plan</a>
+    <a class='label' onclick="export_image(this)" href="#"
+    target="_blank">Export plan</a> <input class='button' type='file'
+    id='image-tag' accept='image/*' onChange='handletagImg(this.files)'>
   </div>
 </div>
 <div class='col2'>
@@ -252,7 +261,7 @@
     </tbody>
   </table>
   </div>
-<img id='img-preview' src="" height="300" width="300">
+<img id='img-preview' src="./assets/placeholder.png" height="300" width="300">
 </div>
 </div>
 
