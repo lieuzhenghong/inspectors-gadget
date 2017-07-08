@@ -29,10 +29,10 @@ canvas {
 }
 
 .col2 {
+  width: 400px;
  }
 
 .table-wrapper {
-  height: 100%;
 }
 
 table, tr, td {
@@ -97,4 +97,19 @@ table a:hover {
   min-height: 300px;
   min-width: 300px;
   border: 2px solid black;
+}
+
+.nav {
+  font-size: 30px;
+  display: inline-block;
+  border: 2px solid black;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 1.0);
+  color: black;
+  text-decoration: none;
+  cursor:pointer;
+}
+
+.nav:hover {
+  background-color: rgba(240, 220, 200, 1);
 }
