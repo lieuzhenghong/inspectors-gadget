@@ -1,0 +1,31 @@
+{
+  "name": "surveyor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "css-loader": "^0.28.4",
+    "lodash": "^4.17.4",
+    "math": "0.0.3",
+    "style-loader": "^0.18.2",
+    "webpack": "^3.1.0"
+  },
+  "devDependencies": {
+    "css-loader": "^0.28.4",
+    "style-loader": "^0.18.2",
+    "webpack": "^3.1.0"
+  },
+  "scripts": {
+    "build": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lieuzhenghong/surveyor.git"
+  },
+  "author": "lieu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lieuzhenghong/surveyor/issues"
+  },
+  "homepage": "https://github.com/lieuzhenghong/surveyor#readme"
+}

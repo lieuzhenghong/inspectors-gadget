@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+<link rel='stylesheet' href='./src/style.css'>
+<body>
+<div class = 'wrapper'>
+<div class='col1'>
+  <canvas id = 'c'>
+  </canvas>
+  <div class = 'edit-bar'>
+    <button id='left' class = 'nav' >◀</button>
+    <button id='up' class = 'nav'>▲</button>
+    <button id='down' class = 'nav'>▼</button>
+    <button id='right' class = 'nav'>▶</button>
+    <button id='zoom-in' class = 'nav'>+</button>
+    <button id='zoom-out' class = 'nav'>−</button>
+  </div>
+  <div class = 'button-wrapper'>
+    <input class='button' type='file' id='plan-upload' accept='image/*'
+     capture='camera'>
+    <label for='plan-upload'>Upload plan</label>
+    <input class='button' type='file' id='batch-upload' accept='image/*'
+    multiple>
+    <label for='batch-upload'>Batch import</label>
+    <a id='image-export' class='label' href="#"
+    target="_blank">Export plan</a>
+    <input class='button' type='file' id='image-tag' accept='image/*'>
+  </div>
+</div>
+<div class='col2'>
+  <img id='img-preview' src="./assets/placeholder.png" height="300" width="300">
+  <div class = 'table-wrapper'>
+  <table id = 'tag-tables'>
+    <tbody>
+    </tbody>
+  </table>
+  </div>
+</div>
+</div>
+
+<script src="bundle.js"></script>

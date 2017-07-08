@@ -1,4 +1,427 @@
-/**
+/******/ (function(modules) { // webpackBootstrap
+/******/ 	// The module cache
+/******/ 	var installedModules = {};
+/******/
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
+/******/
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
+/******/
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/
+/******/
+/******/ 	// expose the modules object (__webpack_modules__)
+/******/ 	__webpack_require__.m = modules;
+/******/
+/******/ 	// expose the module cache
+/******/ 	__webpack_require__.c = installedModules;
+/******/
+/******/ 	// define getter function for harmony exports
+/******/ 	__webpack_require__.d = function(exports, name, getter) {
+/******/ 		if(!__webpack_require__.o(exports, name)) {
+/******/ 			Object.defineProperty(exports, name, {
+/******/ 				configurable: false,
+/******/ 				enumerable: true,
+/******/ 				get: getter
+/******/ 			});
+/******/ 		}
+/******/ 	};
+/******/
+/******/ 	// getDefaultExport function for compatibility with non-harmony modules
+/******/ 	__webpack_require__.n = function(module) {
+/******/ 		var getter = module && module.__esModule ?
+/******/ 			function getDefault() { return module['default']; } :
+/******/ 			function getModuleExports() { return module; };
+/******/ 		__webpack_require__.d(getter, 'a', getter);
+/******/ 		return getter;
+/******/ 	};
+/******/
+/******/ 	// Object.prototype.hasOwnProperty.call
+/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
+/******/
+/******/ 	// __webpack_public_path__
+/******/ 	__webpack_require__.p = "";
+/******/
+/******/ 	// Load entry module and return exports
+/******/ 	return __webpack_require__(__webpack_require__.s = 1);
+/******/ })
+/************************************************************************/
+/******/ ([
+/* 0 */
+/***/ (function(module, exports) {
+
+module.exports = function(module) {
+	if(!module.webpackPolyfill) {
+		module.deprecate = function() {};
+		module.paths = [];
+		// module.parent = undefined by default
+		if(!module.children) module.children = [];
+		Object.defineProperty(module, "loaded", {
+			enumerable: true,
+			get: function() {
+				return module.l;
+			}
+		});
+		Object.defineProperty(module, "id", {
+			enumerable: true,
+			get: function() {
+				return module.i;
+			}
+		});
+		module.webpackPolyfill = 1;
+	}
+	return module;
+};
+
+
+/***/ }),
+/* 1 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_lodash__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_math__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_math___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_math__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__style_css__ = __webpack_require__(5);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__style_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2__style_css__);
+
+/*jshint esversion: 6 */
+
+
+
+
+
+let BUILDING = '';
+let FLOOR = '';
+let KEYS = [];
+let LABELS = [];
+let CLICKED_X = 0;
+let CLICKED_Y = 0;
+let IMAGE = null;
+let ID = 1;
+let canvas = null;
+let CTX = null;
+let WIDTH = 0;
+let HEIGHT = 0;
+let TRANSFORM = [1, 0, 0, 1, 0, 0];
+
+class Label {
+  constructor(id, x, y, title, defect, image){
+    this.id = id,
+    this.x = x,
+    this.y = y,
+    this.title = title,
+    this.defect = defect,
+    this.image = image
+  }
+
+  toggle_defect() {
+    this.defect = (this.defect + 1) % 3;
+    draw_canvas(LABELS);
+  }
+}
+
+function init() {
+  // Set canvas dimensions
+  canvas = document.getElementById('c');
+  canvas.width = 800;
+  WIDTH = canvas.width;
+  canvas.height = Math.round(800/Math.sqrt(2));
+  HEIGHT = canvas.height;
+  document.getElementById('c').addEventListener('click', onClick, false); 
+  var img = new Image();
+  img.src = './assets/canvas_placeholder.png';
+  IMAGE = img;
+  CTX = document.getElementById('c').getContext('2d');
+  draw_canvas(LABELS);
+  window.onkeyup = (e) => {
+    KEYS[e.keyCode] = false;
+  };
+  window.onkeydown = (e) => {
+    KEYS[e.keyCode] = true;
+    if (e.keyCode === 87) { pan_up(); }
+    else if (e.keyCode === 83) { pan_down(); }
+    else if (e.keyCode === 65) { pan_left(); }
+    else if (e.keyCode === 68) { pan_right(); }
+    else if (e.keyCode === 69) { zoom_in(); }
+    else if (e.keyCode === 82) { zoom_out(); }
+  };
+  document.getElementById('plan-upload').addEventListener('change', (e) => {
+    return get_plan(e.target.files);
+  });
+  document.getElementById('batch-upload').addEventListener('change', (e) => {
+    return batch_upload(e.target.files);
+  });
+  document.getElementById('image-export').addEventListener('click', (e) => {
+    return export_image(e.target);
+  });
+  document.getElementById('image-tag').addEventListener('change', (e) => {
+    return handletagImg(e.target.files);
+  });
+  document.getElementById('left').addEventListener('click', pan_left);
+  document.getElementById('right').addEventListener('click', pan_right);
+  document.getElementById('down').addEventListener('click', pan_down);
+  document.getElementById('up').addEventListener('click', pan_up);
+  document.getElementById('zoom-in').addEventListener('click', zoom_in);
+  document.getElementById('zoom-out').addEventListener('click', zoom_out);
+}
+
+function batch_upload(file_list) {
+  // FileList has no method map nor forEach
+  for (let i = 0; i < file_list.length; i++) {
+    LABELS.push(new Label(
+      ID,
+      null,
+      null, 
+      BUILDING + FLOOR + '-' + (ID).toString(),
+      0,
+      file_list[i]
+    ));
+    ID++;
+  }
+  draw_canvas(LABELS);
+  draw_table(LABELS);
+}
+
+function handletagImg(files) {
+  var label = new Label(
+    ID, CLICKED_X, CLICKED_Y,
+    window.prompt('Enter label title:'),
+    0,
+    files[0]
+  );
+  ID++;
+  LABELS.push(label);
+  draw_canvas(LABELS);
+  add_row(label);
+}
+
+function draw_label(label) {
+  if (label.x !== null && label.y !== null) {
+    CTX.textAlign = 'center';
+    var wid = CTX.measureText(label.title).width;
+    if (label.defect === 0) { CTX.fillStyle = 'rgba(0, 200, 0, 0.8)'; }
+    else if (label.defect === 1) { CTX.fillStyle = 'rgba(255, 200, 0, 0.9)'; }
+    else { CTX.fillStyle = 'rgba(255, 0, 0, 0.8)'; }
+    CTX.fillRect(label.x-(wid+10)/2, 
+                  label.y-(20/2),
+                  (wid+10 > 40? wid+10 : 40), 20
+                );
+    CTX.strokeRect(label.x-(wid+10)/2,
+                    label.y-(20/2),
+                    (wid+10 > 40? wid+10 : 40), 20
+                  );
+    CTX.fillStyle = 'rgba(0, 0, 0, 1)';
+    CTX.font = '12px sans-serif';
+    CTX.textBaseline = 'middle';
+    CTX.fillText(label.title, label.x, label.y);
+  }
+}
+
+function draw_canvas(LABELS) {
+  CTX.clearRect(0, 0, 9999, 9999);
+  CTX.setTransform.apply(CTX, TRANSFORM);
+  CTX.save();
+  CTX.drawImage(IMAGE, 0, 0);
+  LABELS.map( (label) => { draw_label(label); });
+}
+
+function add_row(label) {
+  insert_row(label, document.querySelector('tbody'));
+}
+
+function insert_row(label, tbody){
+  var row = tbody.insertRow();
+  row.id = label.id;
+  var c0 = row.insertCell(0);
+  var c1 = row.insertCell(1);
+  var c2 = row.insertCell(2);
+  var c3 = row.insertCell(3);
+  var c4 = row.insertCell(4);
+  row.addEventListener('mouseover', () => { return(preview_image(row.id)); });
+  c1.addEventListener('click', edit_name);
+  c0.innerHTML = label.id;
+  c1.innerHTML = "<span class='editable'>" + label.title + "</span>";
+  c2.innerHTML = label.image.name;
+  c3.innerHTML = '<img src="./assets/green_heart.png" height="32px">';
+  var img = c3.querySelector('img');
+  img.addEventListener('click', () => {
+    label.toggle_defect();
+    if (label.defect == 0) { img.src = './assets/green_heart.png'; }
+    else if (label.defect == 1) { img.src = './assets/yellow_diam.png'; }
+    else { img.src = './assets/red_exclam.png'; }
+  });
+  c4.innerHTML = '<a>X</a>';
+  c4.addEventListener('click', () => {return delete_row(label.id); });
+}
+
+function draw_table(LABELS){
+  const old_tbody = document.querySelector('tbody');
+  var tbody = document.createElement('tbody');
+  LABELS.map((label) => {
+    return insert_row(label, tbody);
+  });
+  old_tbody.parentNode.replaceChild(tbody, old_tbody);
+}
+
+function edit_name(e) {
+  var val = window.prompt('Edit name:');
+  if (val !== '') {
+    const id = e.target.closest('tr').id;
+    console.log('id: ', id);
+    var label = __WEBPACK_IMPORTED_MODULE_0_lodash___default.a.find(LABELS, ['id', parseInt(id)]);
+    console.log(label);
+    label.title = val;
+    draw_canvas(LABELS);
+    draw_table(LABELS);
+  }
+}
+
+function delete_row(id) {
+    __WEBPACK_IMPORTED_MODULE_0_lodash___default.a.remove(LABELS, ['id', parseInt(id)]);
+  draw_canvas(LABELS);
+  draw_table(LABELS);
+}
+
+function onClick(evt) {
+  // Matrix multiplication of affine transformation vector and mouse 
+  // vector. Augmentation is required: see
+  // https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
+  /*
+  [x' y' 1] = [1 0 Tx
+                0 1 Ty
+                0 0 1 ] [x y 1]
+  */
+  var t = TRANSFORM;
+  t = __WEBPACK_IMPORTED_MODULE_1_math___default.a.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
+  var M = __WEBPACK_IMPORTED_MODULE_1_math___default.a.reshape(t.concat(0,0,1), [3,3]);
+  var inv = __WEBPACK_IMPORTED_MODULE_1_math___default.a.inv(M);
+  console.log(M, inv);
+  // Flatten the array
+  inv = __WEBPACK_IMPORTED_MODULE_1_math___default.a.reshape(inv, [9]);
+  console.log(TRANSFORM, inv);
+          
+  CLICKED_X = evt.x * inv[0] + evt.y * inv[1] + inv[2];
+  CLICKED_Y = evt.x * inv[3] + evt.y * inv[4] + inv[5];
+
+  console.log(evt.x, evt.y, CLICKED_X, CLICKED_Y);
+  // If Shift key is held down, go to tag-editing mode
+  if (KEYS[16]) {
+    var id = window.prompt('Enter id of label: ');
+    var label = __WEBPACK_IMPORTED_MODULE_0_lodash___default.a.find(LABELS, ['id', parseInt(id)]);
+    if (label === undefined) {
+      window.alert('Bad ID.');
+    }
+    else {
+      label.x = CLICKED_X;
+      label.y = CLICKED_Y;
+      // Redraw
+      draw_canvas(LABELS);
+    }
+  }
+  else {
+    // Upload an image
+    document.getElementById('image-tag').click();
+  }
+}
+
+function get_plan(file_list) {
+  var plan_img = file_list[0];
+  var img = new Image();
+  img.onload = () => {
+    IMAGE = img;
+    console.log(IMAGE.height, IMAGE.width);
+    draw_canvas(LABELS);
+    BUILDING = window.prompt('Enter building letter (e.g. A)');
+    FLOOR = window.prompt('Enter building floor (e.g. 1)');
+  };
+  img.src = URL.createObjectURL(plan_img);
+}
+
+function export_image(e) {
+  console.log(e.href);
+  const canvas = document.getElementById("c");
+  var image = canvas.toDataURL("image/png");
+  e.href = image;
+}
+
+function preview_image(id) {
+  function load_placeholder(e){
+    e.target.src = './assets/placeholder.png';
+  }
+  var file = __WEBPACK_IMPORTED_MODULE_0_lodash___default.a.find(LABELS, ['id', parseInt(id)]).image;
+  var img = document.getElementById('img-preview');
+  img.addEventListener('error', load_placeholder);
+  var reader = new FileReader();
+  reader.addEventListener("load", function () {
+    img.src = reader.result;
+  }, false);
+  reader.readAsDataURL(file);
+}
+
+function pan_up() {
+  TRANSFORM[5] += 50;
+  draw_canvas(LABELS);
+}
+
+function pan_down() {
+  TRANSFORM[5] -= 50;
+  draw_canvas(LABELS);
+}
+
+function pan_left() {
+  TRANSFORM[4] += 50;
+  draw_canvas(LABELS);
+}
+
+function pan_right() {
+  TRANSFORM[4] -= 50;
+  draw_canvas(LABELS);
+}
+
+function zoom_in() {
+  TRANSFORM[0] *= 1.1;
+  TRANSFORM[1] *= 1.1;
+  TRANSFORM[2] *= 1.1;
+  TRANSFORM[3] *= 1.1;
+  draw_canvas(LABELS);
+}
+
+function zoom_out() {
+  TRANSFORM[0] /= 1.1;
+  TRANSFORM[1] /= 1.1;
+  TRANSFORM[2] /= 1.1;
+  TRANSFORM[3] /= 1.1;
+  draw_canvas(LABELS);
+}
+
+init();
+
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/* WEBPACK VAR INJECTION */(function(global, module) {var __WEBPACK_AMD_DEFINE_RESULT__;/**
  * @license
  * Lodash <https://lodash.com/>
  * Copyright JS Foundation and other contributors <https://js.foundation/>
@@ -17057,7 +17480,7 @@
   var _ = runInContext();
 
   // Some AMD build optimizers, like r.js, check for condition patterns like:
-  if (typeof define == 'function' && typeof define.amd == 'object' && define.amd) {
+  if (true) {
     // Expose Lodash on the global object to prevent errors when Lodash is
     // loaded by a script tag in the presence of an AMD loader.
     // See http://requirejs.org/docs/errors.html#mismatch for more details.
@@ -17066,9 +17489,10 @@
 
     // Define as an anonymous module so, through path mapping, it can be
     // referenced as the "underscore" module.
-    define(function() {
+    !(__WEBPACK_AMD_DEFINE_RESULT__ = function() {
       return _;
-    });
+    }.call(exports, __webpack_require__, exports, module),
+				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
   }
   // Check for `exports` after `define` in case a build optimizer adds it.
   else if (freeModule) {
@@ -17082,3 +17506,764 @@
     root._ = _;
   }
 }.call(this));
+
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3), __webpack_require__(0)(module)))
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports) {
+
+var g;
+
+// This works in non-strict mode
+g = (function() {
+	return this;
+})();
+
+try {
+	// This works if eval is allowed (see CSP)
+	g = g || Function("return this")() || (1,eval)("this");
+} catch(e) {
+	// This works if the window reference is available
+	if(typeof window === "object")
+		g = window;
+}
+
+// g can still be undefined, but nothing to do about it...
+// We return undefined, instead of nothing here, so it's
+// easier to handle this case. if(!global) { ...}
+
+module.exports = g;
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/* WEBPACK VAR INJECTION */(function(module) {(function() {
+  if (typeof module !== "undefined" && module !== null) {
+    module.exports && (module.exports = Math);
+  }
+  /**
+   * @return wheter a Number x, has the same sign as another Number, y.
+   * @example
+   * Math.samesign(1,2)
+   * //-> true
+   * Math.samesign(-3, 4)
+   * //-> false
+   * @test
+   * Math.samesign(5, 6)
+   * //-> false
+   * Math.samesign(-7, -8)
+   * //-> true
+   */
+  Math.samesign = function(x, y) {
+    return (x >= 0) !== (y < 0);
+  };
+  /**
+   * @return {Number} a copy of Number x with the same sign of Number y.
+   * @example
+   * Math.copysign(1, -2)
+   * //-> -1
+   * @test
+   * Math.copysign(-3, 4)
+   * //-> 3
+   * Math.copysign(5, 6)
+   * //-> 5
+   * Math.copysign(-7, -8)
+   * //-> -7
+   */
+  Math.copysign = function(x, y) {
+    if (Math.samesign(x, y)) {
+      return x;
+    } else {
+      return -x;
+    }
+  };
+  /**
+   * @return {Number} sum of two Numbers.
+   * @example
+   * Math.add(1, 2)
+   * //-> 3
+   * @test
+   * Math.add('three', 4)
+   * //-> NaN
+   */
+  Math.add = function(a, b) {
+    return (+a) + (+b);
+  };
+  /**
+   * @return {Number} sum of an Array of Numbers.
+   * @example
+   * Math.sum([1, 2, 3])
+   * //-> 6
+   */
+  Math.sum = function(nums) {
+    return nums.reduce(Math.add);
+  };
+  /**
+   * @return {Number} product of two Numbers.
+   * @example
+   * Math.(2, 3)
+   * //-> 6
+   */
+  Math.mul = function(a, b) {
+    return a * b;
+  };
+  /**
+   * @return {Number} product of an Array of Numbers.
+   * @example
+   * Math.prod(2, 3, 4)
+   * //-> 24
+   */
+  Math.prod = function(nums) {
+    return nums.reduce(Math.mul);
+  };
+  /**
+   * @return {Number} factorial of a Number.
+   * @example
+   * Math.factorial(4)
+   * //-> 24
+   * @test
+   * Math.factorial(3)
+   * //-> 6
+   * Math.factorial(2)
+   * //-> 2
+   * Math.factorial(1)
+   * //-> 1
+   * Math.factorial(0)
+   * //-> 1
+   * Math.factorial(-1)
+   * //-> Infinity
+   */
+  Math.factorial = function(n) {
+    var _i, _results;
+    if (n < 0) {
+      return Infinity;
+    } else if (n === 0) {
+      return 1;
+    } else {
+      return Math.prod.apply(null, (function() {
+        _results = [];
+        for (var _i = 1; 1 <= n ? _i <= n : _i >= n; 1 <= n ? _i++ : _i--){ _results.push(_i); }
+        return _results;
+      }).apply(this, arguments));
+    }
+  };
+  /**
+   * Greatest Common Multipler
+   * @return {Number} greatest common multipler of two Numbers.
+   * @example
+   * Math.gcd(493, 289)
+   * //-> 17
+   * @test
+   * Math.gcd(493, -289)
+   * //-> 17
+   */
+  Math.gcd = function(a, b) {
+    var _ref;
+    while (b) {
+      _ref = [b, a % b], a = _ref[0], b = _ref[1];
+    }
+    return a;
+  };
+  /**
+   * Least Common Multiplier
+   * @return {Number} least common multiplier of two numbers.
+   * @example
+   * Math.lcm(4, 12)
+   * //-> 12
+   * @test
+   * Math.lcm(6, 7)
+   * //-> 42
+   */
+  Math.lcm = function(a, b) {
+    return a / Math.gcd(a, b) * b;
+  };
+}).call(this);
+
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)(module)))
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+// style-loader: Adds some css to the DOM by adding a <style> tag
+
+// load the styles
+var content = __webpack_require__(6);
+if(typeof content === 'string') content = [[module.i, content, '']];
+// Prepare cssTransformation
+var transform;
+
+var options = {}
+options.transform = transform
+// add the styles to the DOM
+var update = __webpack_require__(8)(content, options);
+if(content.locals) module.exports = content.locals;
+// Hot Module Replacement
+if(false) {
+	// When the styles change, update the <style> tags
+	if(!content.locals) {
+		module.hot.accept("!!../node_modules/css-loader/index.js!./style.css", function() {
+			var newContent = require("!!../node_modules/css-loader/index.js!./style.css");
+			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+			update(newContent);
+		});
+	}
+	// When the module is disposed, remove the <style> tags
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 6 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(7)(undefined);
+// imports
+
+
+// module
+exports.push([module.i, "html, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black;\n    display: block;\n}\n.wrapper {\n  display: flex;\n  justify-content: space-between;\n  height: 100%;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n}\n\n.col1 {\n  width: 100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n.table-wrapper {\n}\n\ntable, tr, td {\n  width: 300px;\n  font-family: monospace;\n  text-align: center;\n  border-collapse: collapse;\n  border: 1px solid black;\n}\n\nthead {\n  display: block;\n}\n\ntbody {\n  display: block;\n  height: 468px;\n  max-height: 468px;\n  overflow-y:scroll;\n}\n\ntr:hover {\n  background-color: rgba(200, 200, 200, 1);\n}\ntd .editable {\n  text-decoration: underline; \n}\ntable a {\n  text-align: center;\n  color: red;\n  text-decoration: underline;\n}\ntable a:hover {\n  cursor: pointer;\n}\n\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.nav {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 7 */
+/***/ (function(module, exports) {
+
+/*
+	MIT License http://www.opensource.org/licenses/mit-license.php
+	Author Tobias Koppers @sokra
+*/
+// css base code, injected by the css-loader
+module.exports = function(useSourceMap) {
+	var list = [];
+
+	// return the list of modules as css string
+	list.toString = function toString() {
+		return this.map(function (item) {
+			var content = cssWithMappingToString(item, useSourceMap);
+			if(item[2]) {
+				return "@media " + item[2] + "{" + content + "}";
+			} else {
+				return content;
+			}
+		}).join("");
+	};
+
+	// import a list of modules into the list
+	list.i = function(modules, mediaQuery) {
+		if(typeof modules === "string")
+			modules = [[null, modules, ""]];
+		var alreadyImportedModules = {};
+		for(var i = 0; i < this.length; i++) {
+			var id = this[i][0];
+			if(typeof id === "number")
+				alreadyImportedModules[id] = true;
+		}
+		for(i = 0; i < modules.length; i++) {
+			var item = modules[i];
+			// skip already imported module
+			// this implementation is not 100% perfect for weird media query combinations
+			//  when a module is imported multiple times with different media queries.
+			//  I hope this will never occur (Hey this way we have smaller bundles)
+			if(typeof item[0] !== "number" || !alreadyImportedModules[item[0]]) {
+				if(mediaQuery && !item[2]) {
+					item[2] = mediaQuery;
+				} else if(mediaQuery) {
+					item[2] = "(" + item[2] + ") and (" + mediaQuery + ")";
+				}
+				list.push(item);
+			}
+		}
+	};
+	return list;
+};
+
+function cssWithMappingToString(item, useSourceMap) {
+	var content = item[1] || '';
+	var cssMapping = item[3];
+	if (!cssMapping) {
+		return content;
+	}
+
+	if (useSourceMap && typeof btoa === 'function') {
+		var sourceMapping = toComment(cssMapping);
+		var sourceURLs = cssMapping.sources.map(function (source) {
+			return '/*# sourceURL=' + cssMapping.sourceRoot + source + ' */'
+		});
+
+		return [content].concat(sourceURLs).concat([sourceMapping]).join('\n');
+	}
+
+	return [content].join('\n');
+}
+
+// Adapted from convert-source-map (MIT)
+function toComment(sourceMap) {
+	// eslint-disable-next-line no-undef
+	var base64 = btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap))));
+	var data = 'sourceMappingURL=data:application/json;charset=utf-8;base64,' + base64;
+
+	return '/*# ' + data + ' */';
+}
+
+
+/***/ }),
+/* 8 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/*
+	MIT License http://www.opensource.org/licenses/mit-license.php
+	Author Tobias Koppers @sokra
+*/
+
+var stylesInDom = {};
+
+var	memoize = function (fn) {
+	var memo;
+
+	return function () {
+		if (typeof memo === "undefined") memo = fn.apply(this, arguments);
+		return memo;
+	};
+};
+
+var isOldIE = memoize(function () {
+	// Test for IE <= 9 as proposed by Browserhacks
+	// @see http://browserhacks.com/#hack-e71d8692f65334173fee715c222cb805
+	// Tests for existence of standard globals is to allow style-loader
+	// to operate correctly into non-standard environments
+	// @see https://github.com/webpack-contrib/style-loader/issues/177
+	return window && document && document.all && !window.atob;
+});
+
+var getElement = (function (fn) {
+	var memo = {};
+
+	return function(selector) {
+		if (typeof memo[selector] === "undefined") {
+			memo[selector] = fn.call(this, selector);
+		}
+
+		return memo[selector]
+	};
+})(function (target) {
+	return document.querySelector(target)
+});
+
+var singleton = null;
+var	singletonCounter = 0;
+var	stylesInsertedAtTop = [];
+
+var	fixUrls = __webpack_require__(9);
+
+module.exports = function(list, options) {
+	if (typeof DEBUG !== "undefined" && DEBUG) {
+		if (typeof document !== "object") throw new Error("The style-loader cannot be used in a non-browser environment");
+	}
+
+	options = options || {};
+
+	options.attrs = typeof options.attrs === "object" ? options.attrs : {};
+
+	// Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
+	// tags it will allow on a page
+	if (!options.singleton) options.singleton = isOldIE();
+
+	// By default, add <style> tags to the <head> element
+	if (!options.insertInto) options.insertInto = "head";
+
+	// By default, add <style> tags to the bottom of the target
+	if (!options.insertAt) options.insertAt = "bottom";
+
+	var styles = listToStyles(list, options);
+
+	addStylesToDom(styles, options);
+
+	return function update (newList) {
+		var mayRemove = [];
+
+		for (var i = 0; i < styles.length; i++) {
+			var item = styles[i];
+			var domStyle = stylesInDom[item.id];
+
+			domStyle.refs--;
+			mayRemove.push(domStyle);
+		}
+
+		if(newList) {
+			var newStyles = listToStyles(newList, options);
+			addStylesToDom(newStyles, options);
+		}
+
+		for (var i = 0; i < mayRemove.length; i++) {
+			var domStyle = mayRemove[i];
+
+			if(domStyle.refs === 0) {
+				for (var j = 0; j < domStyle.parts.length; j++) domStyle.parts[j]();
+
+				delete stylesInDom[domStyle.id];
+			}
+		}
+	};
+};
+
+function addStylesToDom (styles, options) {
+	for (var i = 0; i < styles.length; i++) {
+		var item = styles[i];
+		var domStyle = stylesInDom[item.id];
+
+		if(domStyle) {
+			domStyle.refs++;
+
+			for(var j = 0; j < domStyle.parts.length; j++) {
+				domStyle.parts[j](item.parts[j]);
+			}
+
+			for(; j < item.parts.length; j++) {
+				domStyle.parts.push(addStyle(item.parts[j], options));
+			}
+		} else {
+			var parts = [];
+
+			for(var j = 0; j < item.parts.length; j++) {
+				parts.push(addStyle(item.parts[j], options));
+			}
+
+			stylesInDom[item.id] = {id: item.id, refs: 1, parts: parts};
+		}
+	}
+}
+
+function listToStyles (list, options) {
+	var styles = [];
+	var newStyles = {};
+
+	for (var i = 0; i < list.length; i++) {
+		var item = list[i];
+		var id = options.base ? item[0] + options.base : item[0];
+		var css = item[1];
+		var media = item[2];
+		var sourceMap = item[3];
+		var part = {css: css, media: media, sourceMap: sourceMap};
+
+		if(!newStyles[id]) styles.push(newStyles[id] = {id: id, parts: [part]});
+		else newStyles[id].parts.push(part);
+	}
+
+	return styles;
+}
+
+function insertStyleElement (options, style) {
+	var target = getElement(options.insertInto)
+
+	if (!target) {
+		throw new Error("Couldn't find a style target. This probably means that the value for the 'insertInto' parameter is invalid.");
+	}
+
+	var lastStyleElementInsertedAtTop = stylesInsertedAtTop[stylesInsertedAtTop.length - 1];
+
+	if (options.insertAt === "top") {
+		if (!lastStyleElementInsertedAtTop) {
+			target.insertBefore(style, target.firstChild);
+		} else if (lastStyleElementInsertedAtTop.nextSibling) {
+			target.insertBefore(style, lastStyleElementInsertedAtTop.nextSibling);
+		} else {
+			target.appendChild(style);
+		}
+		stylesInsertedAtTop.push(style);
+	} else if (options.insertAt === "bottom") {
+		target.appendChild(style);
+	} else {
+		throw new Error("Invalid value for parameter 'insertAt'. Must be 'top' or 'bottom'.");
+	}
+}
+
+function removeStyleElement (style) {
+	if (style.parentNode === null) return false;
+	style.parentNode.removeChild(style);
+
+	var idx = stylesInsertedAtTop.indexOf(style);
+	if(idx >= 0) {
+		stylesInsertedAtTop.splice(idx, 1);
+	}
+}
+
+function createStyleElement (options) {
+	var style = document.createElement("style");
+
+	options.attrs.type = "text/css";
+
+	addAttrs(style, options.attrs);
+	insertStyleElement(options, style);
+
+	return style;
+}
+
+function createLinkElement (options) {
+	var link = document.createElement("link");
+
+	options.attrs.type = "text/css";
+	options.attrs.rel = "stylesheet";
+
+	addAttrs(link, options.attrs);
+	insertStyleElement(options, link);
+
+	return link;
+}
+
+function addAttrs (el, attrs) {
+	Object.keys(attrs).forEach(function (key) {
+		el.setAttribute(key, attrs[key]);
+	});
+}
+
+function addStyle (obj, options) {
+	var style, update, remove, result;
+
+	// If a transform function was defined, run it on the css
+	if (options.transform && obj.css) {
+	    result = options.transform(obj.css);
+
+	    if (result) {
+	    	// If transform returns a value, use that instead of the original css.
+	    	// This allows running runtime transformations on the css.
+	    	obj.css = result;
+	    } else {
+	    	// If the transform function returns a falsy value, don't add this css.
+	    	// This allows conditional loading of css
+	    	return function() {
+	    		// noop
+	    	};
+	    }
+	}
+
+	if (options.singleton) {
+		var styleIndex = singletonCounter++;
+
+		style = singleton || (singleton = createStyleElement(options));
+
+		update = applyToSingletonTag.bind(null, style, styleIndex, false);
+		remove = applyToSingletonTag.bind(null, style, styleIndex, true);
+
+	} else if (
+		obj.sourceMap &&
+		typeof URL === "function" &&
+		typeof URL.createObjectURL === "function" &&
+		typeof URL.revokeObjectURL === "function" &&
+		typeof Blob === "function" &&
+		typeof btoa === "function"
+	) {
+		style = createLinkElement(options);
+		update = updateLink.bind(null, style, options);
+		remove = function () {
+			removeStyleElement(style);
+
+			if(style.href) URL.revokeObjectURL(style.href);
+		};
+	} else {
+		style = createStyleElement(options);
+		update = applyToTag.bind(null, style);
+		remove = function () {
+			removeStyleElement(style);
+		};
+	}
+
+	update(obj);
+
+	return function updateStyle (newObj) {
+		if (newObj) {
+			if (
+				newObj.css === obj.css &&
+				newObj.media === obj.media &&
+				newObj.sourceMap === obj.sourceMap
+			) {
+				return;
+			}
+
+			update(obj = newObj);
+		} else {
+			remove();
+		}
+	};
+}
+
+var replaceText = (function () {
+	var textStore = [];
+
+	return function (index, replacement) {
+		textStore[index] = replacement;
+
+		return textStore.filter(Boolean).join('\n');
+	};
+})();
+
+function applyToSingletonTag (style, index, remove, obj) {
+	var css = remove ? "" : obj.css;
+
+	if (style.styleSheet) {
+		style.styleSheet.cssText = replaceText(index, css);
+	} else {
+		var cssNode = document.createTextNode(css);
+		var childNodes = style.childNodes;
+
+		if (childNodes[index]) style.removeChild(childNodes[index]);
+
+		if (childNodes.length) {
+			style.insertBefore(cssNode, childNodes[index]);
+		} else {
+			style.appendChild(cssNode);
+		}
+	}
+}
+
+function applyToTag (style, obj) {
+	var css = obj.css;
+	var media = obj.media;
+
+	if(media) {
+		style.setAttribute("media", media)
+	}
+
+	if(style.styleSheet) {
+		style.styleSheet.cssText = css;
+	} else {
+		while(style.firstChild) {
+			style.removeChild(style.firstChild);
+		}
+
+		style.appendChild(document.createTextNode(css));
+	}
+}
+
+function updateLink (link, options, obj) {
+	var css = obj.css;
+	var sourceMap = obj.sourceMap;
+
+	/*
+		If convertToAbsoluteUrls isn't defined, but sourcemaps are enabled
+		and there is no publicPath defined then lets turn convertToAbsoluteUrls
+		on by default.  Otherwise default to the convertToAbsoluteUrls option
+		directly
+	*/
+	var autoFixUrls = options.convertToAbsoluteUrls === undefined && sourceMap;
+
+	if (options.convertToAbsoluteUrls || autoFixUrls) {
+		css = fixUrls(css);
+	}
+
+	if (sourceMap) {
+		// http://stackoverflow.com/a/26603875
+		css += "\n/*# sourceMappingURL=data:application/json;base64," + btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))) + " */";
+	}
+
+	var blob = new Blob([css], { type: "text/css" });
+
+	var oldSrc = link.href;
+
+	link.href = URL.createObjectURL(blob);
+
+	if(oldSrc) URL.revokeObjectURL(oldSrc);
+}
+
+
+/***/ }),
+/* 9 */
+/***/ (function(module, exports) {
+
+
+/**
+ * When source maps are enabled, `style-loader` uses a link element with a data-uri to
+ * embed the css on the page. This breaks all relative urls because now they are relative to a
+ * bundle instead of the current page.
+ *
+ * One solution is to only use full urls, but that may be impossible.
+ *
+ * Instead, this function "fixes" the relative urls to be absolute according to the current page location.
+ *
+ * A rudimentary test suite is located at `test/fixUrls.js` and can be run via the `npm test` command.
+ *
+ */
+
+module.exports = function (css) {
+  // get current location
+  var location = typeof window !== "undefined" && window.location;
+
+  if (!location) {
+    throw new Error("fixUrls requires window.location");
+  }
+
+	// blank or null?
+	if (!css || typeof css !== "string") {
+	  return css;
+  }
+
+  var baseUrl = location.protocol + "//" + location.host;
+  var currentDir = baseUrl + location.pathname.replace(/\/[^\/]*$/, "/");
+
+	// convert each url(...)
+	/*
+	This regular expression is just a way to recursively match brackets within
+	a string.
+
+	 /url\s*\(  = Match on the word "url" with any whitespace after it and then a parens
+	   (  = Start a capturing group
+	     (?:  = Start a non-capturing group
+	         [^)(]  = Match anything that isn't a parentheses
+	         |  = OR
+	         \(  = Match a start parentheses
+	             (?:  = Start another non-capturing groups
+	                 [^)(]+  = Match anything that isn't a parentheses
+	                 |  = OR
+	                 \(  = Match a start parentheses
+	                     [^)(]*  = Match anything that isn't a parentheses
+	                 \)  = Match a end parentheses
+	             )  = End Group
+              *\) = Match anything and then a close parens
+          )  = Close non-capturing group
+          *  = Match anything
+       )  = Close capturing group
+	 \)  = Match a close parens
+
+	 /gi  = Get all matches, not the first.  Be case insensitive.
+	 */
+	var fixedCss = css.replace(/url\s*\(((?:[^)(]|\((?:[^)(]+|\([^)(]*\))*\))*)\)/gi, function(fullMatch, origUrl) {
+		// strip quotes (if they exist)
+		var unquotedOrigUrl = origUrl
+			.trim()
+			.replace(/^"(.*)"$/, function(o, $1){ return $1; })
+			.replace(/^'(.*)'$/, function(o, $1){ return $1; });
+
+		// already a full url? no change
+		if (/^(#|data:|http:\/\/|https:\/\/|file:\/\/\/)/i.test(unquotedOrigUrl)) {
+		  return fullMatch;
+		}
+
+		// convert the url to a full url
+		var newUrl;
+
+		if (unquotedOrigUrl.indexOf("//") === 0) {
+		  	//TODO: should we add protocol?
+			newUrl = unquotedOrigUrl;
+		} else if (unquotedOrigUrl.indexOf("/") === 0) {
+			// path should be relative to the base url
+			newUrl = baseUrl + unquotedOrigUrl; // already starts with '/'
+		} else {
+			// path should be relative to current directory
+			newUrl = currentDir + unquotedOrigUrl.replace(/^\.\//, ""); // Strip leading './'
+		}
+
+		// send back the fixed url(...)
+		return "url(" + JSON.stringify(newUrl) + ")";
+	});
+
+	// send back the fixed css
+	return fixedCss;
+};
+
+
+/***/ })
+/******/ ]);
