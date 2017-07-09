@@ -7,6 +7,12 @@ let math = core.create();
 math.import(require('mathjs/lib/type/matrix'));
 math.import(require('mathjs/lib/function/matrix'));
 import './style.css';
+import './vex.css';
+import './vex-theme-flat-attack.css';
+
+import vex from 'vex-js';
+vex.registerPlugin(require('vex-dialog'));
+vex.defaultOptions.className = 'vex-theme-flat-attack';
 
 const _ = {
   find_id: function(id) {
@@ -18,6 +24,7 @@ const _ = {
       ), 1);
   }
 };
+
 let BUILDING = '';  
 let FLOOR = '';                   
 let KEYS = [];
@@ -55,7 +62,7 @@ function init() {
   canvas.height = Math.round(800/Math.sqrt(2));
   WIDTH = canvas.width;
   HEIGHT = canvas.height;
-  document.getElementById('c').addEventListener('click', onClick, false); 
+  document.getElementById('c').addEventListener('mousedown', handle_mousedown, false); 
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
   IMAGE = img;
@@ -66,6 +73,7 @@ function init() {
   };
   window.onkeydown = (e) => {
     KEYS[e.keyCode] = true;
+    /*
     if (e.keyCode === 87) { pan_up(); }
     else if (e.keyCode === 83) { pan_down(); }
     else if (e.keyCode === 65) { pan_left(); }
@@ -73,6 +81,7 @@ function init() {
     else if (e.keyCode === 69) { zoom_in(); }
     else if (e.keyCode === 82) { zoom_out(); }
     else if (e.keyCode === 71) { export_table(); }
+    */
   };
   document.getElementById('plan-upload').addEventListener('change', (e) => {
     return get_plan(e.target.files);
@@ -112,16 +121,30 @@ function batch_upload(file_list) {
 }
 
 function add_label(files) {
-  const label = new Label(
-    ID, CLICKED_X, CLICKED_Y,
-    window.prompt('Enter label title:'),
-    0,
-    files[0]
-  );
-  ID++;
-  LABELS.push(label);
-  draw_canvas(LABELS);
-  insert_row(label, document.querySelector('tbody'));
+  if (files[0] !== undefined) {
+    vex.dialog.prompt({
+      message: 'Enter label title:',
+      placeholder: 'A1-1',
+      callback: (label_title) => {
+        const label = new Label(
+          ID, CLICKED_X, CLICKED_Y,
+          label_title,
+          0,
+          files[0]
+        );
+        ID++;
+        LABELS.push(label);
+        draw_canvas(LABELS);
+        insert_row(label, document.querySelector('tbody'));
+        }
+    })
+  }
+}
+
+function update_labels(labels) {
+  labels.map( (label) => {
+    label.title = `${BUILDING}${FLOOR}-${label.id}`;
+  })
 }
 
 function draw_label(context, label) {
@@ -156,6 +179,20 @@ function draw_canvas(LABELS) {
   CTX.save();
   CTX.drawImage(IMAGE, 0, 0);
   LABELS.map( (label) => { draw_label(CTX, label); });
+
+  // Clear the transform to draw the overlay
+  CTX.setTransform.apply(CTX, [1, 0, 0, 1, 0, 0]);
+  CTX.fillStyle = 'rgba(200, 200, 200, 0.6)';
+  CTX.fillRect(0, canvas.height-30, canvas.width, 30)
+  CTX.fillStyle = 'rgba(0, 0, 0, 1)';
+  CTX.font = '20px sans-serif';
+  CTX.textBaseline = 'middle';
+  let text = `Building ${BUILDING} ${FLOOR}`;
+  let textwidth = CTX.measureText(text).width;
+  CTX.fillText(text, (canvas.width-textwidth)/2, canvas.height-30/2);
+  
+  // Restore the previous transform
+  CTX.restore();
 }
 
 
@@ -187,6 +224,7 @@ function insert_row(label, tbody){
   c4.innerHTML = '<a>X</a>';
   c4.addEventListener('click', () => {return delete_row(label.id); });
 }
+
 function draw_table(LABELS){
   const old_tbody = document.querySelector('tbody');
   const tbody = document.createElement('tbody');
@@ -197,15 +235,21 @@ function draw_table(LABELS){
 }
 
 function edit_name(e) {
-  let val = window.prompt('Enter name: '); 
-  if (val !== '') {
-    e.target.value = val;
-    const id = e.target.closest('tr').id;
-    const label = _.find_id(id);
-    label.title = val;
-    draw_canvas(LABELS);
-    draw_table(LABELS);
-  }
+  vex.dialog.open({
+    message: 'Enter new name for label:',
+    input: '<input type="text" name="label_name" placeholder="Label name"/>',
+    callback: (val) => {
+      val = val.label_name;
+      if (val !== '' && val !== undefined) {
+        e.target.value = val;
+        const id = e.target.closest('tr').id;
+        const label = _.find_id(id);
+        label.title = val.toString();
+        draw_canvas(LABELS);
+        draw_table(LABELS);
+      }
+    }
+  });
 }
 
 function delete_row(id) {
@@ -215,7 +259,7 @@ function delete_row(id) {
 }
 
 
-function onClick(evt) {
+function handle_mousedown(evt) {
   // Matrix multiplication of affine transformation vector and mouse 
   // vector. Augmentation is required: see
   // https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
@@ -226,28 +270,25 @@ function onClick(evt) {
   */
   let t = TRANSFORM;
   t = math.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
-  console.log(t);
   t = math.reshape(t.concat(0,0,1), [3,3]);
   const inv = math.inv(t);
-  console.log(inv);
-          
-  CLICKED_X = evt.x * inv[0][0] + evt.y * inv[0][1] + inv[0][2];
-  CLICKED_Y = evt.x * inv[1][0] + evt.y * inv[1][1] + inv[1][2];
 
-  console.log(evt.x, evt.y, CLICKED_X, CLICKED_Y);
-  // If Shift key is held down, go to tag-editing mode
-  if (KEYS[16]) {
-    let id = window.prompt('Enter id of label: ');
-    let label = _.find_id(parseInt(id));
-    if (label === undefined) {
-      window.alert('Bad ID.');
-    }
-    else {
-      label.x = CLICKED_X;
-      label.y = CLICKED_Y;
-      // Redraw
-      draw_canvas(LABELS);
-    }
+  CLICKED_X = evt.offsetX * inv[0][0] + evt.offsetY * inv[0][1] + inv[0][2];
+  CLICKED_Y = evt.offsetX * inv[1][0] + evt.offsetY * inv[1][1] + inv[1][2];
+
+  // If right click, go to tag editing mode
+  if (evt.button === 2 || evt.shiftKey) {
+    vex.dialog.prompt({
+      message: 'Enter ID of label: ',
+      callback: (value) => {
+        let label = _.find_id(parseInt(value));
+        if (label !== undefined) {
+          label.x = CLICKED_X;
+          label.y = CLICKED_Y;
+        }
+        draw_canvas(LABELS);
+      }
+    })
   }
   else {
     // Upload an image
@@ -255,15 +296,26 @@ function onClick(evt) {
   }
 }
 
-
 function get_plan(file_list) {
   const plan_img = file_list[0];
   let img = new Image();
   img.onload = () => {
     IMAGE = img;
-    draw_canvas(LABELS);
-    BUILDING = window.prompt('Enter building letter (e.g. A)');
-    FLOOR = window.prompt('Enter building floor (e.g. 1)');
+    vex.dialog.open({
+      message: 'Enter building letter and floor',
+      input: [
+        "<input name='letter' type='text' placeholder='Letter'/>",
+        "<input name='floor' type='number' placeholder='Floor'/>",
+      ].join(''),
+      callback: (data) => {
+        console.log(data);
+        BUILDING = data.letter;
+        FLOOR = data.floor;
+        update_labels(LABELS);
+        draw_canvas(LABELS);
+        draw_table(LABELS);
+        }
+    })
   };
   img.src = URL.createObjectURL(plan_img);
 }
@@ -284,34 +336,6 @@ function export_image(e) {
 
 
 function generate_table() {
-  /*
-  let html = `<!DOCTYPE html>
-              <body>
-                <h1>Hello World</h1>
-                <table>
-             `;
-  function read_image(file, callback) {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      callback(reader.result);
-    });
-    reader.readAsDataURL(file);
-  }
-
-  html += LABELS.reduce((acc, label) => {
-    read_image(label.image, (src) => {
-    acc += `<tr>
-              <td>${label.title}</td>
-              <td>${label.defect}</td>
-              <td><img src="${src}"></td>
-            </tr>
-            `;
-  });
-    return acc;
-  }, '');
-  console.log(html); 
-  html += `</table>`;
-  */
 }
 
 function export_table() {
