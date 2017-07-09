@@ -6,14 +6,15 @@
   "dependencies": {
     "css-loader": "^0.28.4",
     "lodash": "^4.17.4",
-    "math": "0.0.3",
+    "mathjs": "^3.14.2",
     "style-loader": "^0.18.2",
     "webpack": "^3.1.0"
   },
   "devDependencies": {
     "css-loader": "^0.28.4",
     "style-loader": "^0.18.2",
-    "webpack": "^3.1.0"
+    "webpack": "^3.1.0",
+    "webpack-bundle-analyzer": "^2.8.2"
   },
   "scripts": {
     "build": "webpack"
