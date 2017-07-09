@@ -1,8 +1,8 @@
 {
   "name": "surveyor",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A report generation tool for civil engineers",
+  "main": "main.js",
   "dependencies": {
     "css-loader": "^0.28.4",
     "lodash": "^4.17.4",
@@ -12,12 +12,14 @@
   },
   "devDependencies": {
     "css-loader": "^0.28.4",
+    "electron": "~1.6.11",
     "style-loader": "^0.18.2",
     "webpack": "^3.1.0",
     "webpack-bundle-analyzer": "^2.8.2"
   },
   "scripts": {
-    "build": "webpack"
+    "build": "webpack",
+    "start": "electron ."
   },
   "repository": {
     "type": "git",

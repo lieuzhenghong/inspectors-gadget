@@ -2,12 +2,11 @@
 /*jshint esversion: 6 */
 /* jshint node: true */
 
-
 import core from 'mathjs/core';
 let math = core.create();
 math.import(require('mathjs/lib/type/matrix'));
 math.import(require('mathjs/lib/function/matrix'));
-
+import './style.css';
 
 const _ = {
   find_id: function(id) {
@@ -19,9 +18,6 @@ const _ = {
       ), 1);
   }
 };
-
-import './style.css';
-
 let BUILDING = '';  
 let FLOOR = '';                   
 let KEYS = [];
@@ -162,7 +158,13 @@ function draw_canvas(LABELS) {
   LABELS.map( (label) => { draw_label(CTX, label); });
 }
 
+
 function insert_row(label, tbody){
+  function display_defect_emoji(img, defect) {
+    if (defect === 0) { img.src = './assets/green_heart.png'; }
+    else if (defect === 1) { img.src = './assets/yellow_diam.png'; }
+    else { img.src = './assets/red_exclam.png'; }
+  }
   const row = tbody.insertRow();
   row.id = label.id;
   row.addEventListener('mouseover', () => { return(preview_image(row.id)); });
@@ -173,20 +175,18 @@ function insert_row(label, tbody){
   const c4 = row.insertCell(4);
   c1.addEventListener('click', edit_name);
   c0.innerHTML = label.id;
-  c1.innerHTML = "<span class='editable'>" + label.title + "</span>";
+  c1.innerHTML = `<span class='editable'>${label.title}</span>`;
   c2.innerHTML = label.image.name;
-  c3.innerHTML = '<img src="./assets/green_heart.png" height="32px">';
+  c3.innerHTML = `<img src="./assets/green_heart.png" height="32px">`;
   const img = c3.querySelector('img');
+  display_defect_emoji(img, label.defect);
   img.addEventListener('click', () => {
     label.toggle_defect();
-    if (label.defect == 0) { img.src = './assets/green_heart.png'; }
-    else if (label.defect == 1) { img.src = './assets/yellow_diam.png'; }
-    else { img.src = './assets/red_exclam.png'; }
+    display_defect_emoji(img, label.defect);
   });
   c4.innerHTML = '<a>X</a>';
   c4.addEventListener('click', () => {return delete_row(label.id); });
 }
-
 function draw_table(LABELS){
   const old_tbody = document.querySelector('tbody');
   const tbody = document.createElement('tbody');
@@ -197,10 +197,11 @@ function draw_table(LABELS){
 }
 
 function edit_name(e) {
-  const val = window.prompt('Edit name:');
+  let val = window.prompt('Enter name: '); 
   if (val !== '') {
+    e.target.value = val;
     const id = e.target.closest('tr').id;
-    const label = _.find_id(LABELS, ['id', parseInt(id)]);
+    const label = _.find_id(id);
     label.title = val;
     draw_canvas(LABELS);
     draw_table(LABELS);
