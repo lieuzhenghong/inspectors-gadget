@@ -60,11 +60,106 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 56);
+/******/ 	return __webpack_require__(__webpack_require__.s = 36);
 /******/ })
 /************************************************************************/
 /******/ ([
 /* 0 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+function factory (type, config, load, typed) {
+  /**
+   * Create a Matrix. The function creates a new `math.type.Matrix` object from
+   * an `Array`. A Matrix has utility functions to manipulate the data in the
+   * matrix, like getting the size and getting or setting values in the matrix.
+   * Supported storage formats are 'dense' and 'sparse'.
+   *
+   * Syntax:
+   *
+   *    math.matrix()                         // creates an empty matrix using default storage format (dense).
+   *    math.matrix(data)                     // creates a matrix with initial data using default storage format (dense).
+   *    math.matrix('dense')                  // creates an empty matrix using the given storage format.
+   *    math.matrix(data, 'dense')            // creates a matrix with initial data using the given storage format.
+   *    math.matrix(data, 'sparse')           // creates a sparse matrix with initial data.
+   *    math.matrix(data, 'sparse', 'number') // creates a sparse matrix with initial data, number data type.
+   *
+   * Examples:
+   *
+   *    var m = math.matrix([[1, 2], [3, 4]]);
+   *    m.size();                        // Array [2, 2]
+   *    m.resize([3, 2], 5);
+   *    m.valueOf();                     // Array [[1, 2], [3, 4], [5, 5]]
+   *    m.get([1, 0])                    // number 3
+   *
+   * See also:
+   *
+   *    bignumber, boolean, complex, index, number, string, unit, sparse
+   *
+   * @param {Array | Matrix} [data]    A multi dimensional array
+   * @param {string} [format]          The Matrix storage format
+   *
+   * @return {Matrix} The created matrix
+   */
+  var matrix = typed('matrix', {
+    '': function () {
+      return _create([]);
+    },
+
+    'string': function (format) {
+      return _create([], format);
+    },
+    
+    'string, string': function (format, datatype) {
+      return _create([], format, datatype);
+    },
+
+    'Array': function (data) {
+      return _create(data);
+    },
+      
+    'Matrix': function (data) {
+      return _create(data, data.storage());
+    },
+    
+    'Array | Matrix, string': _create,
+    
+    'Array | Matrix, string, string': _create
+  });
+
+  matrix.toTex = {
+    0: '\\begin{bmatrix}\\end{bmatrix}',
+    1: '\\left(${args[0]}\\right)',
+    2: '\\left(${args[0]}\\right)'
+  };
+
+  return matrix;
+
+  /**
+   * Create a new Matrix with given storage format
+   * @param {Array} data
+   * @param {string} [format]
+   * @param {string} [datatype]
+   * @returns {Matrix} Returns a new Matrix
+   * @private
+   */
+  function _create(data, format, datatype) {
+    // get storage format constructor
+    var M = type.Matrix.storage(format || 'default');
+
+    // create instance
+    return new M(data, datatype);
+  }
+}
+
+exports.name = 'matrix';
+exports.factory = factory;
+
+
+/***/ }),
+/* 1 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -330,21 +425,6 @@ exports.hasOwnProperty = function (object, property) {
 exports.isFactory = function (object) {
   return object && typeof object.factory === 'function';
 };
-
-
-/***/ }),
-/* 1 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var freeGlobal = __webpack_require__(36);
-
-/** Detect free variable `self`. */
-var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
-
-/** Used as a reference to the global object. */
-var root = freeGlobal || freeSelf || Function('return this')();
-
-module.exports = root;
 
 
 /***/ }),
@@ -862,34 +942,512 @@ exports.nearlyEqual = function(x, y, epsilon) {
 
 /***/ }),
 /* 3 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var number = __webpack_require__(2);
+var string = __webpack_require__(9);
+var object = __webpack_require__(1);
+var types = __webpack_require__(19);
+
+var DimensionError = __webpack_require__(4);
+var IndexError = __webpack_require__(26);
 
 /**
- * Checks if `value` is classified as an `Array` object.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an array, else `false`.
- * @example
- *
- * _.isArray([1, 2, 3]);
- * // => true
- *
- * _.isArray(document.body.children);
- * // => false
- *
- * _.isArray('abc');
- * // => false
- *
- * _.isArray(_.noop);
- * // => false
+ * Calculate the size of a multi dimensional array.
+ * This function checks the size of the first entry, it does not validate
+ * whether all dimensions match. (use function `validate` for that)
+ * @param {Array} x
+ * @Return {Number[]} size
  */
-var isArray = Array.isArray;
+exports.size = function (x) {
+  var s = [];
 
-module.exports = isArray;
+  while (Array.isArray(x)) {
+    s.push(x.length);
+    x = x[0];
+  }
+
+  return s;
+};
+
+/**
+ * Recursively validate whether each element in a multi dimensional array
+ * has a size corresponding to the provided size array.
+ * @param {Array} array    Array to be validated
+ * @param {number[]} size  Array with the size of each dimension
+ * @param {number} dim   Current dimension
+ * @throws DimensionError
+ * @private
+ */
+function _validate(array, size, dim) {
+  var i;
+  var len = array.length;
+
+  if (len != size[dim]) {
+    throw new DimensionError(len, size[dim]);
+  }
+
+  if (dim < size.length - 1) {
+    // recursively validate each child array
+    var dimNext = dim + 1;
+    for (i = 0; i < len; i++) {
+      var child = array[i];
+      if (!Array.isArray(child)) {
+        throw new DimensionError(size.length - 1, size.length, '<');
+      }
+      _validate(array[i], size, dimNext);
+    }
+  }
+  else {
+    // last dimension. none of the childs may be an array
+    for (i = 0; i < len; i++) {
+      if (Array.isArray(array[i])) {
+        throw new DimensionError(size.length + 1, size.length, '>');
+      }
+    }
+  }
+}
+
+/**
+ * Validate whether each element in a multi dimensional array has
+ * a size corresponding to the provided size array.
+ * @param {Array} array    Array to be validated
+ * @param {number[]} size  Array with the size of each dimension
+ * @throws DimensionError
+ */
+exports.validate = function(array, size) {
+  var isScalar = (size.length == 0);
+  if (isScalar) {
+    // scalar
+    if (Array.isArray(array)) {
+      throw new DimensionError(array.length, 0);
+    }
+  }
+  else {
+    // array
+    _validate(array, size, 0);
+  }
+};
+
+/**
+ * Test whether index is an integer number with index >= 0 and index < length
+ * when length is provided
+ * @param {number} index    Zero-based index
+ * @param {number} [length] Length of the array
+ */
+exports.validateIndex = function(index, length) {
+  if (!number.isNumber(index) || !number.isInteger(index)) {
+    throw new TypeError('Index must be an integer (value: ' + index + ')');
+  }
+  if (index < 0 || (typeof length === 'number' && index >= length)) {
+    throw new IndexError(index, length);
+  }
+};
+
+// a constant used to specify an undefined defaultValue
+exports.UNINITIALIZED = {};
+
+/**
+ * Resize a multi dimensional array. The resized array is returned.
+ * @param {Array} array         Array to be resized
+ * @param {Array.<number>} size Array with the size of each dimension
+ * @param {*} [defaultValue=0]  Value to be filled in in new entries,
+ *                              zero by default. To leave new entries undefined,
+ *                              specify array.UNINITIALIZED as defaultValue
+ * @return {Array} array         The resized array
+ */
+exports.resize = function(array, size, defaultValue) {
+  // TODO: add support for scalars, having size=[] ?
+
+  // check the type of the arguments
+  if (!Array.isArray(array) || !Array.isArray(size)) {
+    throw new TypeError('Array expected');
+  }
+  if (size.length === 0) {
+    throw new Error('Resizing to scalar is not supported');
+  }
+
+  // check whether size contains positive integers
+  size.forEach(function (value) {
+    if (!number.isNumber(value) || !number.isInteger(value) || value < 0) {
+      throw new TypeError('Invalid size, must contain positive integers ' +
+          '(size: ' + string.format(size) + ')');
+    }
+  });
+
+  // recursively resize the array
+  var _defaultValue = (defaultValue !== undefined) ? defaultValue : 0;
+  _resize(array, size, 0, _defaultValue);
+
+  return array;
+};
+
+/**
+ * Recursively resize a multi dimensional array
+ * @param {Array} array         Array to be resized
+ * @param {number[]} size       Array with the size of each dimension
+ * @param {number} dim          Current dimension
+ * @param {*} [defaultValue]    Value to be filled in in new entries,
+ *                              undefined by default.
+ * @private
+ */
+function _resize (array, size, dim, defaultValue) {
+  var i;
+  var elem;
+  var oldLen = array.length;
+  var newLen = size[dim];
+  var minLen = Math.min(oldLen, newLen);
+
+  // apply new length
+  array.length = newLen;
+
+  if (dim < size.length - 1) {
+    // non-last dimension
+    var dimNext = dim + 1;
+
+    // resize existing child arrays
+    for (i = 0; i < minLen; i++) {
+      // resize child array
+      elem = array[i];
+      if (!Array.isArray(elem)) {
+        elem = [elem]; // add a dimension
+        array[i] = elem;
+      }
+      _resize(elem, size, dimNext, defaultValue);
+    }
+
+    // create new child arrays
+    for (i = minLen; i < newLen; i++) {
+      // get child array
+      elem = [];
+      array[i] = elem;
+
+      // resize new child array
+      _resize(elem, size, dimNext, defaultValue);
+    }
+  }
+  else {
+    // last dimension
+
+    // remove dimensions of existing values
+    for (i = 0; i < minLen; i++) {
+      while (Array.isArray(array[i])) {
+        array[i] = array[i][0];
+      }
+    }
+
+    if(defaultValue !== exports.UNINITIALIZED) {
+      // fill new elements with the default value
+      for (i = minLen; i < newLen; i++) {
+        array[i] = defaultValue;
+      }
+    }
+  }
+}
+
+/**
+ * Re-shape a multi dimensional array to fit the specified dimensions
+ * @param {Array} array           Array to be reshaped
+ * @param {Array.<number>} sizes  List of sizes for each dimension
+ * @returns {Array}               Array whose data has been formatted to fit the
+ *                                specified dimensions
+ *
+ * @throws {DimensionError}       If the product of the new dimension sizes does
+ *                                not equal that of the old ones
+ */
+exports.reshape = function(array, sizes) {
+  var flatArray = exports.flatten(array);
+  var newArray;
+
+  var product = function (arr) {
+    return arr.reduce(function (prev, curr) {
+      return prev * curr;
+    });
+  };
+
+  if (!Array.isArray(array) || !Array.isArray(sizes)) {
+    throw new TypeError('Array expected');
+  }
+
+  if (sizes.length === 0) {
+    throw new DimensionError(0, product(exports.size(array)), '!=');
+  }
+
+  try {
+    newArray  = _reshape(flatArray, sizes);
+  } catch (e) {
+    if (e instanceof DimensionError) {
+      throw new DimensionError(
+        product(sizes),
+        product(exports.size(array)),
+        '!='
+      );
+    }
+    throw e;
+  }
+
+  if (flatArray.length > 0) {
+    throw new DimensionError(
+      product(sizes),
+      product(exports.size(array)),
+      '!='
+    );
+  }
+
+  return newArray;
+};
+
+/**
+ * Recursively re-shape a multi dimensional array to fit the specified dimensions
+ * @param {Array} array           Array to be reshaped
+ * @param {Array.<number>} sizes  List of sizes for each dimension
+ * @returns {Array}               Array whose data has been formatted to fit the
+ *                                specified dimensions
+ *
+ * @throws {DimensionError}       If the product of the new dimension sizes does
+ *                                not equal that of the old ones
+ */
+function _reshape(array, sizes) {
+  var accumulator = [];
+  var i;
+
+  if (sizes.length === 0) {
+    if (array.length === 0) {
+      throw new DimensionError(null, null, '!=');
+    }
+    return array.shift();
+  }
+  for (i = 0; i < sizes[0]; i += 1) {
+    accumulator.push(_reshape(array, sizes.slice(1)));
+  }
+  return accumulator;
+}
+
+
+/**
+ * Squeeze a multi dimensional array
+ * @param {Array} array
+ * @param {Array} [size]
+ * @returns {Array} returns the array itself
+ */
+exports.squeeze = function(array, size) {
+  var s = size || exports.size(array);
+
+  // squeeze outer dimensions
+  while (Array.isArray(array) && array.length === 1) {
+    array = array[0];
+    s.shift();
+  }
+
+  // find the first dimension to be squeezed
+  var dims = s.length;
+  while (s[dims - 1] === 1) {
+    dims--;
+  }
+
+  // squeeze inner dimensions
+  if (dims < s.length) {
+    array = _squeeze(array, dims, 0);
+    s.length = dims;
+  }
+
+  return array;
+};
+
+/**
+ * Recursively squeeze a multi dimensional array
+ * @param {Array} array
+ * @param {number} dims Required number of dimensions
+ * @param {number} dim  Current dimension
+ * @returns {Array | *} Returns the squeezed array
+ * @private
+ */
+function _squeeze (array, dims, dim) {
+  var i, ii;
+
+  if (dim < dims) {
+    var next = dim + 1;
+    for (i = 0, ii = array.length; i < ii; i++) {
+      array[i] = _squeeze(array[i], dims, next);
+    }
+  }
+  else {
+    while (Array.isArray(array)) {
+      array = array[0];
+    }
+  }
+
+  return array;
+}
+
+/**
+ * Unsqueeze a multi dimensional array: add dimensions when missing
+ * 
+ * Paramter `size` will be mutated to match the new, unqueezed matrix size.
+ * 
+ * @param {Array} array
+ * @param {number} dims     Desired number of dimensions of the array
+ * @param {number} [outer]  Number of outer dimensions to be added
+ * @param {Array} [size]    Current size of array.
+ * @returns {Array} returns the array itself
+ * @private
+ */
+exports.unsqueeze = function(array, dims, outer, size) {
+  var s = size || exports.size(array);
+
+  // unsqueeze outer dimensions
+  if (outer) {
+    for (var i = 0; i < outer; i++) {
+      array = [array];
+      s.unshift(1);
+    }
+  }
+
+  // unsqueeze inner dimensions
+  array = _unsqueeze(array, dims, 0);
+  while (s.length < dims) {
+    s.push(1);
+  }
+
+  return array;
+};
+
+/**
+ * Recursively unsqueeze a multi dimensional array
+ * @param {Array} array
+ * @param {number} dims Required number of dimensions
+ * @param {number} dim  Current dimension
+ * @returns {Array | *} Returns the squeezed array
+ * @private
+ */
+function _unsqueeze (array, dims, dim) {
+  var i, ii;
+
+  if (Array.isArray(array)) {
+    var next = dim + 1;
+    for (i = 0, ii = array.length; i < ii; i++) {
+      array[i] = _unsqueeze(array[i], dims, next);
+    }
+  }
+  else {
+    for (var d = dim; d < dims; d++) {
+      array = [array];
+    }
+  }
+
+  return array;
+}
+/**
+ * Flatten a multi dimensional array, put all elements in a one dimensional
+ * array
+ * @param {Array} array   A multi dimensional array
+ * @return {Array}        The flattened array (1 dimensional)
+ */
+exports.flatten = function(array) {
+  if (!Array.isArray(array)) {
+    //if not an array, return as is
+    return array;
+  }
+  var flat = [];
+
+  array.forEach(function callback(value) {
+    if (Array.isArray(value)) {
+      value.forEach(callback);  //traverse through sub-arrays recursively
+    }
+    else {
+      flat.push(value);
+    }
+  });
+
+  return flat;
+};
+
+/**
+ * A safe map
+ * @param {Array} array
+ * @param {function} callback
+ */
+exports.map = function (array, callback) {
+  return Array.prototype.map.call(array, callback);
+}
+
+/**
+ * A safe forEach
+ * @param {Array} array
+ * @param {function} callback
+ */
+exports.forEach = function (array, callback) {
+  Array.prototype.forEach.call(array, callback);
+}
+
+/**
+ * A safe join
+ * @param {Array} array
+ * @param {string} separator
+ */
+exports.join = function (array, separator) {
+  return Array.prototype.join.call(array, separator);
+}
+
+/**
+ * Assign a numeric identifier to every element of a sorted array
+ * @param {Array}	a  An array
+ * @return {Array}	An array of objects containing the original value and its identifier
+ */
+exports.identify = function(a) {
+  if (!Array.isArray(a)) {
+	throw new TypeError('Array input expected');
+  }
+	
+  if (a.length === 0) {
+	return a;
+  }
+	
+  var b = [];
+  var count = 0;
+  b[0] = {value: a[0], identifier: 0};
+  for (var i=1; i<a.length; i++) {
+    if (a[i] === a[i-1]) {
+  	count++;
+    }
+    else {
+      count = 0;
+    }
+    b.push({value: a[i], identifier: count});
+  }
+  return b;
+}
+
+/**
+ * Remove the numeric identifier from the elements
+ * @param	a  An array
+ * @return	An array of values without identifiers
+ */
+exports.generalize = function(a) {
+  if (!Array.isArray(a)) {
+	throw new TypeError('Array input expected');
+  }
+	
+  if (a.length === 0) {
+	return a;
+  }
+	
+  var b = [];
+  for (var i=0; i<a.length; i++) {
+    b.push(a[i].value);
+  }
+  return b;
+}
+
+/**
+ * Test whether an object is an array
+ * @param {*} value
+ * @return {boolean} isArray
+ */
+exports.isArray = Array.isArray;
 
 
 /***/ }),
@@ -938,119 +1496,277 @@ module.exports = DimensionError;
 /* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var baseIsNative = __webpack_require__(71),
-    getValue = __webpack_require__(77);
+"use strict";
 
-/**
- * Gets the native function at `key` of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {string} key The key of the method to get.
- * @returns {*} Returns the function if it's native, else `undefined`.
- */
-function getNative(object, key) {
-  var value = getValue(object, key);
-  return baseIsNative(value) ? value : undefined;
-}
 
-module.exports = getNative;
+exports.array = __webpack_require__(3);
+exports['boolean'] = __webpack_require__(46);
+exports['function'] = __webpack_require__(11);
+exports.number = __webpack_require__(2);
+exports.object = __webpack_require__(1);
+exports.string = __webpack_require__(9);
+exports.types = __webpack_require__(19);
+exports.emitter = __webpack_require__(24);
 
 
 /***/ }),
 /* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var Symbol = __webpack_require__(12),
-    getRawTag = __webpack_require__(73),
-    objectToString = __webpack_require__(74);
+"use strict";
 
-/** `Object#toString` result references. */
-var nullTag = '[object Null]',
-    undefinedTag = '[object Undefined]';
 
-/** Built-in value references. */
-var symToStringTag = Symbol ? Symbol.toStringTag : undefined;
+exports.symbols = {
+  // GREEK LETTERS
+  Alpha: 'A',     alpha: '\\alpha',
+  Beta: 'B',      beta: '\\beta',
+  Gamma: '\\Gamma',    gamma: '\\gamma',
+  Delta: '\\Delta',    delta: '\\delta',
+  Epsilon: 'E',   epsilon: '\\epsilon',  varepsilon: '\\varepsilon',
+  Zeta: 'Z',      zeta: '\\zeta',
+  Eta: 'H',       eta: '\\eta',
+  Theta: '\\Theta',    theta: '\\theta',    vartheta: '\\vartheta',
+  Iota: 'I',      iota: '\\iota',
+  Kappa: 'K',     kappa: '\\kappa',    varkappa: '\\varkappa',
+  Lambda: '\\Lambda',   lambda: '\\lambda',
+  Mu: 'M',        mu: '\\mu',
+  Nu: 'N',        nu: '\\nu',
+  Xi: '\\Xi',       xi: '\\xi',
+  Omicron: 'O',   omicron: 'o',
+  Pi: '\\Pi',       pi: '\\pi',       varpi: '\\varpi',
+  Rho: 'P',       rho: '\\rho',      varrho: '\\varrho',
+  Sigma: '\\Sigma',    sigma: '\\sigma',    varsigma: '\\varsigma',
+  Tau: 'T',       tau: '\\tau',
+  Upsilon: '\\Upsilon',  upsilon: '\\upsilon',
+  Phi: '\\Phi',      phi: '\\phi',      varphi: '\\varphi',
+  Chi: 'X',       chi: '\\chi',
+  Psi: '\\Psi',      psi: '\\psi',
+  Omega: '\\Omega',    omega: '\\omega',
+  //logic
+  'true': '\\mathrm{True}',
+  'false': '\\mathrm{False}',
+  //other
+  i: 'i', //TODO use \i ??
+  inf: '\\infty',
+  Inf: '\\infty',
+  infinity: '\\infty',
+  Infinity: '\\infty',
+  oo: '\\infty',
+  lim: '\\lim',
+  'undefined': '\\mathbf{?}'
+};
 
-/**
- * The base implementation of `getTag` without fallbacks for buggy environments.
- *
- * @private
- * @param {*} value The value to query.
- * @returns {string} Returns the `toStringTag`.
- */
-function baseGetTag(value) {
-  if (value == null) {
-    return value === undefined ? undefinedTag : nullTag;
+exports.operators = {
+  'transpose': '^\\top',
+  'factorial': '!',
+  'pow': '^',
+  'dotPow': '.^\\wedge', //TODO find ideal solution
+  'unaryPlus': '+',
+  'unaryMinus': '-',
+  'bitNot': '~', //TODO find ideal solution
+  'not': '\\neg',
+  'multiply': '\\cdot',
+  'divide': '\\frac', //TODO how to handle that properly?
+  'dotMultiply': '.\\cdot', //TODO find ideal solution
+  'dotDivide': '.:', //TODO find ideal solution
+  'mod': '\\mod',
+  'add': '+',
+  'subtract': '-',
+  'to': '\\rightarrow',
+  'leftShift': '<<',
+  'rightArithShift': '>>',
+  'rightLogShift': '>>>',
+  'equal': '=',
+  'unequal': '\\neq',
+  'smaller': '<',
+  'larger': '>',
+  'smallerEq': '\\leq',
+  'largerEq': '\\geq',
+  'bitAnd': '\\&',
+  'bitXor': '\\underline{|}',
+  'bitOr': '|',
+  'and': '\\wedge',
+  'xor': '\\veebar',
+  'or': '\\vee'
+};
+
+exports.defaultTemplate = '\\mathrm{${name}}\\left(${args}\\right)';
+
+var units = {
+  deg: '^\\circ'
+};
+
+//@param {string} name
+//@param {boolean} isUnit
+exports.toSymbol = function (name, isUnit) {
+  isUnit = typeof isUnit === 'undefined' ? false : isUnit;
+  if (isUnit) {
+    if (units.hasOwnProperty(name)) {
+      return units[name];
+    }
+    return '\\mathrm{' + name + '}';
   }
-  return (symToStringTag && symToStringTag in Object(value))
-    ? getRawTag(value)
-    : objectToString(value);
-}
 
-module.exports = baseGetTag;
+  if (exports.symbols.hasOwnProperty(name)) {
+    return exports.symbols[name];
+  }
+  else if (name.indexOf('_') !== -1) {
+    //symbol with index (eg. alpha_1)
+    var index = name.indexOf('_');
+    return exports.toSymbol(name.substring(0, index)) + '_{'
+      + exports.toSymbol(name.substring(index + 1)) + '}';
+  }
+  return name;
+};
 
 
 /***/ }),
 /* 7 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-/**
- * Checks if `value` is object-like. A value is object-like if it's not `null`
- * and has a `typeof` result of "object".
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- * @example
- *
- * _.isObjectLike({});
- * // => true
- *
- * _.isObjectLike([1, 2, 3]);
- * // => true
- *
- * _.isObjectLike(_.noop);
- * // => false
- *
- * _.isObjectLike(null);
- * // => false
- */
-function isObjectLike(value) {
-  return value != null && typeof value == 'object';
+"use strict";
+
+
+var nearlyEqual = __webpack_require__(2).nearlyEqual;
+var bigNearlyEqual = __webpack_require__(13);
+
+function factory (type, config, load, typed) {
+  
+  /**
+   * Test whether two values are equal.
+   *
+   * @param  {number | BigNumber | Fraction | boolean | Complex | Unit} x   First value to compare
+   * @param  {number | BigNumber | Fraction | boolean | Complex} y          Second value to compare
+   * @return {boolean}                                                  Returns true when the compared values are equal, else returns false
+   * @private
+   */
+  var equalScalar = typed('equalScalar', {
+
+    'boolean, boolean': function (x, y) {
+      return x === y;
+    },
+
+    'number, number': function (x, y) {
+      return x === y || nearlyEqual(x, y, config.epsilon);
+    },
+
+    'BigNumber, BigNumber': function (x, y) {
+      return x.eq(y) || bigNearlyEqual(x, y, config.epsilon);
+    },
+
+    'Fraction, Fraction': function (x, y) {
+      return x.equals(y);
+    },
+
+    'Complex, Complex': function (x, y) {
+      return x.equals(y);
+    },
+
+    'Unit, Unit': function (x, y) {
+      if (!x.equalBase(y)) {
+        throw new Error('Cannot compare units with different base');
+      }
+      return equalScalar(x.value, y.value);
+    },
+
+    'string, string': function (x, y) {
+      return x === y;
+    }
+  });
+  
+  return equalScalar;
 }
 
-module.exports = isObjectLike;
+exports.factory = factory;
 
 
 /***/ }),
 /* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var isSymbol = __webpack_require__(16);
+"use strict";
 
-/** Used as references for various `Number` constants. */
-var INFINITY = 1 / 0;
 
-/**
- * Converts `value` to a string key if it's not a string or symbol.
- *
- * @private
- * @param {*} value The value to inspect.
- * @returns {string|symbol} Returns the key.
- */
-function toKey(value) {
-  if (typeof value == 'string' || isSymbol(value)) {
-    return value;
-  }
-  var result = (value + '');
-  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
+var clone = __webpack_require__(1).clone;
+
+function factory (type, config, load, typed) {
+
+  var DenseMatrix = type.DenseMatrix;
+
+  /**
+   * Iterates over DenseMatrix items and invokes the callback function f(Aij..z, b). 
+   * Callback function invoked MxN times.
+   *
+   * C(i,j,...z) = f(Aij..z, b)
+   *
+   * @param {Matrix}   a                 The DenseMatrix instance (A)
+   * @param {Scalar}   b                 The Scalar value
+   * @param {Function} callback          The f(Aij..z,b) operation to invoke
+   * @param {boolean}  inverse           A true value indicates callback should be invoked f(b,Aij..z)
+   *
+   * @return {Matrix}                    DenseMatrix (C)
+   *
+   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97659042
+   */
+  var algorithm14 = function (a, b, callback, inverse) {
+    // a arrays
+    var adata = a._data;
+    var asize = a._size;
+    var adt = a._datatype;
+    
+    // datatype
+    var dt;
+    // callback signature to use
+    var cf = callback;
+
+    // process data types
+    if (typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // convert b to the same datatype
+      b = typed.convert(b, dt);
+      // callback
+      cf = typed.find(callback, [dt, dt]);
+    }
+    
+    // populate cdata, iterate through dimensions
+    var cdata = asize.length > 0 ? _iterate(cf, 0, asize, asize[0], adata, b, inverse) : [];
+
+    // c matrix
+    return new DenseMatrix({
+      data: cdata,
+      size: clone(asize),
+      datatype: dt
+    });
+  };
+  
+  // recursive function
+  var _iterate = function (f, level, s, n, av, bv, inverse) {
+    // initialize array for this level
+    var cv = [];
+    // check we reach the last level
+    if (level === s.length - 1) {
+      // loop arrays in last level
+      for (var i = 0; i < n; i++) {
+        // invoke callback and store value
+        cv[i] = inverse ? f(bv, av[i]) : f(av[i], bv);
+      }
+    }
+    else {
+      // iterate current level
+      for (var j = 0; j < n; j++) {
+        // iterate next level
+        cv[j] = _iterate(f, level + 1, s, s[level + 1], av[j], bv, inverse);
+      }
+    }
+    return cv;
+  };
+
+  return algorithm14;
 }
 
-module.exports = toKey;
+exports.name = 'algorithm14';
+exports.factory = factory;
 
 
 /***/ }),
@@ -1060,199 +1776,910 @@ module.exports = toKey;
 "use strict";
 
 
-exports.array = __webpack_require__(159);
-exports['boolean'] = __webpack_require__(162);
-exports['function'] = __webpack_require__(163);
-exports.number = __webpack_require__(2);
-exports.object = __webpack_require__(0);
-exports.string = __webpack_require__(48);
-exports.types = __webpack_require__(49);
-exports.emitter = __webpack_require__(47);
+var formatNumber = __webpack_require__(2).format;
+var formatBigNumber = __webpack_require__(45).format;
 
+/**
+ * Test whether value is a string
+ * @param {*} value
+ * @return {boolean} isString
+ */
+exports.isString = function(value) {
+  return typeof value === 'string';
+};
+
+/**
+ * Check if a text ends with a certain string.
+ * @param {string} text
+ * @param {string} search
+ */
+exports.endsWith = function(text, search) {
+  var start = text.length - search.length;
+  var end = text.length;
+  return (text.substring(start, end) === search);
+};
+
+/**
+ * Format a value of any type into a string.
+ *
+ * Usage:
+ *     math.format(value)
+ *     math.format(value, precision)
+ *
+ * When value is a function:
+ *
+ * - When the function has a property `syntax`, it returns this
+ *   syntax description.
+ * - In other cases, a string `'function'` is returned.
+ *
+ * When `value` is an Object:
+ *
+ * - When the object contains a property `format` being a function, this
+ *   function is invoked as `value.format(options)` and the result is returned.
+ * - When the object has its own `toString` method, this method is invoked
+ *   and the result is returned.
+ * - In other cases the function will loop over all object properties and
+ *   return JSON object notation like '{"a": 2, "b": 3}'.
+ *
+ * Example usage:
+ *     math.format(2/7);                // '0.2857142857142857'
+ *     math.format(math.pi, 3);         // '3.14'
+ *     math.format(new Complex(2, 3));  // '2 + 3i'
+ *     math.format('hello');            // '"hello"'
+ *
+ * @param {*} value             Value to be stringified
+ * @param {Object | number | Function} [options]  Formatting options. See
+ *                                                lib/utils/number:format for a
+ *                                                description of the available
+ *                                                options.
+ * @return {string} str
+ */
+exports.format = function(value, options) {
+  if (typeof value === 'number') {
+    return formatNumber(value, options);
+  }
+
+  if (value && value.isBigNumber === true) {
+    return formatBigNumber(value, options);
+  }
+
+  if (value && value.isFraction === true) {
+    if (!options || options.fraction !== 'decimal') {
+      // output as ratio, like '1/3'
+      return (value.s * value.n) + '/' + value.d;
+    }
+    else {
+      // output as decimal, like '0.(3)'
+      return value.toString();
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return formatArray(value, options);
+  }
+
+  if (exports.isString(value)) {
+    return '"' + value + '"';
+  }
+
+  if (typeof value === 'function') {
+    return value.syntax ? String(value.syntax) : 'function';
+  }
+
+  if (value && typeof value === 'object') {
+    if (typeof value.format === 'function') {
+      return value.format(options);
+    }
+    else if (value && value.toString() !== {}.toString()) {
+      // this object has a non-native toString method, use that one
+      return value.toString();
+    }
+    else {
+      var entries = [];
+
+      for (var key in value) {
+        if (value.hasOwnProperty(key)) {
+          entries.push('"' + key + '": ' + exports.format(value[key], options));
+        }
+      }
+
+      return '{' + entries.join(', ') + '}';
+    }
+  }
+
+  return String(value);
+};
+
+/**
+ * Stringify a value into a string enclosed in double quotes.
+ * Unescaped double quotes and backslashes inside the value are escaped.
+ * @param {*} value
+ * @return {string}
+ */
+exports.stringify = function (value) {
+  var text = String(value);
+  var escaped = '';
+  var i = 0;
+  while (i < text.length) {
+    var c = text.charAt(i);
+
+    if (c === '\\') {
+      escaped += c;
+      i++;
+
+      c = text.charAt(i);
+      if (c === '' || '"\\/bfnrtu'.indexOf(c) === -1) {
+        escaped += '\\';  // no valid escape character -> escape it
+      }
+      escaped += c;
+    }
+    else if (c === '"') {
+      escaped += '\\"';
+    }
+    else {
+      escaped += c;
+    }
+    i++;
+  }
+
+  return '"' + escaped + '"';
+}
+
+/**
+ * Escape special HTML characters
+ * @param {*} value
+ * @return {string}
+ */
+exports.escape = function (value) {
+  var text = String(value);
+  text = text.replace(/&/g, '&amp;')
+			 .replace(/"/g, '&quot;')
+			 .replace(/'/g, '&#39;')
+			 .replace(/</g, '&lt;')
+			 .replace(/>/g, '&gt;');
+  
+  return text;
+}
+
+/**
+ * Recursively format an n-dimensional matrix
+ * Example output: "[[1, 2], [3, 4]]"
+ * @param {Array} array
+ * @param {Object | number | Function} [options]  Formatting options. See
+ *                                                lib/utils/number:format for a
+ *                                                description of the available
+ *                                                options.
+ * @returns {string} str
+ */
+function formatArray (array, options) {
+  if (Array.isArray(array)) {
+    var str = '[';
+    var len = array.length;
+    for (var i = 0; i < len; i++) {
+      if (i != 0) {
+        str += ', ';
+      }
+      str += formatArray(array[i], options);
+    }
+    str += ']';
+    return str;
+  }
+  else {
+    return exports.format(array, options);
+  }
+}
 
 /***/ }),
 /* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var listCacheClear = __webpack_require__(61),
-    listCacheDelete = __webpack_require__(62),
-    listCacheGet = __webpack_require__(63),
-    listCacheHas = __webpack_require__(64),
-    listCacheSet = __webpack_require__(65);
+"use strict";
 
-/**
- * Creates an list cache object.
- *
- * @private
- * @constructor
- * @param {Array} [entries] The key-value pairs to cache.
- */
-function ListCache(entries) {
-  var index = -1,
-      length = entries == null ? 0 : entries.length;
 
-  this.clear();
-  while (++index < length) {
-    var entry = entries[index];
-    this.set(entry[0], entry[1]);
-  }
+var util = __webpack_require__(5);
+var DimensionError = __webpack_require__(4);
+
+var string = util.string,
+    isString = string.isString;
+
+function factory (type, config, load, typed) {
+
+  var DenseMatrix = type.DenseMatrix;
+
+  /**
+   * Iterates over DenseMatrix items and invokes the callback function f(Aij..z, Bij..z). 
+   * Callback function invoked MxN times.
+   *
+   * C(i,j,...z) = f(Aij..z, Bij..z)
+   *
+   * @param {Matrix}   a                 The DenseMatrix instance (A)
+   * @param {Matrix}   b                 The DenseMatrix instance (B)
+   * @param {Function} callback          The f(Aij..z,Bij..z) operation to invoke
+   *
+   * @return {Matrix}                    DenseMatrix (C)
+   *
+   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97658658
+   */
+  var algorithm13 = function (a, b, callback) {
+    // a arrays
+    var adata = a._data;
+    var asize = a._size;
+    var adt = a._datatype;
+    // b arrays
+    var bdata = b._data;
+    var bsize = b._size;
+    var bdt = b._datatype;
+    // c arrays
+    var csize = [];
+
+    // validate dimensions
+    if (asize.length !== bsize.length)
+      throw new DimensionError(asize.length, bsize.length);
+
+    // validate each one of the dimension sizes
+    for (var s = 0; s < asize.length; s++) {
+      // must match
+      if (asize[s] !== bsize[s])
+        throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
+      // update dimension in c
+      csize[s] = asize[s];
+    }
+
+    // datatype
+    var dt;
+    // callback signature to use
+    var cf = callback;
+
+    // process data types
+    if (typeof adt === 'string' && adt === bdt) {
+      // datatype
+      dt = adt;
+      // convert b to the same datatype
+      b = typed.convert(b, dt);
+      // callback
+      cf = typed.find(callback, [dt, dt]);
+    }
+
+    // populate cdata, iterate through dimensions
+    var cdata = csize.length > 0 ? _iterate(cf, 0, csize, csize[0], adata, bdata) : [];
+    
+    // c matrix
+    return new DenseMatrix({
+      data: cdata,
+      size: csize,
+      datatype: dt
+    });
+  };
+  
+  // recursive function
+  var _iterate = function (f, level, s, n, av, bv) {
+    // initialize array for this level
+    var cv = [];
+    // check we reach the last level
+    if (level === s.length - 1) {
+      // loop arrays in last level
+      for (var i = 0; i < n; i++) {
+        // invoke callback and store value
+        cv[i] = f(av[i], bv[i]);
+      }
+    }
+    else {
+      // iterate current level
+      for (var j = 0; j < n; j++) {
+        // iterate next level
+        cv[j] = _iterate(f, level + 1, s, s[level + 1], av[j], bv[j]);
+      }
+    }
+    return cv;
+  };
+  
+  return algorithm13;
 }
 
-// Add methods to `ListCache`.
-ListCache.prototype.clear = listCacheClear;
-ListCache.prototype['delete'] = listCacheDelete;
-ListCache.prototype.get = listCacheGet;
-ListCache.prototype.has = listCacheHas;
-ListCache.prototype.set = listCacheSet;
-
-module.exports = ListCache;
+exports.name = 'algorithm13';
+exports.factory = factory;
 
 
 /***/ }),
 /* 11 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-var eq = __webpack_require__(34);
+// function utils
+
+/*
+ * Memoize a given function by caching the computed result.
+ * The cache of a memoized function can be cleared by deleting the `cache`
+ * property of the function.
+ *
+ * @param {function} fn                     The function to be memoized.
+ *                                          Must be a pure function.
+ * @param {function(args: Array)} [hasher]  A custom hash builder.
+ *                                          Is JSON.stringify by default.
+ * @return {function}                       Returns the memoized function
+ */
+exports.memoize = function(fn, hasher) {
+  return function memoize() {
+    if (typeof memoize.cache !== 'object') {
+      memoize.cache = {};
+    }
+
+    var args = [];
+    for (var i = 0; i < arguments.length; i++) {
+      args[i] = arguments[i];
+    }
+
+    var hash = hasher ? hasher(args) : JSON.stringify(args);
+    if (!(hash in memoize.cache)) {
+      return memoize.cache[hash] = fn.apply(fn, args);
+    }
+    return memoize.cache[hash];
+  };
+};
 
 /**
- * Gets the index at which the `key` is found in `array` of key-value pairs.
- *
- * @private
- * @param {Array} array The array to inspect.
- * @param {*} key The key to search for.
- * @returns {number} Returns the index of the matched value, else `-1`.
+ * Find the maximum number of arguments expected by a typed function.
+ * @param {function} fn   A typed function
+ * @return {number} Returns the maximum number of expected arguments.
+ *                  Returns -1 when no signatures where found on the function.
  */
-function assocIndexOf(array, key) {
-  var length = array.length;
-  while (length--) {
-    if (eq(array[length][0], key)) {
-      return length;
-    }
-  }
-  return -1;
-}
-
-module.exports = assocIndexOf;
+exports.maxArgumentCount = function (fn) {
+  return Object.keys(fn.signatures || {})
+      .reduce(function (args, signature) {
+        var count = (signature.match(/,/g) || []).length + 1;
+        return Math.max(args, count);
+      }, -1);
+};
 
 
 /***/ }),
 /* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var root = __webpack_require__(1);
+"use strict";
 
-/** Built-in value references. */
-var Symbol = root.Symbol;
 
-module.exports = Symbol;
+var hasOwnProperty = __webpack_require__(1).hasOwnProperty;
+
+/**
+ * Get a property of a plain object
+ * Throws an error in case the object is not a plain object or the
+ * property is not defined on the object itself
+ * @param {Object} object
+ * @param {string} prop
+ * @return {*} Returns the property value when safe
+ */
+function getSafeProperty (object, prop) {
+  // only allow getting properties of a plain object
+  if (isPlainObject(object)) {
+    // only allow getting properties defined on the object itself,
+    // not inherited from it's prototype.
+    if (hasOwnProperty(object, prop)) {
+      return object[prop];
+    }
+
+    if (!(prop in object)) {
+      // this is a not existing property on a plain object
+      return undefined;
+    }
+  }
+
+  if (typeof object[prop] === 'function' && isSafeMethod(object, prop)) {
+    throw new Error('Cannot access method "' + prop + '" as a property');
+  }
+
+  throw new Error('No access to property "' + prop + '"');
+}
+
+/**
+ * Set a property on a plain object.
+ * Throws an error in case the object is not a plain object or the
+ * property would override an inherited property like .constructor or .toString
+ * @param {Object} object
+ * @param {string} prop
+ * @param {*} value
+ * @return {*} Returns the value
+ */
+// TODO: merge this function into access.js?
+function setSafeProperty (object, prop, value) {
+  // only allow setting properties of a plain object
+  if (isPlainObject(object)) {
+    // only allow setting properties defined on the object itself,
+    // not inherited from it's prototype.
+    if (prop in object) {
+      // property already exists
+      // override when the property is defined on the object itself.
+      // don't allow overriding inherited properties like .constructor or .toString
+      if (hasOwnProperty(object, prop)) {
+        return object[prop] = value;
+      }
+    }
+    else {
+      // this is a new property, that's just ok
+      return object[prop] = value;
+    }
+  }
+
+  throw new Error('No access to property "' + prop + '"');
+}
+
+/**
+ * Test whether a property is safe to use for an object.
+ * For example .toString and .constructor are not safe
+ * @param {string} prop
+ * @return {boolean} Returns true when safe
+ */
+function isSafeProperty (prop) {
+  return !(prop in {});
+}
+
+/**
+ * Validate whether a method is safe.
+ * Throws an error when that's not the case.
+ * @param {Object} object
+ * @param {string} method
+ */
+// TODO: merge this function into assign.js?
+function validateSafeMethod (object, method) {
+  if (!isSafeMethod(object, method)) {
+    throw new Error('No access to method "' + method + '"');
+  }
+}
+
+/**
+ * Check whether a method is safe.
+ * Throws an error when that's not the case (for example for `constructor`).
+ * @param {Object} object
+ * @param {string} method
+ * @return {boolean} Returns true when safe, false otherwise
+ */
+function isSafeMethod (object, method) {
+  // test for plain functions defined on the object (instead of a method)
+  if (hasOwnProperty(object, method)) {
+    return isPlainObject(object);
+  }
+  else {
+    // only allow methods:
+    // - defined on the prototype of this object
+    // - not defined on the prototype of native Object
+    //   i.e. constructor, __defineGetter__, hasOwnProperty, etc. are not allowed
+    // - calling methods on a function (like bind) is not allowed
+    // - A few safe native methods are allowed: toString, valueOf, toLocaleString
+    return (object && typeof object !== 'function' &&
+        (hasOwnProperty(object.constructor.prototype, method) ||
+            hasOwnProperty(object.__proto__, method)) &&
+        (!hasOwnProperty(Object.prototype, method) || hasOwnProperty(safeNativeMethods, method)));
+  }
+}
+
+function isPlainObject (object) {
+  return typeof object === 'object' && object && object.constructor === Object;
+}
+
+var safeNativeMethods = {
+  toString: true,
+  valueOf: true,
+  toLocaleString: true
+};
+
+exports.getSafeProperty = getSafeProperty;
+exports.setSafeProperty = setSafeProperty;
+exports.isSafeProperty = isSafeProperty;
+exports.validateSafeMethod = validateSafeMethod;
+exports.isSafeMethod = isSafeMethod;
+exports.isPlainObject = isPlainObject;
 
 
 /***/ }),
 /* 13 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
 
 /**
- * Checks if `value` is the
- * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
- * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(_.noop);
- * // => true
- *
- * _.isObject(null);
- * // => false
+ * Compares two BigNumbers.
+ * @param {BigNumber} x       First value to compare
+ * @param {BigNumber} y       Second value to compare
+ * @param {number} [epsilon]  The maximum relative difference between x and y
+ *                            If epsilon is undefined or null, the function will
+ *                            test whether x and y are exactly equal.
+ * @return {boolean} whether the two numbers are nearly equal
  */
-function isObject(value) {
-  var type = typeof value;
-  return value != null && (type == 'object' || type == 'function');
-}
+module.exports = function nearlyEqual(x, y, epsilon) {
+  // if epsilon is null or undefined, test whether x and y are exactly equal
+  if (epsilon == null) {
+    return x.eq(y);
+  }
 
-module.exports = isObject;
+
+  // use "==" operator, handles infinities
+  if (x.eq(y)) {
+    return true;
+  }
+
+  // NaN
+  if (x.isNaN() || y.isNaN()) {
+    return false;
+  }
+
+  // at this point x and y should be finite
+  if(x.isFinite() && y.isFinite()) {
+    // check numbers are very close, needed when comparing numbers near zero
+    var diff = x.minus(y).abs();
+    if (diff.isZero()) {
+      return true;
+    }
+    else {
+      // use relative error
+      var max = x.constructor.max(x.abs(), y.abs());
+      return diff.lte(max.times(epsilon));
+    }
+  }
+
+  // Infinite and Number or negative Infinite and positive Infinite cases
+  return false;
+};
 
 
 /***/ }),
 /* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var getNative = __webpack_require__(5);
+"use strict";
 
-/* Built-in method references that are verified to be native. */
-var nativeCreate = getNative(Object, 'create');
 
-module.exports = nativeCreate;
+var extend = __webpack_require__(1).extend;
+
+function factory (type, config, load, typed) {
+
+  var matrix = load(__webpack_require__(0));
+  var addScalar = load(__webpack_require__(15));
+  var latex = __webpack_require__(6);
+  
+  var algorithm01 = load(__webpack_require__(28));
+  var algorithm04 = load(__webpack_require__(49));
+  var algorithm10 = load(__webpack_require__(29));
+  var algorithm13 = load(__webpack_require__(10));
+  var algorithm14 = load(__webpack_require__(8));
+
+  /**
+   * Add two or more values, `x + y`.
+   * For matrices, the function is evaluated element wise.
+   *
+   * Syntax:
+   *
+   *    math.add(x, y)
+   *    math.add(x, y, z, ...)
+   *
+   * Examples:
+   *
+   *    math.add(2, 3);               // returns number 5
+   *    math.add(2, 3, 4);            // returns number 9
+   *
+   *    var a = math.complex(2, 3);
+   *    var b = math.complex(-4, 1);
+   *    math.add(a, b);               // returns Complex -2 + 4i
+   *
+   *    math.add([1, 2, 3], 4);       // returns Array [5, 6, 7]
+   *
+   *    var c = math.unit('5 cm');
+   *    var d = math.unit('2.1 mm');
+   *    math.add(c, d);               // returns Unit 52.1 mm
+   *
+   *    math.add("2.3", "4");         // returns number 6.3
+   *
+   * See also:
+   *
+   *    subtract, sum
+   *
+   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} x First value to add
+   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} y Second value to add
+   * @return {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} Sum of `x` and `y`
+   */
+  var add = typed('add', extend({
+    // we extend the signatures of addScalar with signatures dealing with matrices
+
+    'Matrix, Matrix': function (x, y) {
+      // result
+      var c;
+      
+      // process matrix storage
+      switch (x.storage()) {
+        case 'sparse':
+          switch (y.storage()) {
+            case 'sparse':
+              // sparse + sparse
+              c = algorithm04(x, y, addScalar);
+              break;
+            default:
+              // sparse + dense
+              c = algorithm01(y, x, addScalar, true);
+              break;
+          }
+          break;
+        default:
+          switch (y.storage()) {
+            case 'sparse':
+              // dense + sparse
+              c = algorithm01(x, y, addScalar, false);
+              break;
+            default:
+              // dense + dense
+              c = algorithm13(x, y, addScalar);
+              break;
+          }
+          break;
+      }
+      return c;
+    },
+    
+    'Array, Array': function (x, y) {
+      // use matrix implementation
+      return add(matrix(x), matrix(y)).valueOf();
+    },
+    
+    'Array, Matrix': function (x, y) {
+      // use matrix implementation
+      return add(matrix(x), y);
+    },
+    
+    'Matrix, Array': function (x, y) {
+      // use matrix implementation
+      return add(x, matrix(y));
+    },
+    
+    'Matrix, any': function (x, y) {
+      // result
+      var c;
+      // check storage format
+      switch (x.storage()) {
+        case 'sparse':
+          c = algorithm10(x, y, addScalar, false);
+          break;
+        default:
+          c = algorithm14(x, y, addScalar, false);
+          break;
+      }
+      return c;
+    },
+    
+    'any, Matrix': function (x, y) {
+      // result
+      var c;
+      // check storage format
+      switch (y.storage()) {
+        case 'sparse':
+          c = algorithm10(y, x, addScalar, true);
+          break;
+        default:
+          c = algorithm14(y, x, addScalar, true);
+          break;
+      }
+      return c;
+    },
+    
+    'Array, any': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(x), y, addScalar, false).valueOf();
+    },
+
+    'any, Array': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(y), x, addScalar, true).valueOf();
+    },
+
+    'any, any': addScalar,
+
+    'any, any, ...any': function (x, y, rest) {
+      var result = add(x, y);
+
+      for (var i = 0; i < rest.length; i++) {
+        result = add(result, rest[i]);
+      }
+
+      return result;
+    }
+  }, addScalar.signatures));
+
+  add.toTex = {
+    2: '\\left(${args[0]}' + latex.operators['add'] + '${args[1]}\\right)'
+  };
+  
+  return add;
+}
+
+exports.name = 'add';
+exports.factory = factory;
 
 
 /***/ }),
 /* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var isKeyable = __webpack_require__(86);
+"use strict";
 
-/**
- * Gets the data for `map`.
- *
- * @private
- * @param {Object} map The map to query.
- * @param {string} key The reference key.
- * @returns {*} Returns the map data.
- */
-function getMapData(map, key) {
-  var data = map.__data__;
-  return isKeyable(key)
-    ? data[typeof key == 'string' ? 'string' : 'hash']
-    : data.map;
+
+function factory(type, config, load, typed) {
+
+  /**
+   * Add two scalar values, `x + y`.
+   * This function is meant for internal use: it is used by the public function
+   * `add`
+   *
+   * This function does not support collections (Array or Matrix), and does
+   * not validate the number of of inputs.
+   *
+   * @param  {number | BigNumber | Fraction | Complex | Unit} x   First value to add
+   * @param  {number | BigNumber | Fraction | Complex} y          Second value to add
+   * @return {number | BigNumber | Fraction | Complex | Unit}                      Sum of `x` and `y`
+   * @private
+   */
+  var add = typed('add', {
+
+    'number, number': function (x, y) {
+      return x + y;
+    },
+
+    'Complex, Complex': function (x, y) {
+      return x.add(y);
+    },
+
+    'BigNumber, BigNumber': function (x, y) {
+      return x.plus(y);
+    },
+
+    'Fraction, Fraction': function (x, y) {
+      return x.add(y);
+    },
+
+    'Unit, Unit': function (x, y) {
+      if (x.value == null) throw new Error('Parameter x contains a unit with undefined value');
+      if (y.value == null) throw new Error('Parameter y contains a unit with undefined value');
+      if (!x.equalBase(y)) throw new Error('Units do not match');
+
+      var res = x.clone();
+      res.value = add(res.value, y.value);
+      res.fixPrefix = false;
+      return res;
+    }
+  });
+
+  return add;
 }
 
-module.exports = getMapData;
+exports.factory = factory;
 
 
 /***/ }),
 /* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var baseGetTag = __webpack_require__(6),
-    isObjectLike = __webpack_require__(7);
+"use strict";
 
-/** `Object#toString` result references. */
-var symbolTag = '[object Symbol]';
 
-/**
- * Checks if `value` is classified as a `Symbol` primitive or object.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.
- * @example
- *
- * _.isSymbol(Symbol.iterator);
- * // => true
- *
- * _.isSymbol('abc');
- * // => false
- */
-function isSymbol(value) {
-  return typeof value == 'symbol' ||
-    (isObjectLike(value) && baseGetTag(value) == symbolTag);
+var DimensionError = __webpack_require__(4);
+
+function factory (type, config, load, typed) {
+
+  var DenseMatrix = type.DenseMatrix;
+
+  /**
+   * Iterates over SparseMatrix items and invokes the callback function f(Dij, Sij).
+   * Callback function invoked M*N times.
+   *
+   *
+   *          ┌  f(Dij, Sij)  ; S(i,j) !== 0
+   * C(i,j) = ┤
+   *          └  f(Dij, 0)    ; otherwise
+   *
+   *
+   * @param {Matrix}   denseMatrix       The DenseMatrix instance (D)
+   * @param {Matrix}   sparseMatrix      The SparseMatrix instance (C)
+   * @param {Function} callback          The f(Dij,Sij) operation to invoke, where Dij = DenseMatrix(i,j) and Sij = SparseMatrix(i,j)
+   * @param {boolean}  inverse           A true value indicates callback should be invoked f(Sij,Dij)
+   *
+   * @return {Matrix}                    DenseMatrix (C)
+   *
+   * see https://github.com/josdejong/mathjs/pull/346#issuecomment-97477571
+   */
+  var algorithm03 = function (denseMatrix, sparseMatrix, callback, inverse) {
+    // dense matrix arrays
+    var adata = denseMatrix._data;
+    var asize = denseMatrix._size;
+    var adt = denseMatrix._datatype;
+    // sparse matrix arrays
+    var bvalues = sparseMatrix._values;
+    var bindex = sparseMatrix._index;
+    var bptr = sparseMatrix._ptr;
+    var bsize = sparseMatrix._size;
+    var bdt = sparseMatrix._datatype;
+
+    // validate dimensions
+    if (asize.length !== bsize.length)
+      throw new DimensionError(asize.length, bsize.length);
+
+    // check rows & columns
+    if (asize[0] !== bsize[0] || asize[1] !== bsize[1])
+      throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
+
+    // sparse matrix cannot be a Pattern matrix
+    if (!bvalues)
+      throw new Error('Cannot perform operation on Dense Matrix and Pattern Sparse Matrix');
+
+    // rows & columns
+    var rows = asize[0];
+    var columns = asize[1];
+
+    // datatype
+    var dt;
+    // zero value
+    var zero = 0;
+    // callback signature to use
+    var cf = callback;
+
+    // process data types
+    if (typeof adt === 'string' && adt === bdt) {
+      // datatype
+      dt = adt;
+      // convert 0 to the same datatype
+      zero = typed.convert(0, dt);
+      // callback
+      cf = typed.find(callback, [dt, dt]);
+    }
+
+    // result (DenseMatrix)
+    var cdata = [];
+
+    // initialize dense matrix
+    for (var z = 0; z < rows; z++) {
+      // initialize row
+      cdata[z] = [];
+    }
+
+    // workspace
+    var x = [];
+    // marks indicating we have a value in x for a given column
+    var w = [];
+
+    // loop columns in b
+    for (var j = 0; j < columns; j++) {
+      // column mark
+      var mark = j + 1;
+      // values in column j
+      for (var k0 = bptr[j], k1 = bptr[j + 1], k = k0; k < k1; k++) {
+        // row
+        var i = bindex[k];
+        // update workspace
+        x[i] = inverse ? cf(bvalues[k], adata[i][j]) : cf(adata[i][j], bvalues[k]);
+        w[i] = mark;
+      }
+      // process workspace
+      for (var y = 0; y < rows; y++) {
+        // check we have a calculated value for current row
+        if (w[y] === mark) {
+          // use calculated value
+          cdata[y][j] = x[y];
+        }
+        else {
+          // calculate value
+          cdata[y][j] = inverse ? cf(zero, adata[y][j]) : cf(adata[y][j], zero);
+        }
+      }
+    }
+
+    // return dense matrix
+    return new DenseMatrix({
+      data: cdata,
+      size: [rows, columns],
+      datatype: dt
+    });
+  };
+  
+  return algorithm03;
 }
 
-module.exports = isSymbol;
+exports.name = 'algorithm03';
+exports.factory = factory;
 
 
 /***/ }),
@@ -1262,91 +2689,973 @@ module.exports = isSymbol;
 "use strict";
 
 
+var extend = __webpack_require__(1).extend;
+var array = __webpack_require__(3);
+
 function factory (type, config, load, typed) {
+  var latex = __webpack_require__(6);
+
+  var matrix = load(__webpack_require__(0));
+  var addScalar = load(__webpack_require__(15));
+  var multiplyScalar = load(__webpack_require__(22));
+  var equalScalar = load(__webpack_require__(7));
+
+  var algorithm11 = load(__webpack_require__(61));
+  var algorithm14 = load(__webpack_require__(8));
+  
+  var DenseMatrix = type.DenseMatrix;
+  var SparseMatrix = type.SparseMatrix;
+
   /**
-   * Create a Matrix. The function creates a new `math.type.Matrix` object from
-   * an `Array`. A Matrix has utility functions to manipulate the data in the
-   * matrix, like getting the size and getting or setting values in the matrix.
-   * Supported storage formats are 'dense' and 'sparse'.
+   * Multiply two or more values, `x * y`.
+   * For matrices, the matrix product is calculated.
    *
    * Syntax:
    *
-   *    math.matrix()                         // creates an empty matrix using default storage format (dense).
-   *    math.matrix(data)                     // creates a matrix with initial data using default storage format (dense).
-   *    math.matrix('dense')                  // creates an empty matrix using the given storage format.
-   *    math.matrix(data, 'dense')            // creates a matrix with initial data using the given storage format.
-   *    math.matrix(data, 'sparse')           // creates a sparse matrix with initial data.
-   *    math.matrix(data, 'sparse', 'number') // creates a sparse matrix with initial data, number data type.
+   *    math.multiply(x, y)
+   *    math.multiply(x, y, z, ...)
    *
    * Examples:
    *
-   *    var m = math.matrix([[1, 2], [3, 4]]);
-   *    m.size();                        // Array [2, 2]
-   *    m.resize([3, 2], 5);
-   *    m.valueOf();                     // Array [[1, 2], [3, 4], [5, 5]]
-   *    m.get([1, 0])                    // number 3
+   *    math.multiply(4, 5.2);        // returns number 20.8
+   *    math.multiply(2, 3, 4);       // returns number 24
+   *
+   *    var a = math.complex(2, 3);
+   *    var b = math.complex(4, 1);
+   *    math.multiply(a, b);          // returns Complex 5 + 14i
+   *
+   *    var c = [[1, 2], [4, 3]];
+   *    var d = [[1, 2, 3], [3, -4, 7]];
+   *    math.multiply(c, d);          // returns Array [[7, -6, 17], [13, -4, 33]]
+   *
+   *    var e = math.unit('2.1 km');
+   *    math.multiply(3, e);          // returns Unit 6.3 km
    *
    * See also:
    *
-   *    bignumber, boolean, complex, index, number, string, unit, sparse
+   *    divide, prod, cross, dot
    *
-   * @param {Array | Matrix} [data]    A multi dimensional array
-   * @param {string} [format]          The Matrix storage format
-   *
-   * @return {Matrix} The created matrix
+   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} x First value to multiply
+   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} y Second value to multiply
+   * @return {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} Multiplication of `x` and `y`
    */
-  var matrix = typed('matrix', {
-    '': function () {
-      return _create([]);
+  var multiply = typed('multiply', extend({
+    // we extend the signatures of multiplyScalar with signatures dealing with matrices
+
+    'Array, Array': function (x, y) {
+      // check dimensions
+      _validateMatrixDimensions(array.size(x), array.size(y));
+
+      // use dense matrix implementation
+      var m = multiply(matrix(x), matrix(y));
+      // return array or scalar
+      return (m && m.isMatrix === true) ? m.valueOf() : m;
     },
 
-    'string': function (format) {
-      return _create([], format);
-    },
-    
-    'string, string': function (format, datatype) {
-      return _create([], format, datatype);
+    'Matrix, Matrix': function (x, y) {
+      // dimensions
+      var xsize = x.size();
+      var ysize = y.size();
+
+      // check dimensions
+      _validateMatrixDimensions(xsize, ysize);
+
+      // process dimensions
+      if (xsize.length === 1) {
+        // process y dimensions
+        if (ysize.length === 1) {
+          // Vector * Vector
+          return _multiplyVectorVector(x, y, xsize[0]);
+        }
+        // Vector * Matrix
+        return _multiplyVectorMatrix(x, y);
+      }
+      // process y dimensions
+      if (ysize.length === 1) {
+        // Matrix * Vector
+        return _multiplyMatrixVector(x, y);
+      }
+      // Matrix * Matrix
+      return _multiplyMatrixMatrix(x, y);
     },
 
-    'Array': function (data) {
-      return _create(data);
+    'Matrix, Array': function (x, y) {
+      // use Matrix * Matrix implementation
+      return multiply(x, matrix(y));
     },
+
+    'Array, Matrix': function (x, y) {
+      // use Matrix * Matrix implementation
+      return multiply(matrix(x, y.storage()), y);
+    },
+
+    'Matrix, any': function (x, y) {
+      // result
+      var c;
       
-    'Matrix': function (data) {
-      return _create(data, data.storage());
+      // process storage format
+      switch (x.storage()) {
+        case 'sparse':
+          c = algorithm11(x, y, multiplyScalar, false);
+          break;
+        case 'dense':
+          c = algorithm14(x, y, multiplyScalar, false);
+          break;
+      }
+      return c;
     },
-    
-    'Array | Matrix, string': _create,
-    
-    'Array | Matrix, string, string': _create
-  });
 
-  matrix.toTex = {
-    0: '\\begin{bmatrix}\\end{bmatrix}',
-    1: '\\left(${args[0]}\\right)',
-    2: '\\left(${args[0]}\\right)'
+    'any, Matrix': function (x, y) {
+      // result
+      var c;
+      // check storage format
+      switch (y.storage()) {
+        case 'sparse':
+          c = algorithm11(y, x, multiplyScalar, true);
+          break;
+        case 'dense':
+          c = algorithm14(y, x, multiplyScalar, true);
+          break;
+      }
+      return c;
+    },
+
+    'Array, any': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(x), y, multiplyScalar, false).valueOf();
+    },
+
+    'any, Array': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(y), x, multiplyScalar, true).valueOf();
+    },
+
+    'any, any': multiplyScalar,
+
+    'any, any, ...any': function (x, y, rest) {
+      var result = multiply(x, y);
+
+      for (var i = 0; i < rest.length; i++) {
+        result = multiply(result, rest[i]);
+      }
+
+      return result;
+    }
+  }, multiplyScalar.signatures));
+
+  var _validateMatrixDimensions = function (size1, size2) {
+    // check left operand dimensions
+    switch (size1.length) {
+      case 1:
+        // check size2
+        switch (size2.length) {
+          case 1:
+            // Vector x Vector
+            if (size1[0] !== size2[0]) {
+              // throw error
+              throw new RangeError('Dimension mismatch in multiplication. Vectors must have the same length');
+            }
+            break;
+          case 2:
+            // Vector x Matrix
+            if (size1[0] !== size2[0]) {
+              // throw error
+              throw new RangeError('Dimension mismatch in multiplication. Vector length (' + size1[0] + ') must match Matrix rows (' + size2[0] + ')');
+            }
+            break;
+          default:
+            throw new Error('Can only multiply a 1 or 2 dimensional matrix (Matrix B has ' + size2.length + ' dimensions)');
+        }
+        break;
+      case 2:
+        // check size2
+        switch (size2.length) {
+          case 1:
+            // Matrix x Vector
+            if (size1[1] !== size2[0]) {
+              // throw error
+              throw new RangeError('Dimension mismatch in multiplication. Matrix columns (' + size1[1] + ') must match Vector length (' + size2[0] + ')');
+            }
+            break;
+          case 2:
+            // Matrix x Matrix
+            if (size1[1] !== size2[0]) {
+              // throw error
+              throw new RangeError('Dimension mismatch in multiplication. Matrix A columns (' + size1[1] + ') must match Matrix B rows (' + size2[0] + ')');
+            }
+            break;
+          default:
+            throw new Error('Can only multiply a 1 or 2 dimensional matrix (Matrix B has ' + size2.length + ' dimensions)');
+        }
+        break;
+      default:
+        throw new Error('Can only multiply a 1 or 2 dimensional matrix (Matrix A has ' + size1.length + ' dimensions)');
+    }
   };
 
-  return matrix;
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            Dense Vector   (N)
+   * @param {Matrix} b            Dense Vector   (N)
+   *
+   * @return {number}             Scalar value
+   */
+  var _multiplyVectorVector = function (a, b, n) {
+    // check empty vector
+    if (n === 0)
+      throw new Error('Cannot multiply two empty vectors');
+
+    // a dense
+    var adata = a._data;
+    var adt = a._datatype;
+    // b dense
+    var bdata = b._data;
+    var bdt = b._datatype;
+
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+    }
+    
+    // result (do not initialize it with zero)
+    var c = mf(adata[0], bdata[0]);
+    // loop data
+    for (var i = 1; i < n; i++) {
+      // multiply and accumulate
+      c = af(c, mf(adata[i], bdata[i]));
+    }
+    return c;
+  };
 
   /**
-   * Create a new Matrix with given storage format
-   * @param {Array} data
-   * @param {string} [format]
-   * @param {string} [datatype]
-   * @returns {Matrix} Returns a new Matrix
-   * @private
+   * C = A * B
+   *
+   * @param {Matrix} a            Dense Vector   (M)
+   * @param {Matrix} b            Matrix         (MxN)
+   *
+   * @return {Matrix}             Dense Vector   (N)
    */
-  function _create(data, format, datatype) {
-    // get storage format constructor
-    var M = type.Matrix.storage(format || 'default');
+  var _multiplyVectorMatrix = function (a, b) {
+    // process storage
+    switch (b.storage()) {
+      case 'dense':
+        return _multiplyVectorDenseMatrix(a, b);
+    }
+    throw new Error('Not implemented');
+  };
 
-    // create instance
-    return new M(data, datatype);
-  }
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            Dense Vector   (M)
+   * @param {Matrix} b            Dense Matrix   (MxN)
+   *
+   * @return {Matrix}             Dense Vector   (N)
+   */
+  var _multiplyVectorDenseMatrix = function (a, b) {
+    // a dense
+    var adata = a._data;
+    var asize = a._size;
+    var adt = a._datatype;
+    // b dense
+    var bdata = b._data;
+    var bsize = b._size;
+    var bdt = b._datatype;
+    // rows & columns
+    var alength = asize[0];
+    var bcolumns = bsize[1];
+
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+    }
+
+    // result
+    var c = [];
+
+    // loop matrix columns
+    for (var j = 0; j < bcolumns; j++) {
+      // sum (do not initialize it with zero)
+      var sum = mf(adata[0], bdata[0][j]);      
+      // loop vector
+      for (var i = 1; i < alength; i++) {
+        // multiply & accumulate
+        sum = af(sum, mf(adata[i], bdata[i][j]));
+      }
+      c[j] = sum;
+    }
+
+    // return matrix
+    return new DenseMatrix({
+      data: c,
+      size: [bcolumns],
+      datatype: dt
+    });
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            Matrix         (MxN)
+   * @param {Matrix} b            Dense Vector   (N)
+   *
+   * @return {Matrix}             Dense Vector   (M)
+   */
+  var _multiplyMatrixVector = function (a, b) {
+    // process storage
+    switch (a.storage()) {
+      case 'dense':
+        return _multiplyDenseMatrixVector(a, b);
+      case 'sparse':
+        return _multiplySparseMatrixVector(a, b);
+    }
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            Matrix         (MxN)
+   * @param {Matrix} b            Matrix         (NxC)
+   *
+   * @return {Matrix}             Matrix         (MxC)
+   */
+  var _multiplyMatrixMatrix = function (a, b) {
+    // process storage
+    switch (a.storage()) {
+      case 'dense':
+        // process storage
+        switch (b.storage()) {
+          case 'dense':
+            return _multiplyDenseMatrixDenseMatrix(a, b);
+          case 'sparse':
+            return _multiplyDenseMatrixSparseMatrix(a, b);
+        }
+        break;
+      case 'sparse':
+        // process storage
+        switch (b.storage()) {
+          case 'dense':
+            return _multiplySparseMatrixDenseMatrix(a, b);
+          case 'sparse':
+            return _multiplySparseMatrixSparseMatrix(a, b);
+        }
+        break;
+    }
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            DenseMatrix  (MxN)
+   * @param {Matrix} b            Dense Vector (N)
+   *
+   * @return {Matrix}             Dense Vector (M) 
+   */ 
+  var _multiplyDenseMatrixVector = function (a, b) {
+    // a dense
+    var adata = a._data;
+    var asize = a._size;
+    var adt = a._datatype;
+    // b dense
+    var bdata = b._data;
+    var bdt = b._datatype;
+    // rows & columns
+    var arows = asize[0];
+    var acolumns = asize[1];
+
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+    }
+
+    // result
+    var c = [];
+
+    // loop matrix a rows
+    for (var i = 0; i < arows; i++) {
+      // current row
+      var row = adata[i];
+      // sum (do not initialize it with zero)
+      var sum = mf(row[0], bdata[0]);
+      // loop matrix a columns
+      for (var j = 1; j < acolumns; j++) {
+        // multiply & accumulate
+        sum = af(sum, mf(row[j], bdata[j]));
+      }
+      c[i] = sum;
+    }
+
+    // return matrix
+    return new DenseMatrix({
+      data: c,
+      size: [arows],
+      datatype: dt
+    });
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            DenseMatrix    (MxN)
+   * @param {Matrix} b            DenseMatrix    (NxC)
+   *
+   * @return {Matrix}             DenseMatrix    (MxC)
+   */
+  var _multiplyDenseMatrixDenseMatrix = function (a, b) {
+    // a dense
+    var adata = a._data;
+    var asize = a._size;
+    var adt = a._datatype;
+    // b dense
+    var bdata = b._data;
+    var bsize = b._size;
+    var bdt = b._datatype;
+    // rows & columns
+    var arows = asize[0];
+    var acolumns = asize[1];
+    var bcolumns = bsize[1];
+
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+    }
+    
+    // result
+    var c = [];
+
+    // loop matrix a rows
+    for (var i = 0; i < arows; i++) {
+      // current row
+      var row = adata[i];
+      // initialize row array
+      c[i] = [];
+      // loop matrix b columns
+      for (var j = 0; j < bcolumns; j++) {
+        // sum (avoid initializing sum to zero)
+        var sum = mf(row[0], bdata[0][j]);
+        // loop matrix a columns
+        for (var x = 1; x < acolumns; x++) {
+          // multiply & accumulate
+          sum = af(sum, mf(row[x], bdata[x][j]));
+        }
+        c[i][j] = sum;
+      }
+    }
+
+    // return matrix
+    return new DenseMatrix({
+      data: c,
+      size: [arows, bcolumns],
+      datatype: dt
+    });
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            DenseMatrix    (MxN)
+   * @param {Matrix} b            SparseMatrix   (NxC)
+   *
+   * @return {Matrix}             SparseMatrix   (MxC)
+   */
+  var _multiplyDenseMatrixSparseMatrix = function (a, b) {
+    // a dense
+    var adata = a._data;
+    var asize = a._size;
+    var adt = a._datatype;
+    // b sparse
+    var bvalues = b._values;
+    var bindex = b._index;
+    var bptr = b._ptr;
+    var bsize = b._size;
+    var bdt = b._datatype;
+    // validate b matrix
+    if (!bvalues)
+      throw new Error('Cannot multiply Dense Matrix times Pattern only Matrix');
+    // rows & columns
+    var arows = asize[0];
+    var bcolumns = bsize[1];
+    
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+    // equalScalar signature to use
+    var eq = equalScalar;
+    // zero value
+    var zero = 0;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+      eq = typed.find(equalScalar, [dt, dt]);
+      // convert 0 to the same datatype
+      zero = typed.convert(0, dt);
+    }
+
+    // result
+    var cvalues = [];
+    var cindex = [];
+    var cptr = [];
+    // c matrix
+    var c = new SparseMatrix({
+      values : cvalues,
+      index: cindex,
+      ptr: cptr,
+      size: [arows, bcolumns],
+      datatype: dt
+    });
+
+    // loop b columns
+    for (var jb = 0; jb < bcolumns; jb++) {
+      // update ptr
+      cptr[jb] = cindex.length;
+      // indeces in column jb
+      var kb0 = bptr[jb];
+      var kb1 = bptr[jb + 1];
+      // do not process column jb if no data exists
+      if (kb1 > kb0) {
+        // last row mark processed
+        var last = 0;
+        // loop a rows
+        for (var i = 0; i < arows; i++) {
+          // column mark
+          var mark = i + 1;
+          // C[i, jb]
+          var cij;
+          // values in b column j
+          for (var kb = kb0; kb < kb1; kb++) {
+            // row
+            var ib = bindex[kb];
+            // check value has been initialized
+            if (last !== mark) {
+              // first value in column jb
+              cij = mf(adata[i][ib], bvalues[kb]);
+              // update mark
+              last = mark;
+            }
+            else {
+              // accumulate value
+              cij = af(cij, mf(adata[i][ib], bvalues[kb]));
+            }
+          }
+          // check column has been processed and value != 0
+          if (last === mark && !eq(cij, zero)) {
+            // push row & value
+            cindex.push(i);
+            cvalues.push(cij);
+          }
+        }
+      }
+    }
+    // update ptr
+    cptr[bcolumns] = cindex.length;
+
+    // return sparse matrix
+    return c;
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            SparseMatrix    (MxN)
+   * @param {Matrix} b            Dense Vector (N)
+   *
+   * @return {Matrix}             SparseMatrix    (M, 1) 
+   */
+  var _multiplySparseMatrixVector = function (a, b) {
+    // a sparse
+    var avalues = a._values;
+    var aindex = a._index;
+    var aptr = a._ptr;
+    var adt = a._datatype;
+    // validate a matrix
+    if (!avalues)
+      throw new Error('Cannot multiply Pattern only Matrix times Dense Matrix');
+    // b dense
+    var bdata = b._data;
+    var bdt = b._datatype;
+    // rows & columns
+    var arows = a._size[0];
+    var brows = b._size[0];
+    // result
+    var cvalues = [];
+    var cindex = [];
+    var cptr = [];
+    
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+    // equalScalar signature to use
+    var eq = equalScalar;
+    // zero value
+    var zero = 0;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+      eq = typed.find(equalScalar, [dt, dt]);
+      // convert 0 to the same datatype
+      zero = typed.convert(0, dt);
+    }
+
+    // workspace
+    var x = [];
+    // vector with marks indicating a value x[i] exists in a given column
+    var w = [];
+
+    // update ptr
+    cptr[0] = 0;
+    // rows in b
+    for (var ib = 0; ib < brows; ib++) {
+      // b[ib]
+      var vbi = bdata[ib];
+      // check b[ib] != 0, avoid loops
+      if (!eq(vbi, zero)) {
+        // A values & index in ib column
+        for (var ka0 = aptr[ib], ka1 = aptr[ib + 1], ka = ka0; ka < ka1; ka++) {
+          // a row
+          var ia = aindex[ka];
+          // check value exists in current j
+          if (!w[ia]) {
+            // ia is new entry in j
+            w[ia] = true;
+            // add i to pattern of C
+            cindex.push(ia);
+            // x(ia) = A
+            x[ia] = mf(vbi, avalues[ka]);
+          }
+          else {
+            // i exists in C already
+            x[ia] = af(x[ia], mf(vbi, avalues[ka]));
+          }
+        }
+      }
+    }
+    // copy values from x to column jb of c
+    for (var p1 = cindex.length, p = 0; p < p1; p++) {
+      // row
+      var ic = cindex[p];
+      // copy value
+      cvalues[p] = x[ic];
+    }
+    // update ptr
+    cptr[1] = cindex.length;
+
+    // return sparse matrix
+    return new SparseMatrix({
+      values : cvalues,
+      index: cindex,
+      ptr: cptr,
+      size: [arows, 1],
+      datatype: dt
+    });
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            SparseMatrix      (MxN)
+   * @param {Matrix} b            DenseMatrix       (NxC)
+   *
+   * @return {Matrix}             SparseMatrix      (MxC)
+   */
+  var _multiplySparseMatrixDenseMatrix = function (a, b) {
+    // a sparse
+    var avalues = a._values;
+    var aindex = a._index;
+    var aptr = a._ptr;
+    var adt = a._datatype;
+    // validate a matrix
+    if (!avalues)
+      throw new Error('Cannot multiply Pattern only Matrix times Dense Matrix');
+    // b dense
+    var bdata = b._data;
+    var bdt = b._datatype;
+    // rows & columns
+    var arows = a._size[0];
+    var brows = b._size[0];
+    var bcolumns = b._size[1];
+
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+    // equalScalar signature to use
+    var eq = equalScalar;
+    // zero value
+    var zero = 0;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+      eq = typed.find(equalScalar, [dt, dt]);
+      // convert 0 to the same datatype
+      zero = typed.convert(0, dt);
+    }
+
+    // result
+    var cvalues = [];
+    var cindex = [];
+    var cptr = [];
+    // c matrix
+    var c = new SparseMatrix({
+      values : cvalues,
+      index: cindex,
+      ptr: cptr,
+      size: [arows, bcolumns],
+      datatype: dt
+    });
+
+    // workspace
+    var x = [];
+    // vector with marks indicating a value x[i] exists in a given column
+    var w = [];
+
+    // loop b columns
+    for (var jb = 0; jb < bcolumns; jb++) {
+      // update ptr
+      cptr[jb] = cindex.length;
+      // mark in workspace for current column
+      var mark = jb + 1;
+      // rows in jb
+      for (var ib = 0; ib < brows; ib++) {
+        // b[ib, jb]
+        var vbij = bdata[ib][jb];
+        // check b[ib, jb] != 0, avoid loops
+        if (!eq(vbij, zero)) {
+          // A values & index in ib column
+          for (var ka0 = aptr[ib], ka1 = aptr[ib + 1], ka = ka0; ka < ka1; ka++) {
+            // a row
+            var ia = aindex[ka];
+            // check value exists in current j
+            if (w[ia] !== mark) {
+              // ia is new entry in j
+              w[ia] = mark;
+              // add i to pattern of C
+              cindex.push(ia);
+              // x(ia) = A
+              x[ia] = mf(vbij, avalues[ka]);
+            }
+            else {
+              // i exists in C already
+              x[ia] = af(x[ia], mf(vbij, avalues[ka]));
+            }
+          }
+        }
+      }
+      // copy values from x to column jb of c
+      for (var p0 = cptr[jb], p1 = cindex.length, p = p0; p < p1; p++) {
+        // row
+        var ic = cindex[p];
+        // copy value
+        cvalues[p] = x[ic];
+      }
+    }
+    // update ptr
+    cptr[bcolumns] = cindex.length;
+
+    // return sparse matrix
+    return c;
+  };
+
+  /**
+   * C = A * B
+   *
+   * @param {Matrix} a            SparseMatrix      (MxN)
+   * @param {Matrix} b            SparseMatrix      (NxC)
+   *
+   * @return {Matrix}             SparseMatrix      (MxC)
+   */
+  var _multiplySparseMatrixSparseMatrix = function (a, b) {
+    // a sparse
+    var avalues = a._values;
+    var aindex = a._index;
+    var aptr = a._ptr;
+    var adt = a._datatype;
+    // b sparse
+    var bvalues = b._values;
+    var bindex = b._index;
+    var bptr = b._ptr;
+    var bdt = b._datatype;
+    
+    // rows & columns
+    var arows = a._size[0];
+    var bcolumns = b._size[1];
+    // flag indicating both matrices (a & b) contain data
+    var values = avalues && bvalues;
+
+    // datatype
+    var dt;
+    // addScalar signature to use
+    var af = addScalar;
+    // multiplyScalar signature to use
+    var mf = multiplyScalar;
+
+    // process data types
+    if (adt && bdt && adt === bdt && typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signatures that matches (dt, dt)
+      af = typed.find(addScalar, [dt, dt]);
+      mf = typed.find(multiplyScalar, [dt, dt]);
+    }
+    
+    // result
+    var cvalues = values ? [] : undefined;
+    var cindex = [];
+    var cptr = [];
+    // c matrix
+    var c = new SparseMatrix({
+      values : cvalues,
+      index: cindex,
+      ptr: cptr,
+      size: [arows, bcolumns],
+      datatype: dt
+    });
+
+    // workspace
+    var x = values ? [] : undefined;
+    // vector with marks indicating a value x[i] exists in a given column
+    var w = [];
+    // variables
+    var ka, ka0, ka1, kb, kb0, kb1, ia, ib;
+    // loop b columns
+    for (var jb = 0; jb < bcolumns; jb++) {
+      // update ptr
+      cptr[jb] = cindex.length;
+      // mark in workspace for current column
+      var mark = jb + 1;
+      // B values & index in j
+      for (kb0 = bptr[jb], kb1 = bptr[jb + 1], kb = kb0; kb < kb1; kb++) {
+        // b row
+        ib = bindex[kb];
+        // check we need to process values
+        if (values) {
+          // loop values in a[:,ib]
+          for (ka0 = aptr[ib], ka1 = aptr[ib + 1], ka = ka0; ka < ka1; ka++) {
+            // row
+            ia = aindex[ka];
+            // check value exists in current j
+            if (w[ia] !== mark) {
+              // ia is new entry in j
+              w[ia] = mark;
+              // add i to pattern of C
+              cindex.push(ia);
+              // x(ia) = A
+              x[ia] = mf(bvalues[kb], avalues[ka]);
+            }
+            else {
+              // i exists in C already
+              x[ia] = af(x[ia], mf(bvalues[kb], avalues[ka]));
+            }
+          }
+        }
+        else {
+          // loop values in a[:,ib]
+          for (ka0 = aptr[ib], ka1 = aptr[ib + 1], ka = ka0; ka < ka1; ka++) {
+            // row
+            ia = aindex[ka];
+            // check value exists in current j
+            if (w[ia] !== mark) {
+              // ia is new entry in j
+              w[ia] = mark;
+              // add i to pattern of C
+              cindex.push(ia);
+            }
+          }
+        }
+      }
+      // check we need to process matrix values (pattern matrix)
+      if (values) {
+        // copy values from x to column jb of c
+        for (var p0 = cptr[jb], p1 = cindex.length, p = p0; p < p1; p++) {
+          // row
+          var ic = cindex[p];
+          // copy value
+          cvalues[p] = x[ic];
+        }
+      }
+    }
+    // update ptr
+    cptr[bcolumns] = cindex.length;
+
+    // return sparse matrix
+    return c;
+  };
+
+  multiply.toTex = {
+    2: '\\left(${args[0]}' + latex.operators['multiply'] + '${args[1]}\\right)'
+  };
+
+  return multiply;
 }
 
-exports.name = 'matrix';
+exports.name = 'multiply';
 exports.factory = factory;
 
 
@@ -1354,302 +3663,10 @@ exports.factory = factory;
 /* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var baseMatches = __webpack_require__(59),
-    baseMatchesProperty = __webpack_require__(124),
-    identity = __webpack_require__(135),
-    isArray = __webpack_require__(3),
-    property = __webpack_require__(136);
-
-/**
- * The base implementation of `_.iteratee`.
- *
- * @private
- * @param {*} [value=_.identity] The value to convert to an iteratee.
- * @returns {Function} Returns the iteratee.
- */
-function baseIteratee(value) {
-  // Don't store the `typeof` result in a variable to avoid a JIT bug in Safari 9.
-  // See https://bugs.webkit.org/show_bug.cgi?id=156034 for more details.
-  if (typeof value == 'function') {
-    return value;
-  }
-  if (value == null) {
-    return identity;
-  }
-  if (typeof value == 'object') {
-    return isArray(value)
-      ? baseMatchesProperty(value[0], value[1])
-      : baseMatches(value);
-  }
-  return property(value);
-}
-
-module.exports = baseIteratee;
-
-
-/***/ }),
-/* 19 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getNative = __webpack_require__(5),
-    root = __webpack_require__(1);
-
-/* Built-in method references that are verified to be native. */
-var Map = getNative(root, 'Map');
-
-module.exports = Map;
-
-
-/***/ }),
-/* 20 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var mapCacheClear = __webpack_require__(78),
-    mapCacheDelete = __webpack_require__(85),
-    mapCacheGet = __webpack_require__(87),
-    mapCacheHas = __webpack_require__(88),
-    mapCacheSet = __webpack_require__(89);
-
-/**
- * Creates a map cache object to store key-value pairs.
- *
- * @private
- * @constructor
- * @param {Array} [entries] The key-value pairs to cache.
- */
-function MapCache(entries) {
-  var index = -1,
-      length = entries == null ? 0 : entries.length;
-
-  this.clear();
-  while (++index < length) {
-    var entry = entries[index];
-    this.set(entry[0], entry[1]);
-  }
-}
-
-// Add methods to `MapCache`.
-MapCache.prototype.clear = mapCacheClear;
-MapCache.prototype['delete'] = mapCacheDelete;
-MapCache.prototype.get = mapCacheGet;
-MapCache.prototype.has = mapCacheHas;
-MapCache.prototype.set = mapCacheSet;
-
-module.exports = MapCache;
-
-
-/***/ }),
-/* 21 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var arrayLikeKeys = __webpack_require__(107),
-    baseKeys = __webpack_require__(114),
-    isArrayLike = __webpack_require__(44);
-
-/**
- * Creates an array of the own enumerable property names of `object`.
- *
- * **Note:** Non-object values are coerced to objects. See the
- * [ES spec](http://ecma-international.org/ecma-262/7.0/#sec-object.keys)
- * for more details.
- *
- * @static
- * @since 0.1.0
- * @memberOf _
- * @category Object
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- *   this.b = 2;
- * }
- *
- * Foo.prototype.c = 3;
- *
- * _.keys(new Foo);
- * // => ['a', 'b'] (iteration order is not guaranteed)
- *
- * _.keys('hi');
- * // => ['0', '1']
- */
-function keys(object) {
-  return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
-}
-
-module.exports = keys;
-
-
-/***/ }),
-/* 22 */
-/***/ (function(module, exports) {
-
-/** Used as references for various `Number` constants. */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/** Used to detect unsigned integer values. */
-var reIsUint = /^(?:0|[1-9]\d*)$/;
-
-/**
- * Checks if `value` is a valid array-like index.
- *
- * @private
- * @param {*} value The value to check.
- * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
- * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
- */
-function isIndex(value, length) {
-  length = length == null ? MAX_SAFE_INTEGER : length;
-  return !!length &&
-    (typeof value == 'number' || reIsUint.test(value)) &&
-    (value > -1 && value % 1 == 0 && value < length);
-}
-
-module.exports = isIndex;
-
-
-/***/ }),
-/* 23 */
-/***/ (function(module, exports) {
-
-/** Used as references for various `Number` constants. */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This method is loosely based on
- * [`ToLength`](http://ecma-international.org/ecma-262/7.0/#sec-tolength).
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- * @example
- *
- * _.isLength(3);
- * // => true
- *
- * _.isLength(Number.MIN_VALUE);
- * // => false
- *
- * _.isLength(Infinity);
- * // => false
- *
- * _.isLength('3');
- * // => false
- */
-function isLength(value) {
-  return typeof value == 'number' &&
-    value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-module.exports = isLength;
-
-
-/***/ }),
-/* 24 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var castPath = __webpack_require__(25),
-    toKey = __webpack_require__(8);
-
-/**
- * The base implementation of `_.get` without support for default values.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {Array|string} path The path of the property to get.
- * @returns {*} Returns the resolved value.
- */
-function baseGet(object, path) {
-  path = castPath(path, object);
-
-  var index = 0,
-      length = path.length;
-
-  while (object != null && index < length) {
-    object = object[toKey(path[index++])];
-  }
-  return (index && index == length) ? object : undefined;
-}
-
-module.exports = baseGet;
-
-
-/***/ }),
-/* 25 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isArray = __webpack_require__(3),
-    isKey = __webpack_require__(26),
-    stringToPath = __webpack_require__(126),
-    toString = __webpack_require__(129);
-
-/**
- * Casts `value` to a path array if it's not one.
- *
- * @private
- * @param {*} value The value to inspect.
- * @param {Object} [object] The object to query keys on.
- * @returns {Array} Returns the cast property path array.
- */
-function castPath(value, object) {
-  if (isArray(value)) {
-    return value;
-  }
-  return isKey(value, object) ? [value] : stringToPath(toString(value));
-}
-
-module.exports = castPath;
-
-
-/***/ }),
-/* 26 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isArray = __webpack_require__(3),
-    isSymbol = __webpack_require__(16);
-
-/** Used to match property names within property paths. */
-var reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/,
-    reIsPlainProp = /^\w*$/;
-
-/**
- * Checks if `value` is a property name and not a property path.
- *
- * @private
- * @param {*} value The value to check.
- * @param {Object} [object] The object to query keys on.
- * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
- */
-function isKey(value, object) {
-  if (isArray(value)) {
-    return false;
-  }
-  var type = typeof value;
-  if (type == 'number' || type == 'symbol' || type == 'boolean' ||
-      value == null || isSymbol(value)) {
-    return true;
-  }
-  return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
-    (object != null && value in Object(object));
-}
-
-module.exports = isKey;
-
-
-/***/ }),
-/* 27 */
-/***/ (function(module, exports, __webpack_require__) {
-
 "use strict";
 
 
-var util = __webpack_require__(9);
+var util = __webpack_require__(5);
 
 var string = util.string;
 
@@ -1916,1174 +3933,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 28 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var nearlyEqual = __webpack_require__(2).nearlyEqual;
-var bigNearlyEqual = __webpack_require__(29);
-
-function factory (type, config, load, typed) {
-  
-  /**
-   * Test whether two values are equal.
-   *
-   * @param  {number | BigNumber | Fraction | boolean | Complex | Unit} x   First value to compare
-   * @param  {number | BigNumber | Fraction | boolean | Complex} y          Second value to compare
-   * @return {boolean}                                                  Returns true when the compared values are equal, else returns false
-   * @private
-   */
-  var equalScalar = typed('equalScalar', {
-
-    'boolean, boolean': function (x, y) {
-      return x === y;
-    },
-
-    'number, number': function (x, y) {
-      return x === y || nearlyEqual(x, y, config.epsilon);
-    },
-
-    'BigNumber, BigNumber': function (x, y) {
-      return x.eq(y) || bigNearlyEqual(x, y, config.epsilon);
-    },
-
-    'Fraction, Fraction': function (x, y) {
-      return x.equals(y);
-    },
-
-    'Complex, Complex': function (x, y) {
-      return x.equals(y);
-    },
-
-    'Unit, Unit': function (x, y) {
-      if (!x.equalBase(y)) {
-        throw new Error('Cannot compare units with different base');
-      }
-      return equalScalar(x.value, y.value);
-    },
-
-    'string, string': function (x, y) {
-      return x === y;
-    }
-  });
-  
-  return equalScalar;
-}
-
-exports.factory = factory;
-
-
-/***/ }),
-/* 29 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-/**
- * Compares two BigNumbers.
- * @param {BigNumber} x       First value to compare
- * @param {BigNumber} y       Second value to compare
- * @param {number} [epsilon]  The maximum relative difference between x and y
- *                            If epsilon is undefined or null, the function will
- *                            test whether x and y are exactly equal.
- * @return {boolean} whether the two numbers are nearly equal
- */
-module.exports = function nearlyEqual(x, y, epsilon) {
-  // if epsilon is null or undefined, test whether x and y are exactly equal
-  if (epsilon == null) {
-    return x.eq(y);
-  }
-
-
-  // use "==" operator, handles infinities
-  if (x.eq(y)) {
-    return true;
-  }
-
-  // NaN
-  if (x.isNaN() || y.isNaN()) {
-    return false;
-  }
-
-  // at this point x and y should be finite
-  if(x.isFinite() && y.isFinite()) {
-    // check numbers are very close, needed when comparing numbers near zero
-    var diff = x.minus(y).abs();
-    if (diff.isZero()) {
-      return true;
-    }
-    else {
-      // use relative error
-      var max = x.constructor.max(x.abs(), y.abs());
-      return diff.lte(max.times(epsilon));
-    }
-  }
-
-  // Infinite and Number or negative Infinite and positive Infinite cases
-  return false;
-};
-
-
-/***/ }),
-/* 30 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-exports.symbols = {
-  // GREEK LETTERS
-  Alpha: 'A',     alpha: '\\alpha',
-  Beta: 'B',      beta: '\\beta',
-  Gamma: '\\Gamma',    gamma: '\\gamma',
-  Delta: '\\Delta',    delta: '\\delta',
-  Epsilon: 'E',   epsilon: '\\epsilon',  varepsilon: '\\varepsilon',
-  Zeta: 'Z',      zeta: '\\zeta',
-  Eta: 'H',       eta: '\\eta',
-  Theta: '\\Theta',    theta: '\\theta',    vartheta: '\\vartheta',
-  Iota: 'I',      iota: '\\iota',
-  Kappa: 'K',     kappa: '\\kappa',    varkappa: '\\varkappa',
-  Lambda: '\\Lambda',   lambda: '\\lambda',
-  Mu: 'M',        mu: '\\mu',
-  Nu: 'N',        nu: '\\nu',
-  Xi: '\\Xi',       xi: '\\xi',
-  Omicron: 'O',   omicron: 'o',
-  Pi: '\\Pi',       pi: '\\pi',       varpi: '\\varpi',
-  Rho: 'P',       rho: '\\rho',      varrho: '\\varrho',
-  Sigma: '\\Sigma',    sigma: '\\sigma',    varsigma: '\\varsigma',
-  Tau: 'T',       tau: '\\tau',
-  Upsilon: '\\Upsilon',  upsilon: '\\upsilon',
-  Phi: '\\Phi',      phi: '\\phi',      varphi: '\\varphi',
-  Chi: 'X',       chi: '\\chi',
-  Psi: '\\Psi',      psi: '\\psi',
-  Omega: '\\Omega',    omega: '\\omega',
-  //logic
-  'true': '\\mathrm{True}',
-  'false': '\\mathrm{False}',
-  //other
-  i: 'i', //TODO use \i ??
-  inf: '\\infty',
-  Inf: '\\infty',
-  infinity: '\\infty',
-  Infinity: '\\infty',
-  oo: '\\infty',
-  lim: '\\lim',
-  'undefined': '\\mathbf{?}'
-};
-
-exports.operators = {
-  'transpose': '^\\top',
-  'factorial': '!',
-  'pow': '^',
-  'dotPow': '.^\\wedge', //TODO find ideal solution
-  'unaryPlus': '+',
-  'unaryMinus': '-',
-  'bitNot': '~', //TODO find ideal solution
-  'not': '\\neg',
-  'multiply': '\\cdot',
-  'divide': '\\frac', //TODO how to handle that properly?
-  'dotMultiply': '.\\cdot', //TODO find ideal solution
-  'dotDivide': '.:', //TODO find ideal solution
-  'mod': '\\mod',
-  'add': '+',
-  'subtract': '-',
-  'to': '\\rightarrow',
-  'leftShift': '<<',
-  'rightArithShift': '>>',
-  'rightLogShift': '>>>',
-  'equal': '=',
-  'unequal': '\\neq',
-  'smaller': '<',
-  'larger': '>',
-  'smallerEq': '\\leq',
-  'largerEq': '\\geq',
-  'bitAnd': '\\&',
-  'bitXor': '\\underline{|}',
-  'bitOr': '|',
-  'and': '\\wedge',
-  'xor': '\\veebar',
-  'or': '\\vee'
-};
-
-exports.defaultTemplate = '\\mathrm{${name}}\\left(${args}\\right)';
-
-var units = {
-  deg: '^\\circ'
-};
-
-//@param {string} name
-//@param {boolean} isUnit
-exports.toSymbol = function (name, isUnit) {
-  isUnit = typeof isUnit === 'undefined' ? false : isUnit;
-  if (isUnit) {
-    if (units.hasOwnProperty(name)) {
-      return units[name];
-    }
-    return '\\mathrm{' + name + '}';
-  }
-
-  if (exports.symbols.hasOwnProperty(name)) {
-    return exports.symbols[name];
-  }
-  else if (name.indexOf('_') !== -1) {
-    //symbol with index (eg. alpha_1)
-    var index = name.indexOf('_');
-    return exports.toSymbol(name.substring(0, index)) + '_{'
-      + exports.toSymbol(name.substring(index + 1)) + '}';
-  }
-  return name;
-};
-
-
-/***/ }),
-/* 31 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var util = __webpack_require__(9);
-var DimensionError = __webpack_require__(4);
-
-var string = util.string,
-    isString = string.isString;
-
-function factory (type, config, load, typed) {
-
-  var DenseMatrix = type.DenseMatrix;
-
-  /**
-   * Iterates over DenseMatrix items and invokes the callback function f(Aij..z, Bij..z). 
-   * Callback function invoked MxN times.
-   *
-   * C(i,j,...z) = f(Aij..z, Bij..z)
-   *
-   * @param {Matrix}   a                 The DenseMatrix instance (A)
-   * @param {Matrix}   b                 The DenseMatrix instance (B)
-   * @param {Function} callback          The f(Aij..z,Bij..z) operation to invoke
-   *
-   * @return {Matrix}                    DenseMatrix (C)
-   *
-   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97658658
-   */
-  var algorithm13 = function (a, b, callback) {
-    // a arrays
-    var adata = a._data;
-    var asize = a._size;
-    var adt = a._datatype;
-    // b arrays
-    var bdata = b._data;
-    var bsize = b._size;
-    var bdt = b._datatype;
-    // c arrays
-    var csize = [];
-
-    // validate dimensions
-    if (asize.length !== bsize.length)
-      throw new DimensionError(asize.length, bsize.length);
-
-    // validate each one of the dimension sizes
-    for (var s = 0; s < asize.length; s++) {
-      // must match
-      if (asize[s] !== bsize[s])
-        throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
-      // update dimension in c
-      csize[s] = asize[s];
-    }
-
-    // datatype
-    var dt;
-    // callback signature to use
-    var cf = callback;
-
-    // process data types
-    if (typeof adt === 'string' && adt === bdt) {
-      // datatype
-      dt = adt;
-      // convert b to the same datatype
-      b = typed.convert(b, dt);
-      // callback
-      cf = typed.find(callback, [dt, dt]);
-    }
-
-    // populate cdata, iterate through dimensions
-    var cdata = csize.length > 0 ? _iterate(cf, 0, csize, csize[0], adata, bdata) : [];
-    
-    // c matrix
-    return new DenseMatrix({
-      data: cdata,
-      size: csize,
-      datatype: dt
-    });
-  };
-  
-  // recursive function
-  var _iterate = function (f, level, s, n, av, bv) {
-    // initialize array for this level
-    var cv = [];
-    // check we reach the last level
-    if (level === s.length - 1) {
-      // loop arrays in last level
-      for (var i = 0; i < n; i++) {
-        // invoke callback and store value
-        cv[i] = f(av[i], bv[i]);
-      }
-    }
-    else {
-      // iterate current level
-      for (var j = 0; j < n; j++) {
-        // iterate next level
-        cv[j] = _iterate(f, level + 1, s, s[level + 1], av[j], bv[j]);
-      }
-    }
-    return cv;
-  };
-  
-  return algorithm13;
-}
-
-exports.name = 'algorithm13';
-exports.factory = factory;
-
-
-/***/ }),
-/* 32 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var clone = __webpack_require__(0).clone;
-
-function factory (type, config, load, typed) {
-
-  var DenseMatrix = type.DenseMatrix;
-
-  /**
-   * Iterates over DenseMatrix items and invokes the callback function f(Aij..z, b). 
-   * Callback function invoked MxN times.
-   *
-   * C(i,j,...z) = f(Aij..z, b)
-   *
-   * @param {Matrix}   a                 The DenseMatrix instance (A)
-   * @param {Scalar}   b                 The Scalar value
-   * @param {Function} callback          The f(Aij..z,b) operation to invoke
-   * @param {boolean}  inverse           A true value indicates callback should be invoked f(b,Aij..z)
-   *
-   * @return {Matrix}                    DenseMatrix (C)
-   *
-   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97659042
-   */
-  var algorithm14 = function (a, b, callback, inverse) {
-    // a arrays
-    var adata = a._data;
-    var asize = a._size;
-    var adt = a._datatype;
-    
-    // datatype
-    var dt;
-    // callback signature to use
-    var cf = callback;
-
-    // process data types
-    if (typeof adt === 'string') {
-      // datatype
-      dt = adt;
-      // convert b to the same datatype
-      b = typed.convert(b, dt);
-      // callback
-      cf = typed.find(callback, [dt, dt]);
-    }
-    
-    // populate cdata, iterate through dimensions
-    var cdata = asize.length > 0 ? _iterate(cf, 0, asize, asize[0], adata, b, inverse) : [];
-
-    // c matrix
-    return new DenseMatrix({
-      data: cdata,
-      size: clone(asize),
-      datatype: dt
-    });
-  };
-  
-  // recursive function
-  var _iterate = function (f, level, s, n, av, bv, inverse) {
-    // initialize array for this level
-    var cv = [];
-    // check we reach the last level
-    if (level === s.length - 1) {
-      // loop arrays in last level
-      for (var i = 0; i < n; i++) {
-        // invoke callback and store value
-        cv[i] = inverse ? f(bv, av[i]) : f(av[i], bv);
-      }
-    }
-    else {
-      // iterate current level
-      for (var j = 0; j < n; j++) {
-        // iterate next level
-        cv[j] = _iterate(f, level + 1, s, s[level + 1], av[j], bv, inverse);
-      }
-    }
-    return cv;
-  };
-
-  return algorithm14;
-}
-
-exports.name = 'algorithm14';
-exports.factory = factory;
-
-
-/***/ }),
-/* 33 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var ListCache = __webpack_require__(10),
-    stackClear = __webpack_require__(66),
-    stackDelete = __webpack_require__(67),
-    stackGet = __webpack_require__(68),
-    stackHas = __webpack_require__(69),
-    stackSet = __webpack_require__(70);
-
-/**
- * Creates a stack cache object to store key-value pairs.
- *
- * @private
- * @constructor
- * @param {Array} [entries] The key-value pairs to cache.
- */
-function Stack(entries) {
-  var data = this.__data__ = new ListCache(entries);
-  this.size = data.size;
-}
-
-// Add methods to `Stack`.
-Stack.prototype.clear = stackClear;
-Stack.prototype['delete'] = stackDelete;
-Stack.prototype.get = stackGet;
-Stack.prototype.has = stackHas;
-Stack.prototype.set = stackSet;
-
-module.exports = Stack;
-
-
-/***/ }),
-/* 34 */
-/***/ (function(module, exports) {
-
-/**
- * Performs a
- * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
- * comparison between two values to determine if they are equivalent.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to compare.
- * @param {*} other The other value to compare.
- * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
- * @example
- *
- * var object = { 'a': 1 };
- * var other = { 'a': 1 };
- *
- * _.eq(object, object);
- * // => true
- *
- * _.eq(object, other);
- * // => false
- *
- * _.eq('a', 'a');
- * // => true
- *
- * _.eq('a', Object('a'));
- * // => false
- *
- * _.eq(NaN, NaN);
- * // => true
- */
-function eq(value, other) {
-  return value === other || (value !== value && other !== other);
-}
-
-module.exports = eq;
-
-
-/***/ }),
-/* 35 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseGetTag = __webpack_require__(6),
-    isObject = __webpack_require__(13);
-
-/** `Object#toString` result references. */
-var asyncTag = '[object AsyncFunction]',
-    funcTag = '[object Function]',
-    genTag = '[object GeneratorFunction]',
-    proxyTag = '[object Proxy]';
-
-/**
- * Checks if `value` is classified as a `Function` object.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a function, else `false`.
- * @example
- *
- * _.isFunction(_);
- * // => true
- *
- * _.isFunction(/abc/);
- * // => false
- */
-function isFunction(value) {
-  if (!isObject(value)) {
-    return false;
-  }
-  // The use of `Object#toString` avoids issues with the `typeof` operator
-  // in Safari 9 which returns 'object' for typed arrays and other constructors.
-  var tag = baseGetTag(value);
-  return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
-}
-
-module.exports = isFunction;
-
-
-/***/ }),
-/* 36 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/* WEBPACK VAR INJECTION */(function(global) {/** Detect free variable `global` from Node.js. */
-var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
-
-module.exports = freeGlobal;
-
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(72)))
-
-/***/ }),
-/* 37 */
-/***/ (function(module, exports) {
-
-/** Used for built-in method references. */
-var funcProto = Function.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var funcToString = funcProto.toString;
-
-/**
- * Converts `func` to its source code.
- *
- * @private
- * @param {Function} func The function to convert.
- * @returns {string} Returns the source code.
- */
-function toSource(func) {
-  if (func != null) {
-    try {
-      return funcToString.call(func);
-    } catch (e) {}
-    try {
-      return (func + '');
-    } catch (e) {}
-  }
-  return '';
-}
-
-module.exports = toSource;
-
-
-/***/ }),
-/* 38 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseIsEqualDeep = __webpack_require__(90),
-    isObjectLike = __webpack_require__(7);
-
-/**
- * The base implementation of `_.isEqual` which supports partial comparisons
- * and tracks traversed objects.
- *
- * @private
- * @param {*} value The value to compare.
- * @param {*} other The other value to compare.
- * @param {boolean} bitmask The bitmask flags.
- *  1 - Unordered comparison
- *  2 - Partial comparison
- * @param {Function} [customizer] The function to customize comparisons.
- * @param {Object} [stack] Tracks traversed `value` and `other` objects.
- * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
- */
-function baseIsEqual(value, other, bitmask, customizer, stack) {
-  if (value === other) {
-    return true;
-  }
-  if (value == null || other == null || (!isObjectLike(value) && !isObjectLike(other))) {
-    return value !== value && other !== other;
-  }
-  return baseIsEqualDeep(value, other, bitmask, customizer, baseIsEqual, stack);
-}
-
-module.exports = baseIsEqual;
-
-
-/***/ }),
-/* 39 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var SetCache = __webpack_require__(91),
-    arraySome = __webpack_require__(94),
-    cacheHas = __webpack_require__(95);
-
-/** Used to compose bitmasks for value comparisons. */
-var COMPARE_PARTIAL_FLAG = 1,
-    COMPARE_UNORDERED_FLAG = 2;
-
-/**
- * A specialized version of `baseIsEqualDeep` for arrays with support for
- * partial deep comparisons.
- *
- * @private
- * @param {Array} array The array to compare.
- * @param {Array} other The other array to compare.
- * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
- * @param {Function} customizer The function to customize comparisons.
- * @param {Function} equalFunc The function to determine equivalents of values.
- * @param {Object} stack Tracks traversed `array` and `other` objects.
- * @returns {boolean} Returns `true` if the arrays are equivalent, else `false`.
- */
-function equalArrays(array, other, bitmask, customizer, equalFunc, stack) {
-  var isPartial = bitmask & COMPARE_PARTIAL_FLAG,
-      arrLength = array.length,
-      othLength = other.length;
-
-  if (arrLength != othLength && !(isPartial && othLength > arrLength)) {
-    return false;
-  }
-  // Assume cyclic values are equal.
-  var stacked = stack.get(array);
-  if (stacked && stack.get(other)) {
-    return stacked == other;
-  }
-  var index = -1,
-      result = true,
-      seen = (bitmask & COMPARE_UNORDERED_FLAG) ? new SetCache : undefined;
-
-  stack.set(array, other);
-  stack.set(other, array);
-
-  // Ignore non-index properties.
-  while (++index < arrLength) {
-    var arrValue = array[index],
-        othValue = other[index];
-
-    if (customizer) {
-      var compared = isPartial
-        ? customizer(othValue, arrValue, index, other, array, stack)
-        : customizer(arrValue, othValue, index, array, other, stack);
-    }
-    if (compared !== undefined) {
-      if (compared) {
-        continue;
-      }
-      result = false;
-      break;
-    }
-    // Recursively compare arrays (susceptible to call stack limits).
-    if (seen) {
-      if (!arraySome(other, function(othValue, othIndex) {
-            if (!cacheHas(seen, othIndex) &&
-                (arrValue === othValue || equalFunc(arrValue, othValue, bitmask, customizer, stack))) {
-              return seen.push(othIndex);
-            }
-          })) {
-        result = false;
-        break;
-      }
-    } else if (!(
-          arrValue === othValue ||
-            equalFunc(arrValue, othValue, bitmask, customizer, stack)
-        )) {
-      result = false;
-      break;
-    }
-  }
-  stack['delete'](array);
-  stack['delete'](other);
-  return result;
-}
-
-module.exports = equalArrays;
-
-
-/***/ }),
-/* 40 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseIsArguments = __webpack_require__(109),
-    isObjectLike = __webpack_require__(7);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/** Built-in value references. */
-var propertyIsEnumerable = objectProto.propertyIsEnumerable;
-
-/**
- * Checks if `value` is likely an `arguments` object.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an `arguments` object,
- *  else `false`.
- * @example
- *
- * _.isArguments(function() { return arguments; }());
- * // => true
- *
- * _.isArguments([1, 2, 3]);
- * // => false
- */
-var isArguments = baseIsArguments(function() { return arguments; }()) ? baseIsArguments : function(value) {
-  return isObjectLike(value) && hasOwnProperty.call(value, 'callee') &&
-    !propertyIsEnumerable.call(value, 'callee');
-};
-
-module.exports = isArguments;
-
-
-/***/ }),
-/* 41 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/* WEBPACK VAR INJECTION */(function(module) {var root = __webpack_require__(1),
-    stubFalse = __webpack_require__(110);
-
-/** Detect free variable `exports`. */
-var freeExports = typeof exports == 'object' && exports && !exports.nodeType && exports;
-
-/** Detect free variable `module`. */
-var freeModule = freeExports && typeof module == 'object' && module && !module.nodeType && module;
-
-/** Detect the popular CommonJS extension `module.exports`. */
-var moduleExports = freeModule && freeModule.exports === freeExports;
-
-/** Built-in value references. */
-var Buffer = moduleExports ? root.Buffer : undefined;
-
-/* Built-in method references for those with the same name as other `lodash` methods. */
-var nativeIsBuffer = Buffer ? Buffer.isBuffer : undefined;
-
-/**
- * Checks if `value` is a buffer.
- *
- * @static
- * @memberOf _
- * @since 4.3.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a buffer, else `false`.
- * @example
- *
- * _.isBuffer(new Buffer(2));
- * // => true
- *
- * _.isBuffer(new Uint8Array(2));
- * // => false
- */
-var isBuffer = nativeIsBuffer || stubFalse;
-
-module.exports = isBuffer;
-
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(42)(module)))
-
-/***/ }),
-/* 42 */
-/***/ (function(module, exports) {
-
-module.exports = function(module) {
-	if(!module.webpackPolyfill) {
-		module.deprecate = function() {};
-		module.paths = [];
-		// module.parent = undefined by default
-		if(!module.children) module.children = [];
-		Object.defineProperty(module, "loaded", {
-			enumerable: true,
-			get: function() {
-				return module.l;
-			}
-		});
-		Object.defineProperty(module, "id", {
-			enumerable: true,
-			get: function() {
-				return module.i;
-			}
-		});
-		module.webpackPolyfill = 1;
-	}
-	return module;
-};
-
-
-/***/ }),
-/* 43 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseIsTypedArray = __webpack_require__(111),
-    baseUnary = __webpack_require__(112),
-    nodeUtil = __webpack_require__(113);
-
-/* Node.js helper references. */
-var nodeIsTypedArray = nodeUtil && nodeUtil.isTypedArray;
-
-/**
- * Checks if `value` is classified as a typed array.
- *
- * @static
- * @memberOf _
- * @since 3.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
- * @example
- *
- * _.isTypedArray(new Uint8Array);
- * // => true
- *
- * _.isTypedArray([]);
- * // => false
- */
-var isTypedArray = nodeIsTypedArray ? baseUnary(nodeIsTypedArray) : baseIsTypedArray;
-
-module.exports = isTypedArray;
-
-
-/***/ }),
-/* 44 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isFunction = __webpack_require__(35),
-    isLength = __webpack_require__(23);
-
-/**
- * Checks if `value` is array-like. A value is considered array-like if it's
- * not a function and has a `value.length` that's an integer greater than or
- * equal to `0` and less than or equal to `Number.MAX_SAFE_INTEGER`.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- * @example
- *
- * _.isArrayLike([1, 2, 3]);
- * // => true
- *
- * _.isArrayLike(document.body.children);
- * // => true
- *
- * _.isArrayLike('abc');
- * // => true
- *
- * _.isArrayLike(_.noop);
- * // => false
- */
-function isArrayLike(value) {
-  return value != null && isLength(value.length) && !isFunction(value);
-}
-
-module.exports = isArrayLike;
-
-
-/***/ }),
-/* 45 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isObject = __webpack_require__(13);
-
-/**
- * Checks if `value` is suitable for strict equality comparisons, i.e. `===`.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` if suitable for strict
- *  equality comparisons, else `false`.
- */
-function isStrictComparable(value) {
-  return value === value && !isObject(value);
-}
-
-module.exports = isStrictComparable;
-
-
-/***/ }),
-/* 46 */
-/***/ (function(module, exports) {
-
-/**
- * A specialized version of `matchesProperty` for source values suitable
- * for strict equality comparisons, i.e. `===`.
- *
- * @private
- * @param {string} key The key of the property to get.
- * @param {*} srcValue The value to match.
- * @returns {Function} Returns the new spec function.
- */
-function matchesStrictComparable(key, srcValue) {
-  return function(object) {
-    if (object == null) {
-      return false;
-    }
-    return object[key] === srcValue &&
-      (srcValue !== undefined || (key in Object(object)));
-  };
-}
-
-module.exports = matchesStrictComparable;
-
-
-/***/ }),
-/* 47 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Emitter = __webpack_require__(154);
-
-/**
- * Extend given object with emitter functions `on`, `off`, `once`, `emit`
- * @param {Object} obj
- * @return {Object} obj
- */
-exports.mixin = function (obj) {
-  // create event emitter
-  var emitter = new Emitter();
-
-  // bind methods to obj (we don't want to expose the emitter.e Array...)
-  obj.on   = emitter.on.bind(emitter);
-  obj.off  = emitter.off.bind(emitter);
-  obj.once = emitter.once.bind(emitter);
-  obj.emit = emitter.emit.bind(emitter);
-
-  return obj;
-};
-
-
-/***/ }),
-/* 48 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var formatNumber = __webpack_require__(2).format;
-var formatBigNumber = __webpack_require__(160).format;
-
-/**
- * Test whether value is a string
- * @param {*} value
- * @return {boolean} isString
- */
-exports.isString = function(value) {
-  return typeof value === 'string';
-};
-
-/**
- * Check if a text ends with a certain string.
- * @param {string} text
- * @param {string} search
- */
-exports.endsWith = function(text, search) {
-  var start = text.length - search.length;
-  var end = text.length;
-  return (text.substring(start, end) === search);
-};
-
-/**
- * Format a value of any type into a string.
- *
- * Usage:
- *     math.format(value)
- *     math.format(value, precision)
- *
- * When value is a function:
- *
- * - When the function has a property `syntax`, it returns this
- *   syntax description.
- * - In other cases, a string `'function'` is returned.
- *
- * When `value` is an Object:
- *
- * - When the object contains a property `format` being a function, this
- *   function is invoked as `value.format(options)` and the result is returned.
- * - When the object has its own `toString` method, this method is invoked
- *   and the result is returned.
- * - In other cases the function will loop over all object properties and
- *   return JSON object notation like '{"a": 2, "b": 3}'.
- *
- * Example usage:
- *     math.format(2/7);                // '0.2857142857142857'
- *     math.format(math.pi, 3);         // '3.14'
- *     math.format(new Complex(2, 3));  // '2 + 3i'
- *     math.format('hello');            // '"hello"'
- *
- * @param {*} value             Value to be stringified
- * @param {Object | number | Function} [options]  Formatting options. See
- *                                                lib/utils/number:format for a
- *                                                description of the available
- *                                                options.
- * @return {string} str
- */
-exports.format = function(value, options) {
-  if (typeof value === 'number') {
-    return formatNumber(value, options);
-  }
-
-  if (value && value.isBigNumber === true) {
-    return formatBigNumber(value, options);
-  }
-
-  if (value && value.isFraction === true) {
-    if (!options || options.fraction !== 'decimal') {
-      // output as ratio, like '1/3'
-      return (value.s * value.n) + '/' + value.d;
-    }
-    else {
-      // output as decimal, like '0.(3)'
-      return value.toString();
-    }
-  }
-
-  if (Array.isArray(value)) {
-    return formatArray(value, options);
-  }
-
-  if (exports.isString(value)) {
-    return '"' + value + '"';
-  }
-
-  if (typeof value === 'function') {
-    return value.syntax ? String(value.syntax) : 'function';
-  }
-
-  if (value && typeof value === 'object') {
-    if (typeof value.format === 'function') {
-      return value.format(options);
-    }
-    else if (value && value.toString() !== {}.toString()) {
-      // this object has a non-native toString method, use that one
-      return value.toString();
-    }
-    else {
-      var entries = [];
-
-      for (var key in value) {
-        if (value.hasOwnProperty(key)) {
-          entries.push('"' + key + '": ' + exports.format(value[key], options));
-        }
-      }
-
-      return '{' + entries.join(', ') + '}';
-    }
-  }
-
-  return String(value);
-};
-
-/**
- * Stringify a value into a string enclosed in double quotes.
- * Unescaped double quotes and backslashes inside the value are escaped.
- * @param {*} value
- * @return {string}
- */
-exports.stringify = function (value) {
-  var text = String(value);
-  var escaped = '';
-  var i = 0;
-  while (i < text.length) {
-    var c = text.charAt(i);
-
-    if (c === '\\') {
-      escaped += c;
-      i++;
-
-      c = text.charAt(i);
-      if (c === '' || '"\\/bfnrtu'.indexOf(c) === -1) {
-        escaped += '\\';  // no valid escape character -> escape it
-      }
-      escaped += c;
-    }
-    else if (c === '"') {
-      escaped += '\\"';
-    }
-    else {
-      escaped += c;
-    }
-    i++;
-  }
-
-  return '"' + escaped + '"';
-}
-
-/**
- * Escape special HTML characters
- * @param {*} value
- * @return {string}
- */
-exports.escape = function (value) {
-  var text = String(value);
-  text = text.replace(/&/g, '&amp;')
-			 .replace(/"/g, '&quot;')
-			 .replace(/'/g, '&#39;')
-			 .replace(/</g, '&lt;')
-			 .replace(/>/g, '&gt;');
-  
-  return text;
-}
-
-/**
- * Recursively format an n-dimensional matrix
- * Example output: "[[1, 2], [3, 4]]"
- * @param {Array} array
- * @param {Object | number | Function} [options]  Formatting options. See
- *                                                lib/utils/number:format for a
- *                                                description of the available
- *                                                options.
- * @returns {string} str
- */
-function formatArray (array, options) {
-  if (Array.isArray(array)) {
-    var str = '[';
-    var len = array.length;
-    for (var i = 0; i < len; i++) {
-      if (i != 0) {
-        str += ', ';
-      }
-      str += formatArray(array[i], options);
-    }
-    str += ']';
-    return str;
-  }
-  else {
-    return exports.format(array, options);
-  }
-}
-
-/***/ }),
-/* 49 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -3134,16 +3984,582 @@ exports.type = function(x) {
 
 
 /***/ }),
-/* 50 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var util = __webpack_require__(9);
+function factory (type, config, load, typed) {
+
+  var DenseMatrix = type.DenseMatrix;
+
+  /**
+   * Iterates over SparseMatrix S nonzero items and invokes the callback function f(Sij, b). 
+   * Callback function invoked MxN times.
+   *
+   *
+   *          ┌  f(Sij, b)  ; S(i,j) !== 0
+   * C(i,j) = ┤  
+   *          └  f(0, b)    ; otherwise
+   *
+   *
+   * @param {Matrix}   s                 The SparseMatrix instance (S)
+   * @param {Scalar}   b                 The Scalar value
+   * @param {Function} callback          The f(Aij,b) operation to invoke
+   * @param {boolean}  inverse           A true value indicates callback should be invoked f(b,Sij)
+   *
+   * @return {Matrix}                    DenseMatrix (C)
+   *
+   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97626813
+   */
+  var algorithm12 = function (s, b, callback, inverse) {
+    // sparse matrix arrays
+    var avalues = s._values;
+    var aindex = s._index;
+    var aptr = s._ptr;
+    var asize = s._size;
+    var adt = s._datatype;
+
+    // sparse matrix cannot be a Pattern matrix
+    if (!avalues)
+      throw new Error('Cannot perform operation on Pattern Sparse Matrix and Scalar value');
+
+    // rows & columns
+    var rows = asize[0];
+    var columns = asize[1];
+
+    // datatype
+    var dt;
+    // callback signature to use
+    var cf = callback;
+
+    // process data types
+    if (typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // convert b to the same datatype
+      b = typed.convert(b, dt);
+      // callback
+      cf = typed.find(callback, [dt, dt]);
+    }
+    
+    // result arrays
+    var cdata = [];
+    // matrix
+    var c = new DenseMatrix({
+      data: cdata,
+      size: [rows, columns],
+      datatype: dt
+    });
+
+    // workspaces
+    var x = [];
+    // marks indicating we have a value in x for a given column
+    var w = [];
+
+    // loop columns
+    for (var j = 0; j < columns; j++) {
+      // columns mark
+      var mark = j + 1;
+      // values in j
+      for (var k0 = aptr[j], k1 = aptr[j + 1], k = k0; k < k1; k++) {
+        // row
+        var r = aindex[k];
+        // update workspace
+        x[r] = avalues[k];
+        w[r] = mark;
+      }
+      // loop rows
+      for (var i = 0; i < rows; i++) {
+        // initialize C on first column
+        if (j === 0) {
+          // create row array
+          cdata[i] = [];
+        }
+        // check sparse matrix has a value @ i,j
+        if (w[i] === mark) {
+          // invoke callback, update C
+          cdata[i][j] = inverse ? cf(b, x[i]) : cf(x[i], b);
+        }
+        else {
+          // dense matrix value @ i, j
+          cdata[i][j] = inverse ? cf(b, 0) : cf(0, b);
+        }
+      }
+    }
+
+    // return sparse matrix
+    return c;
+  };
+  
+  return algorithm12;
+}
+
+exports.name = 'algorithm12';
+exports.factory = factory;
+
+
+/***/ }),
+/* 21 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var deepMap = __webpack_require__(60);
+
+function factory (type, config, load, typed) {
+  var latex = __webpack_require__(6);
+
+  /**
+   * Inverse the sign of a value, apply a unary minus operation.
+   *
+   * For matrices, the function is evaluated element wise. Boolean values and
+   * strings will be converted to a number. For complex numbers, both real and
+   * complex value are inverted.
+   *
+   * Syntax:
+   *
+   *    math.unaryMinus(x)
+   *
+   * Examples:
+   *
+   *    math.unaryMinus(3.5);      // returns -3.5
+   *    math.unaryMinus(-4.2);     // returns 4.2
+   *
+   * See also:
+   *
+   *    add, subtract, unaryPlus
+   *
+   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} x Number to be inverted.
+   * @return {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} Returns the value with inverted sign.
+   */
+  var unaryMinus = typed('unaryMinus', {
+    'number': function (x) {
+      return -x;
+    },
+
+    'Complex': function (x) {
+      return x.neg();
+    },
+
+    'BigNumber': function (x) {
+      return x.neg();
+    },
+
+    'Fraction': function (x) {
+      return x.neg();
+    },
+
+    'Unit': function (x) {
+      var res = x.clone();
+      res.value = unaryMinus(x.value);
+      return res;
+    },
+
+    'Array | Matrix': function (x) {
+      // deep map collection, skip zeros since unaryMinus(0) = 0
+      return deepMap(x, unaryMinus, true);
+    }
+
+    // TODO: add support for string
+  });
+
+  unaryMinus.toTex = {
+    1: latex.operators['unaryMinus'] + '\\left(${args[0]}\\right)'
+  };
+
+  return unaryMinus;
+}
+
+exports.name = 'unaryMinus';
+exports.factory = factory;
+
+
+/***/ }),
+/* 22 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+function factory(type, config, load, typed) {
+  
+  /**
+   * Multiply two scalar values, `x * y`.
+   * This function is meant for internal use: it is used by the public function
+   * `multiply`
+   *
+   * This function does not support collections (Array or Matrix), and does
+   * not validate the number of of inputs.
+   *
+   * @param  {number | BigNumber | Fraction | Complex | Unit} x   First value to multiply
+   * @param  {number | BigNumber | Fraction | Complex} y          Second value to multiply
+   * @return {number | BigNumber | Fraction | Complex | Unit}                      Multiplication of `x` and `y`
+   * @private
+   */
+  var multiplyScalar = typed('multiplyScalar', {
+
+    'number, number': function (x, y) {
+      return x * y;
+    },
+
+    'Complex, Complex': function (x, y) {
+      return x.mul(y);
+    },
+
+    'BigNumber, BigNumber': function (x, y) {
+      return x.times(y);
+    },
+
+    'Fraction, Fraction': function (x, y) {
+      return x.mul(y);
+    },
+
+    'number | Fraction | BigNumber | Complex, Unit': function (x, y) {
+      var res = y.clone();
+      res.value = (res.value === null) ? res._normalize(x) : multiplyScalar(res.value, x);
+      return res;
+    },
+
+    'Unit, number | Fraction | BigNumber | Complex': function (x, y) {
+      var res = x.clone();
+      res.value = (res.value === null) ? res._normalize(y) : multiplyScalar(res.value, y);
+      return res;
+    },
+
+    'Unit, Unit': function (x, y) {
+      return x.multiply(y);
+    }
+
+  });
+
+  return multiplyScalar;
+}
+
+exports.factory = factory;
+
+
+/***/ }),
+/* 23 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var nearlyEqual = __webpack_require__(2).nearlyEqual;
+var bigNearlyEqual = __webpack_require__(13);
+
+function factory (type, config, load, typed) {
+
+  var matrix = load(__webpack_require__(0));
+
+  var algorithm03 = load(__webpack_require__(16));
+  var algorithm05 = load(__webpack_require__(33));
+  var algorithm12 = load(__webpack_require__(20));
+  var algorithm13 = load(__webpack_require__(10));
+  var algorithm14 = load(__webpack_require__(8));
+  
+  /**
+   * Compare two values. Returns 1 when x > y, -1 when x < y, and 0 when x == y.
+   *
+   * x and y are considered equal when the relative difference between x and y
+   * is smaller than the configured epsilon. The function cannot be used to
+   * compare values smaller than approximately 2.22e-16.
+   *
+   * For matrices, the function is evaluated element wise.
+   *
+   * Syntax:
+   *
+   *    math.compare(x, y)
+   *
+   * Examples:
+   *
+   *    math.compare(6, 1);           // returns 1
+   *    math.compare(2, 3);           // returns -1
+   *    math.compare(7, 7);           // returns 0
+   *
+   *    var a = math.unit('5 cm');
+   *    var b = math.unit('40 mm');
+   *    math.compare(a, b);           // returns 1
+   *
+   *    math.compare(2, [1, 2, 3]);   // returns [1, 0, -1]
+   *
+   * See also:
+   *
+   *    equal, unequal, smaller, smallerEq, larger, largerEq, compareNatural
+   *
+   * @param  {number | BigNumber | Fraction | Unit | string | Array | Matrix} x First value to compare
+   * @param  {number | BigNumber | Fraction | Unit | string | Array | Matrix} y Second value to compare
+   * @return {number | BigNumber | Fraction | Array | Matrix} Returns the result of the comparison: 1, 0 or -1.
+   */
+  var compare = typed('compare', {
+
+    'boolean, boolean': function (x, y) {
+      return x === y ? 0 : (x > y ? 1 : -1);
+    },
+
+    'number, number': function (x, y) {
+      return (x === y || nearlyEqual(x, y, config.epsilon))
+          ? 0
+          : (x > y ? 1 : -1);
+    },
+
+    'BigNumber, BigNumber': function (x, y) {
+      return (x.eq(y) || bigNearlyEqual(x, y, config.epsilon))
+          ? new type.BigNumber(0)
+          : new type.BigNumber(x.cmp(y));
+    },
+
+    'Fraction, Fraction': function (x, y) {
+      return new type.Fraction(x.compare(y));
+    },
+
+    'Complex, Complex': function () {
+      throw new TypeError('No ordering relation is defined for complex numbers');
+    },
+
+    'Unit, Unit': function (x, y) {
+      if (!x.equalBase(y)) {
+        throw new Error('Cannot compare units with different base');
+      }
+      return compare(x.value, y.value);
+    },
+
+    'string, string': function (x, y) {
+      return x === y ? 0 : (x > y ? 1 : -1);
+    },
+
+    'Matrix, Matrix': function (x, y) {
+      // result
+      var c;
+
+      // process matrix storage
+      switch (x.storage()) {
+        case 'sparse':
+          switch (y.storage()) {
+            case 'sparse':
+              // sparse + sparse
+              c = algorithm05(x, y, compare);
+              break;
+            default:
+              // sparse + dense
+              c = algorithm03(y, x, compare, true);
+              break;
+          }
+          break;
+        default:
+          switch (y.storage()) {
+            case 'sparse':
+              // dense + sparse
+              c = algorithm03(x, y, compare, false);
+              break;
+            default:
+              // dense + dense
+              c = algorithm13(x, y, compare);
+              break;
+          }
+          break;
+      }
+      return c;
+    },
+
+    'Array, Array': function (x, y) {
+      // use matrix implementation
+      return compare(matrix(x), matrix(y)).valueOf();
+    },
+
+    'Array, Matrix': function (x, y) {
+      // use matrix implementation
+      return compare(matrix(x), y);
+    },
+
+    'Matrix, Array': function (x, y) {
+      // use matrix implementation
+      return compare(x, matrix(y));
+    },
+
+    'Matrix, any': function (x, y) {
+      // result
+      var c;
+      // check storage format
+      switch (x.storage()) {
+        case 'sparse':
+          c = algorithm12(x, y, compare, false);
+          break;
+        default:
+          c = algorithm14(x, y, compare, false);
+          break;
+      }
+      return c;
+    },
+
+    'any, Matrix': function (x, y) {
+      // result
+      var c;
+      // check storage format
+      switch (y.storage()) {
+        case 'sparse':
+          c = algorithm12(y, x, compare, true);
+          break;
+        default:
+          c = algorithm14(y, x, compare, true);
+          break;
+      }
+      return c;
+    },
+
+    'Array, any': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(x), y, compare, false).valueOf();
+    },
+
+    'any, Array': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(y), x, compare, true).valueOf();
+    }
+  });
+
+  compare.toTex = undefined; // use default template
+
+  return compare;
+}
+
+exports.name = 'compare';
+exports.factory = factory;
+
+
+/***/ }),
+/* 24 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var Emitter = __webpack_require__(41);
+
+/**
+ * Extend given object with emitter functions `on`, `off`, `once`, `emit`
+ * @param {Object} obj
+ * @return {Object} obj
+ */
+exports.mixin = function (obj) {
+  // create event emitter
+  var emitter = new Emitter();
+
+  // bind methods to obj (we don't want to expose the emitter.e Array...)
+  obj.on   = emitter.on.bind(emitter);
+  obj.off  = emitter.off.bind(emitter);
+  obj.once = emitter.once.bind(emitter);
+  obj.emit = emitter.emit.bind(emitter);
+
+  return obj;
+};
+
+
+/***/ }),
+/* 25 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+/**
+ * Create a syntax error with the message:
+ *     'Wrong number of arguments in function <fn> (<count> provided, <min>-<max> expected)'
+ * @param {string} fn     Function name
+ * @param {number} count  Actual argument count
+ * @param {number} min    Minimum required argument count
+ * @param {number} [max]  Maximum required argument count
+ * @extends Error
+ */
+function ArgumentsError(fn, count, min, max) {
+  if (!(this instanceof ArgumentsError)) {
+    throw new SyntaxError('Constructor must be called with the new operator');
+  }
+
+  this.fn = fn;
+  this.count = count;
+  this.min = min;
+  this.max = max;
+
+  this.message = 'Wrong number of arguments in function ' + fn +
+      ' (' + count + ' provided, ' +
+      min + ((max != undefined) ? ('-' + max) : '') + ' expected)';
+
+  this.stack = (new Error()).stack;
+}
+
+ArgumentsError.prototype = new Error();
+ArgumentsError.prototype.constructor = Error;
+ArgumentsError.prototype.name = 'ArgumentsError';
+ArgumentsError.prototype.isArgumentsError = true;
+
+module.exports = ArgumentsError;
+
+
+/***/ }),
+/* 26 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+/**
+ * Create a range error with the message:
+ *     'Index out of range (index < min)'
+ *     'Index out of range (index < max)'
+ *
+ * @param {number} index     The actual index
+ * @param {number} [min=0]   Minimum index (included)
+ * @param {number} [max]     Maximum index (excluded)
+ * @extends RangeError
+ */
+function IndexError(index, min, max) {
+  if (!(this instanceof IndexError)) {
+    throw new SyntaxError('Constructor must be called with the new operator');
+  }
+
+  this.index = index;
+  if (arguments.length < 3) {
+    this.min = 0;
+    this.max = min;
+  }
+  else {
+    this.min = min;
+    this.max = max;
+  }
+
+  if (this.min !== undefined && this.index < this.min) {
+    this.message = 'Index out of range (' + this.index + ' < ' + this.min + ')';
+  }
+  else if (this.max !== undefined && this.index >= this.max) {
+    this.message = 'Index out of range (' + this.index + ' > ' + (this.max - 1) + ')';
+  }
+  else {
+    this.message = 'Index out of range (' + this.index + ')';
+  }
+
+  this.stack = (new Error()).stack;
+}
+
+IndexError.prototype = new RangeError();
+IndexError.prototype.constructor = RangeError;
+IndexError.prototype.name = 'IndexError';
+IndexError.prototype.isIndexError = true;
+
+module.exports = IndexError;
+
+
+/***/ }),
+/* 27 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var util = __webpack_require__(5);
 var DimensionError = __webpack_require__(4);
-var getSafeProperty = __webpack_require__(51).getSafeProperty;
-var setSafeProperty = __webpack_require__(51).setSafeProperty;
+var getSafeProperty = __webpack_require__(12).getSafeProperty;
+var setSafeProperty = __webpack_require__(12).setSafeProperty;
 
 var string = util.string;
 var array = util.array;
@@ -3158,7 +4574,7 @@ var isString = string.isString;
 var validateIndex = array.validateIndex;
 
 function factory (type, config, load, typed) {
-  var Matrix = load(__webpack_require__(27)); // force loading Matrix (do not use via type.Matrix)
+  var Matrix = load(__webpack_require__(18)); // force loading Matrix (do not use via type.Matrix)
 
   /**
    * Dense Matrix implementation. A regular, dense matrix, supporting multi-dimensional matrices. This is the default matrix type.
@@ -4025,164 +5441,264 @@ exports.lazy = false;  // no lazy loading, as we alter type.Matrix._storage
 
 
 /***/ }),
-/* 51 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var hasOwnProperty = __webpack_require__(0).hasOwnProperty;
+var DimensionError = __webpack_require__(4);
 
-/**
- * Get a property of a plain object
- * Throws an error in case the object is not a plain object or the
- * property is not defined on the object itself
- * @param {Object} object
- * @param {string} prop
- * @return {*} Returns the property value when safe
- */
-function getSafeProperty (object, prop) {
-  // only allow getting properties of a plain object
-  if (isPlainObject(object)) {
-    // only allow getting properties defined on the object itself,
-    // not inherited from it's prototype.
-    if (hasOwnProperty(object, prop)) {
-      return object[prop];
-    }
+function factory (type, config, load, typed) {
 
-    if (!(prop in object)) {
-      // this is a not existing property on a plain object
-      return undefined;
-    }
-  }
+  var DenseMatrix = type.DenseMatrix;
 
-  if (typeof object[prop] === 'function' && isSafeMethod(object, prop)) {
-    throw new Error('Cannot access method "' + prop + '" as a property');
-  }
+  /**
+   * Iterates over SparseMatrix nonzero items and invokes the callback function f(Dij, Sij). 
+   * Callback function invoked NNZ times (number of nonzero items in SparseMatrix).
+   *
+   *
+   *          ┌  f(Dij, Sij)  ; S(i,j) !== 0
+   * C(i,j) = ┤
+   *          └  Dij          ; otherwise
+   *
+   *
+   * @param {Matrix}   denseMatrix       The DenseMatrix instance (D)
+   * @param {Matrix}   sparseMatrix      The SparseMatrix instance (S)
+   * @param {Function} callback          The f(Dij,Sij) operation to invoke, where Dij = DenseMatrix(i,j) and Sij = SparseMatrix(i,j)
+   * @param {boolean}  inverse           A true value indicates callback should be invoked f(Sij,Dij)
+   *
+   * @return {Matrix}                    DenseMatrix (C)
+   *
+   * see https://github.com/josdejong/mathjs/pull/346#issuecomment-97477571
+   */
+  var algorithm01 = function (denseMatrix, sparseMatrix, callback, inverse) {
+    // dense matrix arrays
+    var adata = denseMatrix._data;
+    var asize = denseMatrix._size;
+    var adt = denseMatrix._datatype;
+    // sparse matrix arrays
+    var bvalues = sparseMatrix._values;
+    var bindex = sparseMatrix._index;
+    var bptr = sparseMatrix._ptr;
+    var bsize = sparseMatrix._size;
+    var bdt = sparseMatrix._datatype;
 
-  throw new Error('No access to property "' + prop + '"');
-}
+    // validate dimensions
+    if (asize.length !== bsize.length)
+      throw new DimensionError(asize.length, bsize.length);
 
-/**
- * Set a property on a plain object.
- * Throws an error in case the object is not a plain object or the
- * property would override an inherited property like .constructor or .toString
- * @param {Object} object
- * @param {string} prop
- * @param {*} value
- * @return {*} Returns the value
- */
-// TODO: merge this function into access.js?
-function setSafeProperty (object, prop, value) {
-  // only allow setting properties of a plain object
-  if (isPlainObject(object)) {
-    // only allow setting properties defined on the object itself,
-    // not inherited from it's prototype.
-    if (prop in object) {
-      // property already exists
-      // override when the property is defined on the object itself.
-      // don't allow overriding inherited properties like .constructor or .toString
-      if (hasOwnProperty(object, prop)) {
-        return object[prop] = value;
+    // check rows & columns
+    if (asize[0] !== bsize[0] || asize[1] !== bsize[1])
+      throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
+
+    // sparse matrix cannot be a Pattern matrix
+    if (!bvalues)
+      throw new Error('Cannot perform operation on Dense Matrix and Pattern Sparse Matrix');
+
+    // rows & columns
+    var rows = asize[0];
+    var columns = asize[1];
+
+    // process data types
+    var dt = typeof adt === 'string' && adt === bdt ? adt : undefined;
+    // callback function
+    var cf = dt ? typed.find(callback, [dt, dt]) : callback;
+
+    // vars
+    var i, j;
+    
+    // result (DenseMatrix)
+    var cdata = [];
+    // initialize c
+    for (i = 0; i < rows; i++)
+      cdata[i] = [];      
+    
+    // workspace
+    var x = [];
+    // marks indicating we have a value in x for a given column
+    var w = [];
+
+    // loop columns in b
+    for (j = 0; j < columns; j++) {
+      // column mark
+      var mark = j + 1;
+      // values in column j
+      for (var k0 = bptr[j], k1 = bptr[j + 1], k = k0; k < k1; k++) {
+        // row
+        i = bindex[k];
+        // update workspace
+        x[i] = inverse ? cf(bvalues[k], adata[i][j]) : cf(adata[i][j], bvalues[k]);
+        // mark i as updated
+        w[i] = mark;
+      }
+      // loop rows
+      for (i = 0; i < rows; i++) {
+        // check row is in workspace
+        if (w[i] === mark) {
+          // c[i][j] was already calculated
+          cdata[i][j] = x[i];
+        }
+        else {
+          // item does not exist in S
+          cdata[i][j] = adata[i][j];
+        }
       }
     }
-    else {
-      // this is a new property, that's just ok
-      return object[prop] = value;
-    }
-  }
 
-  throw new Error('No access to property "' + prop + '"');
+    // return dense matrix
+    return new DenseMatrix({
+      data: cdata,
+      size: [rows, columns],
+      datatype: dt
+    });
+  };
+  
+  return algorithm01;
 }
 
-/**
- * Test whether a property is safe to use for an object.
- * For example .toString and .constructor are not safe
- * @param {string} prop
- * @return {boolean} Returns true when safe
- */
-function isSafeProperty (prop) {
-  return !(prop in {});
-}
-
-/**
- * Validate whether a method is safe.
- * Throws an error when that's not the case.
- * @param {Object} object
- * @param {string} method
- */
-// TODO: merge this function into assign.js?
-function validateSafeMethod (object, method) {
-  if (!isSafeMethod(object, method)) {
-    throw new Error('No access to method "' + method + '"');
-  }
-}
-
-/**
- * Check whether a method is safe.
- * Throws an error when that's not the case (for example for `constructor`).
- * @param {Object} object
- * @param {string} method
- * @return {boolean} Returns true when safe, false otherwise
- */
-function isSafeMethod (object, method) {
-  // test for plain functions defined on the object (instead of a method)
-  if (hasOwnProperty(object, method)) {
-    return isPlainObject(object);
-  }
-  else {
-    // only allow methods:
-    // - defined on the prototype of this object
-    // - not defined on the prototype of native Object
-    //   i.e. constructor, __defineGetter__, hasOwnProperty, etc. are not allowed
-    // - calling methods on a function (like bind) is not allowed
-    // - A few safe native methods are allowed: toString, valueOf, toLocaleString
-    return (object && typeof object !== 'function' &&
-        (hasOwnProperty(object.constructor.prototype, method) ||
-            hasOwnProperty(object.__proto__, method)) &&
-        (!hasOwnProperty(Object.prototype, method) || hasOwnProperty(safeNativeMethods, method)));
-  }
-}
-
-function isPlainObject (object) {
-  return typeof object === 'object' && object && object.constructor === Object;
-}
-
-var safeNativeMethods = {
-  toString: true,
-  valueOf: true,
-  toLocaleString: true
-};
-
-exports.getSafeProperty = getSafeProperty;
-exports.setSafeProperty = setSafeProperty;
-exports.isSafeProperty = isSafeProperty;
-exports.validateSafeMethod = validateSafeMethod;
-exports.isSafeMethod = isSafeMethod;
-exports.isPlainObject = isPlainObject;
+exports.name = 'algorithm01';
+exports.factory = factory;
 
 
 /***/ }),
-/* 52 */
+/* 29 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+function factory (type, config, load, typed) {
+
+  var DenseMatrix = type.DenseMatrix;
+
+  /**
+   * Iterates over SparseMatrix S nonzero items and invokes the callback function f(Sij, b). 
+   * Callback function invoked NZ times (number of nonzero items in S).
+   *
+   *
+   *          ┌  f(Sij, b)  ; S(i,j) !== 0
+   * C(i,j) = ┤  
+   *          └  b          ; otherwise
+   *
+   *
+   * @param {Matrix}   s                 The SparseMatrix instance (S)
+   * @param {Scalar}   b                 The Scalar value
+   * @param {Function} callback          The f(Aij,b) operation to invoke
+   * @param {boolean}  inverse           A true value indicates callback should be invoked f(b,Sij)
+   *
+   * @return {Matrix}                    DenseMatrix (C)
+   *
+   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97626813
+   */
+  var algorithm10 = function (s, b, callback, inverse) {
+    // sparse matrix arrays
+    var avalues = s._values;
+    var aindex = s._index;
+    var aptr = s._ptr;
+    var asize = s._size;
+    var adt = s._datatype;
+
+    // sparse matrix cannot be a Pattern matrix
+    if (!avalues)
+      throw new Error('Cannot perform operation on Pattern Sparse Matrix and Scalar value');
+
+    // rows & columns
+    var rows = asize[0];
+    var columns = asize[1];
+
+    // datatype
+    var dt;
+    // callback signature to use
+    var cf = callback;
+
+    // process data types
+    if (typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // convert b to the same datatype
+      b = typed.convert(b, dt);
+      // callback
+      cf = typed.find(callback, [dt, dt]);
+    }
+
+    // result arrays
+    var cdata = [];
+    // matrix
+    var c = new DenseMatrix({
+      data: cdata,
+      size: [rows, columns],
+      datatype: dt
+    });
+
+    // workspaces
+    var x = [];
+    // marks indicating we have a value in x for a given column
+    var w = [];
+
+    // loop columns
+    for (var j = 0; j < columns; j++) {
+      // columns mark
+      var mark = j + 1;
+      // values in j
+      for (var k0 = aptr[j], k1 = aptr[j + 1], k = k0; k < k1; k++) {
+        // row
+        var r = aindex[k];
+        // update workspace
+        x[r] = avalues[k];
+        w[r] = mark;
+      }
+      // loop rows
+      for (var i = 0; i < rows; i++) {
+        // initialize C on first column
+        if (j === 0) {
+          // create row array
+          cdata[i] = [];
+        }
+        // check sparse matrix has a value @ i,j
+        if (w[i] === mark) {
+          // invoke callback, update C
+          cdata[i][j] = inverse ? cf(b, x[i]) : cf(x[i], b);
+        }
+        else {
+          // dense matrix value @ i, j
+          cdata[i][j] = b;
+        }
+      }
+    }
+
+    // return sparse matrix
+    return c;
+  };
+
+  return algorithm10;
+}
+
+exports.name = 'algorithm10';
+exports.factory = factory;
+
+
+/***/ }),
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var nearlyEqual = __webpack_require__(2).nearlyEqual;
-var bigNearlyEqual = __webpack_require__(29);
+var bigNearlyEqual = __webpack_require__(13);
 
 function factory (type, config, load, typed) {
 
-  var matrix = load(__webpack_require__(17));
+  var matrix = load(__webpack_require__(0));
 
-  var algorithm03 = load(__webpack_require__(53));
-  var algorithm07 = load(__webpack_require__(54));
-  var algorithm12 = load(__webpack_require__(55));
-  var algorithm13 = load(__webpack_require__(31));
-  var algorithm14 = load(__webpack_require__(32));
+  var algorithm03 = load(__webpack_require__(16));
+  var algorithm07 = load(__webpack_require__(31));
+  var algorithm12 = load(__webpack_require__(20));
+  var algorithm13 = load(__webpack_require__(10));
+  var algorithm14 = load(__webpack_require__(8));
 
-  var latex = __webpack_require__(30);
+  var latex = __webpack_require__(6);
 
   /**
    * Test whether value x is smaller than y.
@@ -4349,139 +5865,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 53 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var DimensionError = __webpack_require__(4);
-
-function factory (type, config, load, typed) {
-
-  var DenseMatrix = type.DenseMatrix;
-
-  /**
-   * Iterates over SparseMatrix items and invokes the callback function f(Dij, Sij).
-   * Callback function invoked M*N times.
-   *
-   *
-   *          ┌  f(Dij, Sij)  ; S(i,j) !== 0
-   * C(i,j) = ┤
-   *          └  f(Dij, 0)    ; otherwise
-   *
-   *
-   * @param {Matrix}   denseMatrix       The DenseMatrix instance (D)
-   * @param {Matrix}   sparseMatrix      The SparseMatrix instance (C)
-   * @param {Function} callback          The f(Dij,Sij) operation to invoke, where Dij = DenseMatrix(i,j) and Sij = SparseMatrix(i,j)
-   * @param {boolean}  inverse           A true value indicates callback should be invoked f(Sij,Dij)
-   *
-   * @return {Matrix}                    DenseMatrix (C)
-   *
-   * see https://github.com/josdejong/mathjs/pull/346#issuecomment-97477571
-   */
-  var algorithm03 = function (denseMatrix, sparseMatrix, callback, inverse) {
-    // dense matrix arrays
-    var adata = denseMatrix._data;
-    var asize = denseMatrix._size;
-    var adt = denseMatrix._datatype;
-    // sparse matrix arrays
-    var bvalues = sparseMatrix._values;
-    var bindex = sparseMatrix._index;
-    var bptr = sparseMatrix._ptr;
-    var bsize = sparseMatrix._size;
-    var bdt = sparseMatrix._datatype;
-
-    // validate dimensions
-    if (asize.length !== bsize.length)
-      throw new DimensionError(asize.length, bsize.length);
-
-    // check rows & columns
-    if (asize[0] !== bsize[0] || asize[1] !== bsize[1])
-      throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
-
-    // sparse matrix cannot be a Pattern matrix
-    if (!bvalues)
-      throw new Error('Cannot perform operation on Dense Matrix and Pattern Sparse Matrix');
-
-    // rows & columns
-    var rows = asize[0];
-    var columns = asize[1];
-
-    // datatype
-    var dt;
-    // zero value
-    var zero = 0;
-    // callback signature to use
-    var cf = callback;
-
-    // process data types
-    if (typeof adt === 'string' && adt === bdt) {
-      // datatype
-      dt = adt;
-      // convert 0 to the same datatype
-      zero = typed.convert(0, dt);
-      // callback
-      cf = typed.find(callback, [dt, dt]);
-    }
-
-    // result (DenseMatrix)
-    var cdata = [];
-
-    // initialize dense matrix
-    for (var z = 0; z < rows; z++) {
-      // initialize row
-      cdata[z] = [];
-    }
-
-    // workspace
-    var x = [];
-    // marks indicating we have a value in x for a given column
-    var w = [];
-
-    // loop columns in b
-    for (var j = 0; j < columns; j++) {
-      // column mark
-      var mark = j + 1;
-      // values in column j
-      for (var k0 = bptr[j], k1 = bptr[j + 1], k = k0; k < k1; k++) {
-        // row
-        var i = bindex[k];
-        // update workspace
-        x[i] = inverse ? cf(bvalues[k], adata[i][j]) : cf(adata[i][j], bvalues[k]);
-        w[i] = mark;
-      }
-      // process workspace
-      for (var y = 0; y < rows; y++) {
-        // check we have a calculated value for current row
-        if (w[y] === mark) {
-          // use calculated value
-          cdata[y][j] = x[y];
-        }
-        else {
-          // calculate value
-          cdata[y][j] = inverse ? cf(zero, adata[y][j]) : cf(adata[y][j], zero);
-        }
-      }
-    }
-
-    // return dense matrix
-    return new DenseMatrix({
-      data: cdata,
-      size: [rows, columns],
-      datatype: dt
-    });
-  };
-  
-  return algorithm03;
-}
-
-exports.name = 'algorithm03';
-exports.factory = factory;
-
-
-/***/ }),
-/* 54 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4612,46 +5996,265 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 55 */
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-function factory (type, config, load, typed) {
+var DimensionError = __webpack_require__(4);
 
-  var DenseMatrix = type.DenseMatrix;
+function factory (type, config, load, typed) {
+  var latex = __webpack_require__(6);
+
+  var matrix = load(__webpack_require__(0));
+  var addScalar = load(__webpack_require__(15));
+  var unaryMinus = load(__webpack_require__(21));
+
+  var algorithm01 = load(__webpack_require__(28));
+  var algorithm03 = load(__webpack_require__(16));
+  var algorithm05 = load(__webpack_require__(33));
+  var algorithm10 = load(__webpack_require__(29));
+  var algorithm13 = load(__webpack_require__(10));
+  var algorithm14 = load(__webpack_require__(8));
+
+  // TODO: split function subtract in two: subtract and subtractScalar
 
   /**
-   * Iterates over SparseMatrix S nonzero items and invokes the callback function f(Sij, b). 
-   * Callback function invoked MxN times.
+   * Subtract two values, `x - y`.
+   * For matrices, the function is evaluated element wise.
    *
+   * Syntax:
    *
-   *          ┌  f(Sij, b)  ; S(i,j) !== 0
-   * C(i,j) = ┤  
-   *          └  f(0, b)    ; otherwise
+   *    math.subtract(x, y)
    *
+   * Examples:
    *
-   * @param {Matrix}   s                 The SparseMatrix instance (S)
-   * @param {Scalar}   b                 The Scalar value
-   * @param {Function} callback          The f(Aij,b) operation to invoke
-   * @param {boolean}  inverse           A true value indicates callback should be invoked f(b,Sij)
+   *    math.subtract(5.3, 2);        // returns number 3.3
    *
-   * @return {Matrix}                    DenseMatrix (C)
+   *    var a = math.complex(2, 3);
+   *    var b = math.complex(4, 1);
+   *    math.subtract(a, b);          // returns Complex -2 + 2i
    *
-   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97626813
+   *    math.subtract([5, 7, 4], 4);  // returns Array [1, 3, 0]
+   *
+   *    var c = math.unit('2.1 km');
+   *    var d = math.unit('500m');
+   *    math.subtract(c, d);          // returns Unit 1.6 km
+   *
+   * See also:
+   *
+   *    add
+   *
+   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} x
+   *            Initial value
+   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} y
+   *            Value to subtract from `x`
+   * @return {number | BigNumber | Fraction | Complex | Unit | Array | Matrix}
+   *            Subtraction of `x` and `y`
    */
-  var algorithm12 = function (s, b, callback, inverse) {
-    // sparse matrix arrays
-    var avalues = s._values;
-    var aindex = s._index;
-    var aptr = s._ptr;
-    var asize = s._size;
-    var adt = s._datatype;
+  var subtract = typed('subtract', {
 
-    // sparse matrix cannot be a Pattern matrix
-    if (!avalues)
-      throw new Error('Cannot perform operation on Pattern Sparse Matrix and Scalar value');
+    'number, number': function (x, y) {
+      return x - y;
+    },
+
+    'Complex, Complex': function (x, y) {
+      return x.sub(y);
+    },
+
+    'BigNumber, BigNumber': function (x, y) {
+      return x.minus(y);
+    },
+
+    'Fraction, Fraction': function (x, y) {
+      return x.sub(y);
+    },
+
+    'Unit, Unit': function (x, y) {
+      if (x.value == null) {
+        throw new Error('Parameter x contains a unit with undefined value');
+      }
+
+      if (y.value == null) {
+        throw new Error('Parameter y contains a unit with undefined value');
+      }
+
+      if (!x.equalBase(y)) {
+        throw new Error('Units do not match');
+      }
+
+      var res = x.clone();
+      res.value = subtract(res.value, y.value);
+      res.fixPrefix = false;
+
+      return res;
+    },
+    
+    'Matrix, Matrix': function (x, y) {
+      // matrix sizes
+      var xsize = x.size();
+      var ysize = y.size();
+
+      // check dimensions
+      if (xsize.length !== ysize.length)
+        throw new DimensionError(xsize.length, ysize.length);
+
+      // result
+      var c;
+
+      // process matrix storage
+      switch (x.storage()) {
+        case 'sparse':
+          switch (y.storage()) {
+            case 'sparse':
+              // sparse - sparse
+              c = algorithm05(x, y, subtract);
+              break;
+            default:
+              // sparse - dense
+              c = algorithm03(y, x, subtract, true);
+              break;
+          }
+          break;
+        default:
+          switch (y.storage()) {
+            case 'sparse':
+              // dense - sparse
+              c = algorithm01(x, y, subtract, false);
+              break;
+            default:
+              // dense - dense
+              c = algorithm13(x, y, subtract);
+              break;
+          }
+          break;
+      }
+      return c;
+    },
+    
+    'Array, Array': function (x, y) {
+      // use matrix implementation
+      return subtract(matrix(x), matrix(y)).valueOf();
+    },
+
+    'Array, Matrix': function (x, y) {
+      // use matrix implementation
+      return subtract(matrix(x), y);
+    },
+
+    'Matrix, Array': function (x, y) {
+      // use matrix implementation
+      return subtract(x, matrix(y));
+    },
+    
+    'Matrix, any': function (x, y) {
+      // result
+      var c;
+      // check storage format
+      switch (x.storage()) {
+        case 'sparse':
+          // algorithm 7 is faster than 9 since it calls f() for nonzero items only!
+          c = algorithm10(x, unaryMinus(y), addScalar);
+          break;
+        default:
+          c = algorithm14(x, y, subtract);
+          break;
+      }
+      return c;
+    },
+
+    'any, Matrix': function (x, y) {
+      // result
+      var c;
+      // check storage format
+      switch (y.storage()) {
+        case 'sparse':
+          c = algorithm10(y, x, subtract, true);
+          break;
+        default:
+          c = algorithm14(y, x, subtract, true);
+          break;
+      }
+      return c;
+    },
+
+    'Array, any': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(x), y, subtract, false).valueOf();
+    },
+
+    'any, Array': function (x, y) {
+      // use matrix implementation
+      return algorithm14(matrix(y), x, subtract, true).valueOf();
+    }
+  });
+
+  subtract.toTex = {
+    2: '\\left(${args[0]}' + latex.operators['subtract'] + '${args[1]}\\right)'
+  };
+
+  return subtract;
+}
+
+exports.name = 'subtract';
+exports.factory = factory;
+
+
+/***/ }),
+/* 33 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var DimensionError = __webpack_require__(4);
+
+function factory (type, config, load, typed) {
+
+  var equalScalar = load(__webpack_require__(7));
+  
+  var SparseMatrix = type.SparseMatrix;
+
+  /**
+   * Iterates over SparseMatrix A and SparseMatrix B nonzero items and invokes the callback function f(Aij, Bij). 
+   * Callback function invoked MAX(NNZA, NNZB) times
+   *
+   *
+   *          ┌  f(Aij, Bij)  ; A(i,j) !== 0 || B(i,j) !== 0
+   * C(i,j) = ┤  
+   *          └  0            ; otherwise
+   *
+   *
+   * @param {Matrix}   a                 The SparseMatrix instance (A)
+   * @param {Matrix}   b                 The SparseMatrix instance (B)
+   * @param {Function} callback          The f(Aij,Bij) operation to invoke
+   *
+   * @return {Matrix}                    SparseMatrix (C)
+   *
+   * see https://github.com/josdejong/mathjs/pull/346#issuecomment-97620294
+   */
+  var algorithm05 = function (a, b, callback) {
+    // sparse matrix arrays
+    var avalues = a._values;
+    var aindex = a._index;
+    var aptr = a._ptr;
+    var asize = a._size;
+    var adt = a._datatype;
+    // sparse matrix arrays
+    var bvalues = b._values;
+    var bindex = b._index;
+    var bptr = b._ptr;
+    var bsize = b._size;
+    var bdt = b._datatype;
+
+    // validate dimensions
+    if (asize.length !== bsize.length)
+      throw new DimensionError(asize.length, bsize.length);
+
+    // check rows & columns
+    if (asize[0] !== bsize[0] || asize[1] !== bsize[1])
+      throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
 
     // rows & columns
     var rows = asize[0];
@@ -4659,99 +6262,487 @@ function factory (type, config, load, typed) {
 
     // datatype
     var dt;
+    // equal signature to use
+    var eq = equalScalar;
+    // zero value
+    var zero = 0;
     // callback signature to use
     var cf = callback;
 
     // process data types
-    if (typeof adt === 'string') {
+    if (typeof adt === 'string' && adt === bdt) {
       // datatype
       dt = adt;
-      // convert b to the same datatype
-      b = typed.convert(b, dt);
+      // find signature that matches (dt, dt)
+      eq = typed.find(equalScalar, [dt, dt]);
+      // convert 0 to the same datatype
+      zero = typed.convert(0, dt);
       // callback
       cf = typed.find(callback, [dt, dt]);
     }
-    
+
     // result arrays
-    var cdata = [];
+    var cvalues = avalues && bvalues ? [] : undefined;
+    var cindex = [];
+    var cptr = [];
     // matrix
-    var c = new DenseMatrix({
-      data: cdata,
+    var c = new SparseMatrix({
+      values: cvalues,
+      index: cindex,
+      ptr: cptr,
       size: [rows, columns],
       datatype: dt
     });
 
     // workspaces
-    var x = [];
+    var xa = cvalues ? [] : undefined;
+    var xb = cvalues ? [] : undefined;
     // marks indicating we have a value in x for a given column
-    var w = [];
+    var wa = [];
+    var wb = [];
 
+    // vars
+    var i, j, k, k1;
+    
     // loop columns
-    for (var j = 0; j < columns; j++) {
+    for (j = 0; j < columns; j++) {
+      // update cptr
+      cptr[j] = cindex.length;
       // columns mark
       var mark = j + 1;
-      // values in j
-      for (var k0 = aptr[j], k1 = aptr[j + 1], k = k0; k < k1; k++) {
+      // loop values A(:,j)
+      for (k = aptr[j], k1 = aptr[j + 1]; k < k1; k++) {
         // row
-        var r = aindex[k];
+        i = aindex[k];
+        // push index
+        cindex.push(i);
         // update workspace
-        x[r] = avalues[k];
-        w[r] = mark;
+        wa[i] = mark;
+        // check we need to process values
+        if (xa)
+          xa[i] = avalues[k];
       }
-      // loop rows
-      for (var i = 0; i < rows; i++) {
-        // initialize C on first column
-        if (j === 0) {
-          // create row array
-          cdata[i] = [];
+      // loop values B(:,j)
+      for (k = bptr[j], k1 = bptr[j + 1]; k < k1; k++) {
+        // row
+        i = bindex[k];
+        // check row existed in A
+        if (wa[i] !== mark) {
+          // push index
+          cindex.push(i);
         }
-        // check sparse matrix has a value @ i,j
-        if (w[i] === mark) {
-          // invoke callback, update C
-          cdata[i][j] = inverse ? cf(b, x[i]) : cf(x[i], b);
-        }
-        else {
-          // dense matrix value @ i, j
-          cdata[i][j] = inverse ? cf(b, 0) : cf(0, b);
+        // update workspace
+        wb[i] = mark;
+        // check we need to process values
+        if (xb)
+          xb[i] = bvalues[k];
+      }
+      // check we need to process values (non pattern matrix)
+      if (cvalues) {
+        // initialize first index in j
+        k = cptr[j];
+        // loop index in j
+        while (k < cindex.length) {
+          // row
+          i = cindex[k];
+          // marks
+          var wai = wa[i];
+          var wbi = wb[i];
+          // check Aij or Bij are nonzero
+          if (wai === mark || wbi === mark) {
+            // matrix values @ i,j
+            var va = wai === mark ? xa[i] : zero;
+            var vb = wbi === mark ? xb[i] : zero;
+            // Cij
+            var vc = cf(va, vb);
+            // check for zero
+            if (!eq(vc, zero)) {
+              // push value
+              cvalues.push(vc);
+              // increment pointer
+              k++;
+            }
+            else {
+              // remove value @ i, do not increment pointer
+              cindex.splice(k, 1);
+            }
+          }
         }
       }
     }
+    // update cptr
+    cptr[columns] = cindex.length;
 
     // return sparse matrix
     return c;
   };
-  
-  return algorithm12;
+
+  return algorithm05;
 }
 
-exports.name = 'algorithm12';
+exports.name = 'algorithm05';
 exports.factory = factory;
 
 
 /***/ }),
-/* 56 */
+/* 34 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var util = __webpack_require__(5);
+var object = util.object;
+var string = util.string;
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+  var add = load(__webpack_require__(14));
+  var subtract = load(__webpack_require__(32));
+  var multiply = load(__webpack_require__(17));
+  var unaryMinus = load(__webpack_require__(21));
+
+  /**
+   * Calculate the determinant of a matrix.
+   *
+   * Syntax:
+   *
+   *    math.det(x)
+   *
+   * Examples:
+   *
+   *    math.det([[1, 2], [3, 4]]); // returns -2
+   *
+   *    var A = [
+   *      [-2, 2, 3],
+   *      [-1, 1, 3],
+   *      [2, 0, -1]
+   *    ]
+   *    math.det(A); // returns 6
+   *
+   * See also:
+   *
+   *    inv
+   *
+   * @param {Array | Matrix} x  A matrix
+   * @return {number} The determinant of `x`
+   */
+  var det = typed('det', {
+    'any': function (x) {
+      return object.clone(x);
+    },
+
+    'Array | Matrix': function det (x) {
+      var size;
+      if (x && x.isMatrix === true) {
+        size = x.size();
+      }
+      else if (Array.isArray(x)) {
+        x = matrix(x);
+        size = x.size();
+      }
+      else {
+        // a scalar
+        size = [];
+      }
+
+      switch (size.length) {
+        case 0:
+          // scalar
+          return object.clone(x);
+
+        case 1:
+          // vector
+          if (size[0] == 1) {
+            return object.clone(x.valueOf()[0]);
+          }
+          else {
+            throw new RangeError('Matrix must be square ' +
+            '(size: ' + string.format(size) + ')');
+          }
+
+        case 2:
+          // two dimensional array
+          var rows = size[0];
+          var cols = size[1];
+          if (rows == cols) {
+            return _det(x.clone().valueOf(), rows, cols);
+          }
+          else {
+            throw new RangeError('Matrix must be square ' +
+            '(size: ' + string.format(size) + ')');
+          }
+
+        default:
+          // multi dimensional array
+          throw new RangeError('Matrix must be two dimensional ' +
+          '(size: ' + string.format(size) + ')');
+      }
+    }
+  });
+
+  det.toTex = {1: '\\det\\left(${args[0]}\\right)'};
+
+  return det;
+
+  /**
+   * Calculate the determinant of a matrix
+   * @param {Array[]} matrix  A square, two dimensional matrix
+   * @param {number} rows     Number of rows of the matrix (zero-based)
+   * @param {number} cols     Number of columns of the matrix (zero-based)
+   * @returns {number} det
+   * @private
+   */
+  function _det (matrix, rows, cols) {
+    if (rows == 1) {
+      // this is a 1 x 1 matrix
+      return object.clone(matrix[0][0]);
+    }
+    else if (rows == 2) {
+      // this is a 2 x 2 matrix
+      // the determinant of [a11,a12;a21,a22] is det = a11*a22-a21*a12
+      return subtract(
+          multiply(matrix[0][0], matrix[1][1]),
+          multiply(matrix[1][0], matrix[0][1])
+      );
+    }
+    else {
+      // this is an n x n matrix
+      var compute_mu = function (matrix) {
+        var i, j;
+
+        // Compute the matrix with zero lower triangle, same upper triangle,
+        // and diagonals given by the negated sum of the below diagonal
+        // elements.
+        var mu = new Array(matrix.length);
+        var sum = 0;
+        for (i = 1; i < matrix.length; i++) {
+          sum = add(sum, matrix[i][i]);
+        }
+
+        for (i = 0; i < matrix.length; i++) {
+          mu[i] = new Array(matrix.length);
+          mu[i][i] = unaryMinus(sum);
+
+          for (j = 0; j < i; j++) {
+            mu[i][j] = 0; // TODO: make bignumber 0 in case of bignumber computation
+          }
+
+          for (j = i + 1; j < matrix.length; j++) {
+            mu[i][j] = matrix[i][j];
+          }
+
+          if (i+1 < matrix.length) {
+            sum = subtract(sum, matrix[i + 1][i + 1]);
+          }
+        }
+
+        return mu;
+      };
+
+      var fa = matrix;
+      for (var i = 0; i < rows - 1; i++) {
+        fa = multiply(compute_mu(fa), matrix);
+      }
+
+      if (rows % 2 == 0) {
+        return unaryMinus(fa[0][0]);
+      } else {
+        return fa[0][0];
+      }
+    }
+  }
+}
+
+exports.name = 'det';
+exports.factory = factory;
+
+
+
+/***/ }),
+/* 35 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var array = __webpack_require__(3);
+var isInteger = __webpack_require__(2).isInteger;
+
+function factory (type, config, load, typed) {
+  
+  var matrix = load(__webpack_require__(0));
+  
+  /**
+   * Create a 2-dimensional identity matrix with size m x n or n x n.
+   * The matrix has ones on the diagonal and zeros elsewhere.
+   *
+   * Syntax:
+   *
+   *    math.eye(n)
+   *    math.eye(n, format)
+   *    math.eye(m, n)
+   *    math.eye(m, n, format)
+   *    math.eye([m, n])
+   *    math.eye([m, n], format)
+   *
+   * Examples:
+   *
+   *    math.eye(3);                    // returns [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+   *    math.eye(3, 2);                 // returns [[1, 0], [0, 1], [0, 0]]
+   *
+   *    var A = [[1, 2, 3], [4, 5, 6]];
+   *    math.eye(math.size(A));         // returns [[1, 0, 0], [0, 1, 0]]
+   *
+   * See also:
+   *
+   *    diag, ones, zeros, size, range
+   *
+   * @param {...number | Matrix | Array} size   The size for the matrix
+   * @param {string} [format]                   The Matrix storage format
+   *
+   * @return {Matrix | Array | number} A matrix with ones on the diagonal.
+   */
+  var eye = typed('eye', {
+    '': function () {
+      return (config.matrix === 'Matrix') ? matrix([]) : [];
+    },
+
+    'string': function (format) {
+      return matrix(format);
+    },
+
+    'number | BigNumber': function (rows) {
+      return _eye(rows, rows, config.matrix === 'Matrix' ? 'default' : undefined);
+    },
+    
+    'number | BigNumber, string': function (rows, format) {
+      return _eye(rows, rows, format);
+    },
+
+    'number | BigNumber, number | BigNumber': function (rows, cols) {
+      return _eye(rows, cols, config.matrix === 'Matrix' ? 'default' : undefined);
+    },
+    
+    'number | BigNumber, number | BigNumber, string': function (rows, cols, format) {
+      return _eye(rows, cols, format);
+    },
+
+    'Array':  function (size) {
+      return _eyeVector(size);
+    },
+    
+    'Array, string':  function (size, format) {
+      return _eyeVector(size, format);
+    },
+
+    'Matrix': function (size) {
+      return _eyeVector(size.valueOf(), size.storage());
+    },
+    
+    'Matrix, string': function (size, format) {
+      return _eyeVector(size.valueOf(), format);
+    }
+  });
+
+  eye.toTex = undefined; // use default template
+
+  return eye;
+
+  function _eyeVector (size, format) {
+    switch (size.length) {
+      case 0: return format ? matrix(format) : [];
+      case 1: return _eye(size[0], size[0], format);
+      case 2: return _eye(size[0], size[1], format);
+      default: throw new Error('Vector containing two values expected');
+    }
+  }
+
+  /**
+   * Create an identity matrix
+   * @param {number | BigNumber} rows
+   * @param {number | BigNumber} cols
+   * @param {string} [format]
+   * @returns {Matrix}
+   * @private
+   */
+  function _eye (rows, cols, format) {
+    // BigNumber constructor with the right precision
+    var Big = (rows && rows.isBigNumber === true)
+        ? type.BigNumber
+        : (cols && cols.isBigNumber === true)
+            ? type.BigNumber
+            : null;
+
+    if (rows && rows.isBigNumber === true) rows = rows.toNumber();
+    if (cols && cols.isBigNumber === true) cols = cols.toNumber();
+
+    if (!isInteger(rows) || rows < 1) {
+      throw new Error('Parameters in function eye must be positive integers');
+    }
+    if (!isInteger(cols) || cols < 1) {
+      throw new Error('Parameters in function eye must be positive integers');
+    }
+    
+    var one = Big ? new type.BigNumber(1) : 1;
+    var defaultValue = Big ? new Big(0) : 0;
+    var size = [rows, cols];
+    
+    // check we need to return a matrix
+    if (format) {
+      // get matrix storage constructor
+      var F = type.Matrix.storage(format);
+      // create diagonal matrix (use optimized implementation for storage format)
+      return F.diagonal(size, one, 0, defaultValue);
+    }
+    
+    // create and resize array
+    var res = array.resize([], size, defaultValue);
+    // fill in ones on the diagonal
+    var minimum = rows < cols ? rows : cols;
+    // fill diagonal
+    for (var d = 0; d < minimum; d++) {
+      res[d][d] = one;
+    }
+    return res;
+  }
+}
+
+exports.name = 'eye';
+exports.factory = factory;
+
+
+/***/ }),
+/* 36 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash_find__ = __webpack_require__(57);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_lodash_find___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_lodash_find__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_lodash_remove__ = __webpack_require__(144);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_lodash_remove___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_lodash_remove__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_mathjs_core__ = __webpack_require__(150);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_mathjs_core___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_mathjs_core__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__style_css__ = __webpack_require__(178);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__style_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3__style_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_mathjs_core__ = __webpack_require__(37);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_mathjs_core___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_mathjs_core__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__style_css__ = __webpack_require__(86);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__style_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__style_css__);
 
 /*jshint esversion: 6 */
 /* jshint node: true */
 
 
 
+let math = __WEBPACK_IMPORTED_MODULE_0_mathjs_core___default.a.create();
+math.import(__webpack_require__(44));
+math.import(__webpack_require__(57));
 
 
-const math = __WEBPACK_IMPORTED_MODULE_2_mathjs_core___default.a.create();
-math.import(__webpack_require__(158));
+const _ = {
+  find_id: function(id) {
+    return LABELS.find((ele) => {return ele.id === parseInt(id);});
+  },
+  remove_id: function(id) {
+    return LABELS.splice(LABELS.findIndex(
+      (ele) => {return ele.id === parseInt(id);}
+      ), 1);
+  }
+};
 
 
 
@@ -4809,6 +6800,7 @@ function init() {
     else if (e.keyCode === 68) { pan_right(); }
     else if (e.keyCode === 69) { zoom_in(); }
     else if (e.keyCode === 82) { zoom_out(); }
+    else if (e.keyCode === 71) { export_table(); }
   };
   document.getElementById('plan-upload').addEventListener('change', (e) => {
     return get_plan(e.target.files);
@@ -4820,7 +6812,7 @@ function init() {
     return export_image(e.target);
   });
   document.getElementById('image-tag').addEventListener('change', (e) => {
-    return handletagImg(e.target.files);
+    return add_label(e.target.files);
   });
   document.getElementById('left').addEventListener('click', pan_left);
   document.getElementById('right').addEventListener('click', pan_right);
@@ -4847,8 +6839,8 @@ function batch_upload(file_list) {
   draw_table(LABELS);
 }
 
-function handletagImg(files) {
-  let label = new Label(
+function add_label(files) {
+  const label = new Label(
     ID, CLICKED_X, CLICKED_Y,
     window.prompt('Enter label title:'),
     0,
@@ -4860,7 +6852,8 @@ function handletagImg(files) {
   insert_row(label, document.querySelector('tbody'));
 }
 
-function draw_label(label) {
+function draw_label(context, label) {
+  const CTX = context;
   if (label.x !== null && label.y !== null) {
     CTX.textAlign = 'center';
     const wid = CTX.measureText(label.title).width;
@@ -4890,7 +6883,7 @@ function draw_canvas(LABELS) {
   CTX.setTransform.apply(CTX, TRANSFORM);
   CTX.save();
   CTX.drawImage(IMAGE, 0, 0);
-  LABELS.map( (label) => { draw_label(label); });
+  LABELS.map( (label) => { draw_label(CTX, label); });
 }
 
 function insert_row(label, tbody){
@@ -4928,12 +6921,10 @@ function draw_table(LABELS){
 }
 
 function edit_name(e) {
-  let val = window.prompt('Edit name:');
+  const val = window.prompt('Edit name:');
   if (val !== '') {
     const id = e.target.closest('tr').id;
-    console.log('id: ', id);
-    let label = __WEBPACK_IMPORTED_MODULE_0_lodash_find___default.a(LABELS, ['id', parseInt(id)]);
-    console.log(label);
+    const label = _.find_id(LABELS, ['id', parseInt(id)]);
     label.title = val;
     draw_canvas(LABELS);
     draw_table(LABELS);
@@ -4941,10 +6932,11 @@ function edit_name(e) {
 }
 
 function delete_row(id) {
-   __WEBPACK_IMPORTED_MODULE_1_lodash_remove___default.a(LABELS, ['id', parseInt(id)]);
+  _.remove_id(parseInt(id));
   draw_canvas(LABELS);
   draw_table(LABELS);
 }
+
 
 function onClick(evt) {
   // Matrix multiplication of affine transformation vector and mouse 
@@ -4957,8 +6949,10 @@ function onClick(evt) {
   */
   let t = TRANSFORM;
   t = math.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
+  console.log(t);
   t = math.reshape(t.concat(0,0,1), [3,3]);
   const inv = math.inv(t);
+  console.log(inv);
           
   CLICKED_X = evt.x * inv[0][0] + evt.y * inv[0][1] + inv[0][2];
   CLICKED_Y = evt.x * inv[1][0] + evt.y * inv[1][1] + inv[1][2];
@@ -4967,7 +6961,7 @@ function onClick(evt) {
   // If Shift key is held down, go to tag-editing mode
   if (KEYS[16]) {
     let id = window.prompt('Enter id of label: ');
-    let label = __WEBPACK_IMPORTED_MODULE_0_lodash_find___default.a(LABELS, ['id', parseInt(id)]);
+    let label = _.find_id(parseInt(id));
     if (label === undefined) {
       window.alert('Bad ID.');
     }
@@ -4984,12 +6978,12 @@ function onClick(evt) {
   }
 }
 
+
 function get_plan(file_list) {
   const plan_img = file_list[0];
   let img = new Image();
   img.onload = () => {
     IMAGE = img;
-    console.log(IMAGE.height, IMAGE.width);
     draw_canvas(LABELS);
     BUILDING = window.prompt('Enter building letter (e.g. A)');
     FLOOR = window.prompt('Enter building floor (e.g. 1)');
@@ -4998,8 +6992,68 @@ function get_plan(file_list) {
 }
 
 function export_image(e) {
-  let image = canvas.toDataURL("image/png");
-  e.href = image;
+  const export_canvas = document.createElement('canvas');
+  export_canvas.height = 3000;
+  export_canvas.width = Math.round(export_canvas.height * Math.sqrt(2));
+  const ctx = export_canvas.getContext('2d');
+  ctx.clearRect(0, 0, export_canvas.height, export_canvas.width); 
+  ctx.drawImage(IMAGE, 0, 0);
+  LABELS.map( (label) => { draw_label(ctx, label); });
+
+  e.href = export_canvas.toDataURL("image/png");
+  e.download = 'exported_plan.png';
+  export_canvas.remove();
+}
+
+
+function generate_table() {
+  /*
+  let html = `<!DOCTYPE html>
+              <body>
+                <h1>Hello World</h1>
+                <table>
+             `;
+  function read_image(file, callback) {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      callback(reader.result);
+    });
+    reader.readAsDataURL(file);
+  }
+
+  html += LABELS.reduce((acc, label) => {
+    read_image(label.image, (src) => {
+    acc += `<tr>
+              <td>${label.title}</td>
+              <td>${label.defect}</td>
+              <td><img src="${src}"></td>
+            </tr>
+            `;
+  });
+    return acc;
+  }, '');
+  console.log(html); 
+  html += `</table>`;
+  */
+}
+
+function export_table() {
+  const table_win = window.open('', 'table_window');
+  let table = table_win.document.createElement("table"); 
+  LABELS.map( (label) => {
+    let tr = table_win.document.createElement('tr');
+    table.appendChild(tr);
+    let td = table_win.document.createElement('td');
+    tr.appendChild(td);
+    td.innerHTML1 = label.title;
+    td = table_win.document.createElement('td');
+    tr.appendChild(td);
+    td.innerHTML1 = label.defect;
+    td = table_win.document.createElement('td');
+    tr.appendChild(td);
+    td.innerHTML1 = label.image.name;
+  });
+  table_win.document.body.insertBefore(table, null);
 }
 
 function preview_image(id) {
@@ -5008,7 +7062,7 @@ function preview_image(id) {
   function load_placeholder(e){
     e.target.src = './assets/placeholder.png';
   }
-  const file = __WEBPACK_IMPORTED_MODULE_0_lodash_find___default.a(LABELS, ['id', parseInt(id)]).image;
+  const file = _.find_id(parseInt(id)).image;
   const img = document.getElementById('img-preview');
   const reader = new FileReader();
   img.addEventListener('error', load_placeholder);
@@ -5055,3143 +7109,23 @@ function zoom_out() {
 init();
 
 
-/***/ }),
-/* 57 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var createFind = __webpack_require__(58),
-    findIndex = __webpack_require__(139);
-
-/**
- * Iterates over elements of `collection`, returning the first element
- * `predicate` returns truthy for. The predicate is invoked with three
- * arguments: (value, index|key, collection).
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Collection
- * @param {Array|Object} collection The collection to inspect.
- * @param {Function} [predicate=_.identity] The function invoked per iteration.
- * @param {number} [fromIndex=0] The index to search from.
- * @returns {*} Returns the matched element, else `undefined`.
- * @example
- *
- * var users = [
- *   { 'user': 'barney',  'age': 36, 'active': true },
- *   { 'user': 'fred',    'age': 40, 'active': false },
- *   { 'user': 'pebbles', 'age': 1,  'active': true }
- * ];
- *
- * _.find(users, function(o) { return o.age < 40; });
- * // => object for 'barney'
- *
- * // The `_.matches` iteratee shorthand.
- * _.find(users, { 'age': 1, 'active': true });
- * // => object for 'pebbles'
- *
- * // The `_.matchesProperty` iteratee shorthand.
- * _.find(users, ['active', false]);
- * // => object for 'fred'
- *
- * // The `_.property` iteratee shorthand.
- * _.find(users, 'active');
- * // => object for 'barney'
- */
-var find = createFind(findIndex);
-
-module.exports = find;
-
-
-/***/ }),
-/* 58 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseIteratee = __webpack_require__(18),
-    isArrayLike = __webpack_require__(44),
-    keys = __webpack_require__(21);
-
-/**
- * Creates a `_.find` or `_.findLast` function.
- *
- * @private
- * @param {Function} findIndexFunc The function to find the collection index.
- * @returns {Function} Returns the new find function.
- */
-function createFind(findIndexFunc) {
-  return function(collection, predicate, fromIndex) {
-    var iterable = Object(collection);
-    if (!isArrayLike(collection)) {
-      var iteratee = baseIteratee(predicate, 3);
-      collection = keys(collection);
-      predicate = function(key) { return iteratee(iterable[key], key, iterable); };
-    }
-    var index = findIndexFunc(collection, predicate, fromIndex);
-    return index > -1 ? iterable[iteratee ? collection[index] : index] : undefined;
-  };
-}
-
-module.exports = createFind;
-
-
-/***/ }),
-/* 59 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseIsMatch = __webpack_require__(60),
-    getMatchData = __webpack_require__(123),
-    matchesStrictComparable = __webpack_require__(46);
-
-/**
- * The base implementation of `_.matches` which doesn't clone `source`.
- *
- * @private
- * @param {Object} source The object of property values to match.
- * @returns {Function} Returns the new spec function.
- */
-function baseMatches(source) {
-  var matchData = getMatchData(source);
-  if (matchData.length == 1 && matchData[0][2]) {
-    return matchesStrictComparable(matchData[0][0], matchData[0][1]);
-  }
-  return function(object) {
-    return object === source || baseIsMatch(object, source, matchData);
-  };
-}
-
-module.exports = baseMatches;
-
-
-/***/ }),
-/* 60 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Stack = __webpack_require__(33),
-    baseIsEqual = __webpack_require__(38);
-
-/** Used to compose bitmasks for value comparisons. */
-var COMPARE_PARTIAL_FLAG = 1,
-    COMPARE_UNORDERED_FLAG = 2;
-
-/**
- * The base implementation of `_.isMatch` without support for iteratee shorthands.
- *
- * @private
- * @param {Object} object The object to inspect.
- * @param {Object} source The object of property values to match.
- * @param {Array} matchData The property names, values, and compare flags to match.
- * @param {Function} [customizer] The function to customize comparisons.
- * @returns {boolean} Returns `true` if `object` is a match, else `false`.
- */
-function baseIsMatch(object, source, matchData, customizer) {
-  var index = matchData.length,
-      length = index,
-      noCustomizer = !customizer;
-
-  if (object == null) {
-    return !length;
-  }
-  object = Object(object);
-  while (index--) {
-    var data = matchData[index];
-    if ((noCustomizer && data[2])
-          ? data[1] !== object[data[0]]
-          : !(data[0] in object)
-        ) {
-      return false;
-    }
-  }
-  while (++index < length) {
-    data = matchData[index];
-    var key = data[0],
-        objValue = object[key],
-        srcValue = data[1];
-
-    if (noCustomizer && data[2]) {
-      if (objValue === undefined && !(key in object)) {
-        return false;
-      }
-    } else {
-      var stack = new Stack;
-      if (customizer) {
-        var result = customizer(objValue, srcValue, key, object, source, stack);
-      }
-      if (!(result === undefined
-            ? baseIsEqual(srcValue, objValue, COMPARE_PARTIAL_FLAG | COMPARE_UNORDERED_FLAG, customizer, stack)
-            : result
-          )) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-module.exports = baseIsMatch;
-
-
-/***/ }),
-/* 61 */
-/***/ (function(module, exports) {
-
-/**
- * Removes all key-value entries from the list cache.
- *
- * @private
- * @name clear
- * @memberOf ListCache
- */
-function listCacheClear() {
-  this.__data__ = [];
-  this.size = 0;
-}
-
-module.exports = listCacheClear;
-
-
-/***/ }),
-/* 62 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var assocIndexOf = __webpack_require__(11);
-
-/** Used for built-in method references. */
-var arrayProto = Array.prototype;
-
-/** Built-in value references. */
-var splice = arrayProto.splice;
-
-/**
- * Removes `key` and its value from the list cache.
- *
- * @private
- * @name delete
- * @memberOf ListCache
- * @param {string} key The key of the value to remove.
- * @returns {boolean} Returns `true` if the entry was removed, else `false`.
- */
-function listCacheDelete(key) {
-  var data = this.__data__,
-      index = assocIndexOf(data, key);
-
-  if (index < 0) {
-    return false;
-  }
-  var lastIndex = data.length - 1;
-  if (index == lastIndex) {
-    data.pop();
-  } else {
-    splice.call(data, index, 1);
-  }
-  --this.size;
-  return true;
-}
-
-module.exports = listCacheDelete;
-
-
-/***/ }),
-/* 63 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var assocIndexOf = __webpack_require__(11);
-
-/**
- * Gets the list cache value for `key`.
- *
- * @private
- * @name get
- * @memberOf ListCache
- * @param {string} key The key of the value to get.
- * @returns {*} Returns the entry value.
- */
-function listCacheGet(key) {
-  var data = this.__data__,
-      index = assocIndexOf(data, key);
-
-  return index < 0 ? undefined : data[index][1];
-}
-
-module.exports = listCacheGet;
-
-
-/***/ }),
-/* 64 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var assocIndexOf = __webpack_require__(11);
-
-/**
- * Checks if a list cache value for `key` exists.
- *
- * @private
- * @name has
- * @memberOf ListCache
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function listCacheHas(key) {
-  return assocIndexOf(this.__data__, key) > -1;
-}
-
-module.exports = listCacheHas;
-
-
-/***/ }),
-/* 65 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var assocIndexOf = __webpack_require__(11);
-
-/**
- * Sets the list cache `key` to `value`.
- *
- * @private
- * @name set
- * @memberOf ListCache
- * @param {string} key The key of the value to set.
- * @param {*} value The value to set.
- * @returns {Object} Returns the list cache instance.
- */
-function listCacheSet(key, value) {
-  var data = this.__data__,
-      index = assocIndexOf(data, key);
-
-  if (index < 0) {
-    ++this.size;
-    data.push([key, value]);
-  } else {
-    data[index][1] = value;
-  }
-  return this;
-}
-
-module.exports = listCacheSet;
-
-
-/***/ }),
-/* 66 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var ListCache = __webpack_require__(10);
-
-/**
- * Removes all key-value entries from the stack.
- *
- * @private
- * @name clear
- * @memberOf Stack
- */
-function stackClear() {
-  this.__data__ = new ListCache;
-  this.size = 0;
-}
-
-module.exports = stackClear;
-
-
-/***/ }),
-/* 67 */
-/***/ (function(module, exports) {
-
-/**
- * Removes `key` and its value from the stack.
- *
- * @private
- * @name delete
- * @memberOf Stack
- * @param {string} key The key of the value to remove.
- * @returns {boolean} Returns `true` if the entry was removed, else `false`.
- */
-function stackDelete(key) {
-  var data = this.__data__,
-      result = data['delete'](key);
-
-  this.size = data.size;
-  return result;
-}
-
-module.exports = stackDelete;
-
-
-/***/ }),
-/* 68 */
-/***/ (function(module, exports) {
-
-/**
- * Gets the stack value for `key`.
- *
- * @private
- * @name get
- * @memberOf Stack
- * @param {string} key The key of the value to get.
- * @returns {*} Returns the entry value.
- */
-function stackGet(key) {
-  return this.__data__.get(key);
-}
-
-module.exports = stackGet;
-
-
-/***/ }),
-/* 69 */
-/***/ (function(module, exports) {
-
-/**
- * Checks if a stack value for `key` exists.
- *
- * @private
- * @name has
- * @memberOf Stack
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function stackHas(key) {
-  return this.__data__.has(key);
-}
-
-module.exports = stackHas;
-
-
-/***/ }),
-/* 70 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var ListCache = __webpack_require__(10),
-    Map = __webpack_require__(19),
-    MapCache = __webpack_require__(20);
-
-/** Used as the size to enable large array optimizations. */
-var LARGE_ARRAY_SIZE = 200;
-
-/**
- * Sets the stack `key` to `value`.
- *
- * @private
- * @name set
- * @memberOf Stack
- * @param {string} key The key of the value to set.
- * @param {*} value The value to set.
- * @returns {Object} Returns the stack cache instance.
- */
-function stackSet(key, value) {
-  var data = this.__data__;
-  if (data instanceof ListCache) {
-    var pairs = data.__data__;
-    if (!Map || (pairs.length < LARGE_ARRAY_SIZE - 1)) {
-      pairs.push([key, value]);
-      this.size = ++data.size;
-      return this;
-    }
-    data = this.__data__ = new MapCache(pairs);
-  }
-  data.set(key, value);
-  this.size = data.size;
-  return this;
-}
-
-module.exports = stackSet;
-
-
-/***/ }),
-/* 71 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isFunction = __webpack_require__(35),
-    isMasked = __webpack_require__(75),
-    isObject = __webpack_require__(13),
-    toSource = __webpack_require__(37);
-
-/**
- * Used to match `RegExp`
- * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
- */
-var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
-
-/** Used to detect host constructors (Safari). */
-var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-/** Used for built-in method references. */
-var funcProto = Function.prototype,
-    objectProto = Object.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var funcToString = funcProto.toString;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/** Used to detect if a method is native. */
-var reIsNative = RegExp('^' +
-  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
-  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-);
-
-/**
- * The base implementation of `_.isNative` without bad shim checks.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a native function,
- *  else `false`.
- */
-function baseIsNative(value) {
-  if (!isObject(value) || isMasked(value)) {
-    return false;
-  }
-  var pattern = isFunction(value) ? reIsNative : reIsHostCtor;
-  return pattern.test(toSource(value));
-}
-
-module.exports = baseIsNative;
-
-
-/***/ }),
-/* 72 */
-/***/ (function(module, exports) {
-
-var g;
-
-// This works in non-strict mode
-g = (function() {
-	return this;
-})();
-
-try {
-	// This works if eval is allowed (see CSP)
-	g = g || Function("return this")() || (1,eval)("this");
-} catch(e) {
-	// This works if the window reference is available
-	if(typeof window === "object")
-		g = window;
-}
-
-// g can still be undefined, but nothing to do about it...
-// We return undefined, instead of nothing here, so it's
-// easier to handle this case. if(!global) { ...}
-
-module.exports = g;
-
-
-/***/ }),
-/* 73 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Symbol = __webpack_require__(12);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Used to resolve the
- * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
- * of values.
- */
-var nativeObjectToString = objectProto.toString;
-
-/** Built-in value references. */
-var symToStringTag = Symbol ? Symbol.toStringTag : undefined;
-
-/**
- * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
- *
- * @private
- * @param {*} value The value to query.
- * @returns {string} Returns the raw `toStringTag`.
- */
-function getRawTag(value) {
-  var isOwn = hasOwnProperty.call(value, symToStringTag),
-      tag = value[symToStringTag];
-
-  try {
-    value[symToStringTag] = undefined;
-    var unmasked = true;
-  } catch (e) {}
-
-  var result = nativeObjectToString.call(value);
-  if (unmasked) {
-    if (isOwn) {
-      value[symToStringTag] = tag;
-    } else {
-      delete value[symToStringTag];
-    }
-  }
-  return result;
-}
-
-module.exports = getRawTag;
-
-
-/***/ }),
-/* 74 */
-/***/ (function(module, exports) {
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/**
- * Used to resolve the
- * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
- * of values.
- */
-var nativeObjectToString = objectProto.toString;
-
-/**
- * Converts `value` to a string using `Object.prototype.toString`.
- *
- * @private
- * @param {*} value The value to convert.
- * @returns {string} Returns the converted string.
- */
-function objectToString(value) {
-  return nativeObjectToString.call(value);
-}
-
-module.exports = objectToString;
-
-
-/***/ }),
-/* 75 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var coreJsData = __webpack_require__(76);
-
-/** Used to detect methods masquerading as native. */
-var maskSrcKey = (function() {
-  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
-  return uid ? ('Symbol(src)_1.' + uid) : '';
-}());
-
-/**
- * Checks if `func` has its source masked.
- *
- * @private
- * @param {Function} func The function to check.
- * @returns {boolean} Returns `true` if `func` is masked, else `false`.
- */
-function isMasked(func) {
-  return !!maskSrcKey && (maskSrcKey in func);
-}
-
-module.exports = isMasked;
-
-
-/***/ }),
-/* 76 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var root = __webpack_require__(1);
-
-/** Used to detect overreaching core-js shims. */
-var coreJsData = root['__core-js_shared__'];
-
-module.exports = coreJsData;
-
-
-/***/ }),
-/* 77 */
-/***/ (function(module, exports) {
-
-/**
- * Gets the value at `key` of `object`.
- *
- * @private
- * @param {Object} [object] The object to query.
- * @param {string} key The key of the property to get.
- * @returns {*} Returns the property value.
- */
-function getValue(object, key) {
-  return object == null ? undefined : object[key];
-}
-
-module.exports = getValue;
-
-
-/***/ }),
-/* 78 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Hash = __webpack_require__(79),
-    ListCache = __webpack_require__(10),
-    Map = __webpack_require__(19);
-
-/**
- * Removes all key-value entries from the map.
- *
- * @private
- * @name clear
- * @memberOf MapCache
- */
-function mapCacheClear() {
-  this.size = 0;
-  this.__data__ = {
-    'hash': new Hash,
-    'map': new (Map || ListCache),
-    'string': new Hash
-  };
-}
-
-module.exports = mapCacheClear;
-
-
-/***/ }),
-/* 79 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var hashClear = __webpack_require__(80),
-    hashDelete = __webpack_require__(81),
-    hashGet = __webpack_require__(82),
-    hashHas = __webpack_require__(83),
-    hashSet = __webpack_require__(84);
-
-/**
- * Creates a hash object.
- *
- * @private
- * @constructor
- * @param {Array} [entries] The key-value pairs to cache.
- */
-function Hash(entries) {
-  var index = -1,
-      length = entries == null ? 0 : entries.length;
-
-  this.clear();
-  while (++index < length) {
-    var entry = entries[index];
-    this.set(entry[0], entry[1]);
-  }
-}
-
-// Add methods to `Hash`.
-Hash.prototype.clear = hashClear;
-Hash.prototype['delete'] = hashDelete;
-Hash.prototype.get = hashGet;
-Hash.prototype.has = hashHas;
-Hash.prototype.set = hashSet;
-
-module.exports = Hash;
-
-
-/***/ }),
-/* 80 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var nativeCreate = __webpack_require__(14);
-
-/**
- * Removes all key-value entries from the hash.
- *
- * @private
- * @name clear
- * @memberOf Hash
- */
-function hashClear() {
-  this.__data__ = nativeCreate ? nativeCreate(null) : {};
-  this.size = 0;
-}
-
-module.exports = hashClear;
-
-
-/***/ }),
-/* 81 */
-/***/ (function(module, exports) {
-
-/**
- * Removes `key` and its value from the hash.
- *
- * @private
- * @name delete
- * @memberOf Hash
- * @param {Object} hash The hash to modify.
- * @param {string} key The key of the value to remove.
- * @returns {boolean} Returns `true` if the entry was removed, else `false`.
- */
-function hashDelete(key) {
-  var result = this.has(key) && delete this.__data__[key];
-  this.size -= result ? 1 : 0;
-  return result;
-}
-
-module.exports = hashDelete;
-
-
-/***/ }),
-/* 82 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var nativeCreate = __webpack_require__(14);
-
-/** Used to stand-in for `undefined` hash values. */
-var HASH_UNDEFINED = '__lodash_hash_undefined__';
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Gets the hash value for `key`.
- *
- * @private
- * @name get
- * @memberOf Hash
- * @param {string} key The key of the value to get.
- * @returns {*} Returns the entry value.
- */
-function hashGet(key) {
-  var data = this.__data__;
-  if (nativeCreate) {
-    var result = data[key];
-    return result === HASH_UNDEFINED ? undefined : result;
-  }
-  return hasOwnProperty.call(data, key) ? data[key] : undefined;
-}
-
-module.exports = hashGet;
-
-
-/***/ }),
-/* 83 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var nativeCreate = __webpack_require__(14);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Checks if a hash value for `key` exists.
- *
- * @private
- * @name has
- * @memberOf Hash
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function hashHas(key) {
-  var data = this.__data__;
-  return nativeCreate ? (data[key] !== undefined) : hasOwnProperty.call(data, key);
-}
-
-module.exports = hashHas;
-
-
-/***/ }),
-/* 84 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var nativeCreate = __webpack_require__(14);
-
-/** Used to stand-in for `undefined` hash values. */
-var HASH_UNDEFINED = '__lodash_hash_undefined__';
-
-/**
- * Sets the hash `key` to `value`.
- *
- * @private
- * @name set
- * @memberOf Hash
- * @param {string} key The key of the value to set.
- * @param {*} value The value to set.
- * @returns {Object} Returns the hash instance.
- */
-function hashSet(key, value) {
-  var data = this.__data__;
-  this.size += this.has(key) ? 0 : 1;
-  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
-  return this;
-}
-
-module.exports = hashSet;
-
-
-/***/ }),
-/* 85 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getMapData = __webpack_require__(15);
-
-/**
- * Removes `key` and its value from the map.
- *
- * @private
- * @name delete
- * @memberOf MapCache
- * @param {string} key The key of the value to remove.
- * @returns {boolean} Returns `true` if the entry was removed, else `false`.
- */
-function mapCacheDelete(key) {
-  var result = getMapData(this, key)['delete'](key);
-  this.size -= result ? 1 : 0;
-  return result;
-}
-
-module.exports = mapCacheDelete;
-
-
-/***/ }),
-/* 86 */
-/***/ (function(module, exports) {
-
-/**
- * Checks if `value` is suitable for use as unique object key.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
- */
-function isKeyable(value) {
-  var type = typeof value;
-  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
-    ? (value !== '__proto__')
-    : (value === null);
-}
-
-module.exports = isKeyable;
-
-
-/***/ }),
-/* 87 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getMapData = __webpack_require__(15);
-
-/**
- * Gets the map value for `key`.
- *
- * @private
- * @name get
- * @memberOf MapCache
- * @param {string} key The key of the value to get.
- * @returns {*} Returns the entry value.
- */
-function mapCacheGet(key) {
-  return getMapData(this, key).get(key);
-}
-
-module.exports = mapCacheGet;
-
-
-/***/ }),
-/* 88 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getMapData = __webpack_require__(15);
-
-/**
- * Checks if a map value for `key` exists.
- *
- * @private
- * @name has
- * @memberOf MapCache
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function mapCacheHas(key) {
-  return getMapData(this, key).has(key);
-}
-
-module.exports = mapCacheHas;
-
-
-/***/ }),
-/* 89 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getMapData = __webpack_require__(15);
-
-/**
- * Sets the map `key` to `value`.
- *
- * @private
- * @name set
- * @memberOf MapCache
- * @param {string} key The key of the value to set.
- * @param {*} value The value to set.
- * @returns {Object} Returns the map cache instance.
- */
-function mapCacheSet(key, value) {
-  var data = getMapData(this, key),
-      size = data.size;
-
-  data.set(key, value);
-  this.size += data.size == size ? 0 : 1;
-  return this;
-}
-
-module.exports = mapCacheSet;
-
-
-/***/ }),
-/* 90 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Stack = __webpack_require__(33),
-    equalArrays = __webpack_require__(39),
-    equalByTag = __webpack_require__(96),
-    equalObjects = __webpack_require__(100),
-    getTag = __webpack_require__(118),
-    isArray = __webpack_require__(3),
-    isBuffer = __webpack_require__(41),
-    isTypedArray = __webpack_require__(43);
-
-/** Used to compose bitmasks for value comparisons. */
-var COMPARE_PARTIAL_FLAG = 1;
-
-/** `Object#toString` result references. */
-var argsTag = '[object Arguments]',
-    arrayTag = '[object Array]',
-    objectTag = '[object Object]';
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * A specialized version of `baseIsEqual` for arrays and objects which performs
- * deep comparisons and tracks traversed objects enabling objects with circular
- * references to be compared.
- *
- * @private
- * @param {Object} object The object to compare.
- * @param {Object} other The other object to compare.
- * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
- * @param {Function} customizer The function to customize comparisons.
- * @param {Function} equalFunc The function to determine equivalents of values.
- * @param {Object} [stack] Tracks traversed `object` and `other` objects.
- * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
- */
-function baseIsEqualDeep(object, other, bitmask, customizer, equalFunc, stack) {
-  var objIsArr = isArray(object),
-      othIsArr = isArray(other),
-      objTag = objIsArr ? arrayTag : getTag(object),
-      othTag = othIsArr ? arrayTag : getTag(other);
-
-  objTag = objTag == argsTag ? objectTag : objTag;
-  othTag = othTag == argsTag ? objectTag : othTag;
-
-  var objIsObj = objTag == objectTag,
-      othIsObj = othTag == objectTag,
-      isSameTag = objTag == othTag;
-
-  if (isSameTag && isBuffer(object)) {
-    if (!isBuffer(other)) {
-      return false;
-    }
-    objIsArr = true;
-    objIsObj = false;
-  }
-  if (isSameTag && !objIsObj) {
-    stack || (stack = new Stack);
-    return (objIsArr || isTypedArray(object))
-      ? equalArrays(object, other, bitmask, customizer, equalFunc, stack)
-      : equalByTag(object, other, objTag, bitmask, customizer, equalFunc, stack);
-  }
-  if (!(bitmask & COMPARE_PARTIAL_FLAG)) {
-    var objIsWrapped = objIsObj && hasOwnProperty.call(object, '__wrapped__'),
-        othIsWrapped = othIsObj && hasOwnProperty.call(other, '__wrapped__');
-
-    if (objIsWrapped || othIsWrapped) {
-      var objUnwrapped = objIsWrapped ? object.value() : object,
-          othUnwrapped = othIsWrapped ? other.value() : other;
-
-      stack || (stack = new Stack);
-      return equalFunc(objUnwrapped, othUnwrapped, bitmask, customizer, stack);
-    }
-  }
-  if (!isSameTag) {
-    return false;
-  }
-  stack || (stack = new Stack);
-  return equalObjects(object, other, bitmask, customizer, equalFunc, stack);
-}
-
-module.exports = baseIsEqualDeep;
-
-
-/***/ }),
-/* 91 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var MapCache = __webpack_require__(20),
-    setCacheAdd = __webpack_require__(92),
-    setCacheHas = __webpack_require__(93);
-
-/**
- *
- * Creates an array cache object to store unique values.
- *
- * @private
- * @constructor
- * @param {Array} [values] The values to cache.
- */
-function SetCache(values) {
-  var index = -1,
-      length = values == null ? 0 : values.length;
-
-  this.__data__ = new MapCache;
-  while (++index < length) {
-    this.add(values[index]);
-  }
-}
-
-// Add methods to `SetCache`.
-SetCache.prototype.add = SetCache.prototype.push = setCacheAdd;
-SetCache.prototype.has = setCacheHas;
-
-module.exports = SetCache;
-
-
-/***/ }),
-/* 92 */
-/***/ (function(module, exports) {
-
-/** Used to stand-in for `undefined` hash values. */
-var HASH_UNDEFINED = '__lodash_hash_undefined__';
-
-/**
- * Adds `value` to the array cache.
- *
- * @private
- * @name add
- * @memberOf SetCache
- * @alias push
- * @param {*} value The value to cache.
- * @returns {Object} Returns the cache instance.
- */
-function setCacheAdd(value) {
-  this.__data__.set(value, HASH_UNDEFINED);
-  return this;
-}
-
-module.exports = setCacheAdd;
-
-
-/***/ }),
-/* 93 */
-/***/ (function(module, exports) {
-
-/**
- * Checks if `value` is in the array cache.
- *
- * @private
- * @name has
- * @memberOf SetCache
- * @param {*} value The value to search for.
- * @returns {number} Returns `true` if `value` is found, else `false`.
- */
-function setCacheHas(value) {
-  return this.__data__.has(value);
-}
-
-module.exports = setCacheHas;
-
-
-/***/ }),
-/* 94 */
-/***/ (function(module, exports) {
-
-/**
- * A specialized version of `_.some` for arrays without support for iteratee
- * shorthands.
- *
- * @private
- * @param {Array} [array] The array to iterate over.
- * @param {Function} predicate The function invoked per iteration.
- * @returns {boolean} Returns `true` if any element passes the predicate check,
- *  else `false`.
- */
-function arraySome(array, predicate) {
-  var index = -1,
-      length = array == null ? 0 : array.length;
-
-  while (++index < length) {
-    if (predicate(array[index], index, array)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-module.exports = arraySome;
-
-
-/***/ }),
-/* 95 */
-/***/ (function(module, exports) {
-
-/**
- * Checks if a `cache` value for `key` exists.
- *
- * @private
- * @param {Object} cache The cache to query.
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function cacheHas(cache, key) {
-  return cache.has(key);
-}
-
-module.exports = cacheHas;
-
-
-/***/ }),
-/* 96 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Symbol = __webpack_require__(12),
-    Uint8Array = __webpack_require__(97),
-    eq = __webpack_require__(34),
-    equalArrays = __webpack_require__(39),
-    mapToArray = __webpack_require__(98),
-    setToArray = __webpack_require__(99);
-
-/** Used to compose bitmasks for value comparisons. */
-var COMPARE_PARTIAL_FLAG = 1,
-    COMPARE_UNORDERED_FLAG = 2;
-
-/** `Object#toString` result references. */
-var boolTag = '[object Boolean]',
-    dateTag = '[object Date]',
-    errorTag = '[object Error]',
-    mapTag = '[object Map]',
-    numberTag = '[object Number]',
-    regexpTag = '[object RegExp]',
-    setTag = '[object Set]',
-    stringTag = '[object String]',
-    symbolTag = '[object Symbol]';
-
-var arrayBufferTag = '[object ArrayBuffer]',
-    dataViewTag = '[object DataView]';
-
-/** Used to convert symbols to primitives and strings. */
-var symbolProto = Symbol ? Symbol.prototype : undefined,
-    symbolValueOf = symbolProto ? symbolProto.valueOf : undefined;
-
-/**
- * A specialized version of `baseIsEqualDeep` for comparing objects of
- * the same `toStringTag`.
- *
- * **Note:** This function only supports comparing values with tags of
- * `Boolean`, `Date`, `Error`, `Number`, `RegExp`, or `String`.
- *
- * @private
- * @param {Object} object The object to compare.
- * @param {Object} other The other object to compare.
- * @param {string} tag The `toStringTag` of the objects to compare.
- * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
- * @param {Function} customizer The function to customize comparisons.
- * @param {Function} equalFunc The function to determine equivalents of values.
- * @param {Object} stack Tracks traversed `object` and `other` objects.
- * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
- */
-function equalByTag(object, other, tag, bitmask, customizer, equalFunc, stack) {
-  switch (tag) {
-    case dataViewTag:
-      if ((object.byteLength != other.byteLength) ||
-          (object.byteOffset != other.byteOffset)) {
-        return false;
-      }
-      object = object.buffer;
-      other = other.buffer;
-
-    case arrayBufferTag:
-      if ((object.byteLength != other.byteLength) ||
-          !equalFunc(new Uint8Array(object), new Uint8Array(other))) {
-        return false;
-      }
-      return true;
-
-    case boolTag:
-    case dateTag:
-    case numberTag:
-      // Coerce booleans to `1` or `0` and dates to milliseconds.
-      // Invalid dates are coerced to `NaN`.
-      return eq(+object, +other);
-
-    case errorTag:
-      return object.name == other.name && object.message == other.message;
-
-    case regexpTag:
-    case stringTag:
-      // Coerce regexes to strings and treat strings, primitives and objects,
-      // as equal. See http://www.ecma-international.org/ecma-262/7.0/#sec-regexp.prototype.tostring
-      // for more details.
-      return object == (other + '');
-
-    case mapTag:
-      var convert = mapToArray;
-
-    case setTag:
-      var isPartial = bitmask & COMPARE_PARTIAL_FLAG;
-      convert || (convert = setToArray);
-
-      if (object.size != other.size && !isPartial) {
-        return false;
-      }
-      // Assume cyclic values are equal.
-      var stacked = stack.get(object);
-      if (stacked) {
-        return stacked == other;
-      }
-      bitmask |= COMPARE_UNORDERED_FLAG;
-
-      // Recursively compare objects (susceptible to call stack limits).
-      stack.set(object, other);
-      var result = equalArrays(convert(object), convert(other), bitmask, customizer, equalFunc, stack);
-      stack['delete'](object);
-      return result;
-
-    case symbolTag:
-      if (symbolValueOf) {
-        return symbolValueOf.call(object) == symbolValueOf.call(other);
-      }
-  }
-  return false;
-}
-
-module.exports = equalByTag;
-
-
-/***/ }),
-/* 97 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var root = __webpack_require__(1);
-
-/** Built-in value references. */
-var Uint8Array = root.Uint8Array;
-
-module.exports = Uint8Array;
-
-
-/***/ }),
-/* 98 */
-/***/ (function(module, exports) {
-
-/**
- * Converts `map` to its key-value pairs.
- *
- * @private
- * @param {Object} map The map to convert.
- * @returns {Array} Returns the key-value pairs.
- */
-function mapToArray(map) {
-  var index = -1,
-      result = Array(map.size);
-
-  map.forEach(function(value, key) {
-    result[++index] = [key, value];
-  });
-  return result;
-}
-
-module.exports = mapToArray;
-
-
-/***/ }),
-/* 99 */
-/***/ (function(module, exports) {
-
-/**
- * Converts `set` to an array of its values.
- *
- * @private
- * @param {Object} set The set to convert.
- * @returns {Array} Returns the values.
- */
-function setToArray(set) {
-  var index = -1,
-      result = Array(set.size);
-
-  set.forEach(function(value) {
-    result[++index] = value;
-  });
-  return result;
-}
-
-module.exports = setToArray;
-
-
-/***/ }),
-/* 100 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getAllKeys = __webpack_require__(101);
-
-/** Used to compose bitmasks for value comparisons. */
-var COMPARE_PARTIAL_FLAG = 1;
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * A specialized version of `baseIsEqualDeep` for objects with support for
- * partial deep comparisons.
- *
- * @private
- * @param {Object} object The object to compare.
- * @param {Object} other The other object to compare.
- * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
- * @param {Function} customizer The function to customize comparisons.
- * @param {Function} equalFunc The function to determine equivalents of values.
- * @param {Object} stack Tracks traversed `object` and `other` objects.
- * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
- */
-function equalObjects(object, other, bitmask, customizer, equalFunc, stack) {
-  var isPartial = bitmask & COMPARE_PARTIAL_FLAG,
-      objProps = getAllKeys(object),
-      objLength = objProps.length,
-      othProps = getAllKeys(other),
-      othLength = othProps.length;
-
-  if (objLength != othLength && !isPartial) {
-    return false;
-  }
-  var index = objLength;
-  while (index--) {
-    var key = objProps[index];
-    if (!(isPartial ? key in other : hasOwnProperty.call(other, key))) {
-      return false;
-    }
-  }
-  // Assume cyclic values are equal.
-  var stacked = stack.get(object);
-  if (stacked && stack.get(other)) {
-    return stacked == other;
-  }
-  var result = true;
-  stack.set(object, other);
-  stack.set(other, object);
-
-  var skipCtor = isPartial;
-  while (++index < objLength) {
-    key = objProps[index];
-    var objValue = object[key],
-        othValue = other[key];
-
-    if (customizer) {
-      var compared = isPartial
-        ? customizer(othValue, objValue, key, other, object, stack)
-        : customizer(objValue, othValue, key, object, other, stack);
-    }
-    // Recursively compare objects (susceptible to call stack limits).
-    if (!(compared === undefined
-          ? (objValue === othValue || equalFunc(objValue, othValue, bitmask, customizer, stack))
-          : compared
-        )) {
-      result = false;
-      break;
-    }
-    skipCtor || (skipCtor = key == 'constructor');
-  }
-  if (result && !skipCtor) {
-    var objCtor = object.constructor,
-        othCtor = other.constructor;
-
-    // Non `Object` object instances with different constructors are not equal.
-    if (objCtor != othCtor &&
-        ('constructor' in object && 'constructor' in other) &&
-        !(typeof objCtor == 'function' && objCtor instanceof objCtor &&
-          typeof othCtor == 'function' && othCtor instanceof othCtor)) {
-      result = false;
-    }
-  }
-  stack['delete'](object);
-  stack['delete'](other);
-  return result;
-}
-
-module.exports = equalObjects;
-
-
-/***/ }),
-/* 101 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseGetAllKeys = __webpack_require__(102),
-    getSymbols = __webpack_require__(104),
-    keys = __webpack_require__(21);
-
-/**
- * Creates an array of own enumerable property names and symbols of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names and symbols.
- */
-function getAllKeys(object) {
-  return baseGetAllKeys(object, keys, getSymbols);
-}
-
-module.exports = getAllKeys;
-
-
-/***/ }),
-/* 102 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var arrayPush = __webpack_require__(103),
-    isArray = __webpack_require__(3);
-
-/**
- * The base implementation of `getAllKeys` and `getAllKeysIn` which uses
- * `keysFunc` and `symbolsFunc` to get the enumerable property names and
- * symbols of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {Function} keysFunc The function to get the keys of `object`.
- * @param {Function} symbolsFunc The function to get the symbols of `object`.
- * @returns {Array} Returns the array of property names and symbols.
- */
-function baseGetAllKeys(object, keysFunc, symbolsFunc) {
-  var result = keysFunc(object);
-  return isArray(object) ? result : arrayPush(result, symbolsFunc(object));
-}
-
-module.exports = baseGetAllKeys;
-
-
-/***/ }),
-/* 103 */
-/***/ (function(module, exports) {
-
-/**
- * Appends the elements of `values` to `array`.
- *
- * @private
- * @param {Array} array The array to modify.
- * @param {Array} values The values to append.
- * @returns {Array} Returns `array`.
- */
-function arrayPush(array, values) {
-  var index = -1,
-      length = values.length,
-      offset = array.length;
-
-  while (++index < length) {
-    array[offset + index] = values[index];
-  }
-  return array;
-}
-
-module.exports = arrayPush;
-
-
-/***/ }),
-/* 104 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var arrayFilter = __webpack_require__(105),
-    stubArray = __webpack_require__(106);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Built-in value references. */
-var propertyIsEnumerable = objectProto.propertyIsEnumerable;
-
-/* Built-in method references for those with the same name as other `lodash` methods. */
-var nativeGetSymbols = Object.getOwnPropertySymbols;
-
-/**
- * Creates an array of the own enumerable symbols of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of symbols.
- */
-var getSymbols = !nativeGetSymbols ? stubArray : function(object) {
-  if (object == null) {
-    return [];
-  }
-  object = Object(object);
-  return arrayFilter(nativeGetSymbols(object), function(symbol) {
-    return propertyIsEnumerable.call(object, symbol);
-  });
-};
-
-module.exports = getSymbols;
-
-
-/***/ }),
-/* 105 */
-/***/ (function(module, exports) {
-
-/**
- * A specialized version of `_.filter` for arrays without support for
- * iteratee shorthands.
- *
- * @private
- * @param {Array} [array] The array to iterate over.
- * @param {Function} predicate The function invoked per iteration.
- * @returns {Array} Returns the new filtered array.
- */
-function arrayFilter(array, predicate) {
-  var index = -1,
-      length = array == null ? 0 : array.length,
-      resIndex = 0,
-      result = [];
-
-  while (++index < length) {
-    var value = array[index];
-    if (predicate(value, index, array)) {
-      result[resIndex++] = value;
-    }
-  }
-  return result;
-}
-
-module.exports = arrayFilter;
-
-
-/***/ }),
-/* 106 */
-/***/ (function(module, exports) {
-
-/**
- * This method returns a new empty array.
- *
- * @static
- * @memberOf _
- * @since 4.13.0
- * @category Util
- * @returns {Array} Returns the new empty array.
- * @example
- *
- * var arrays = _.times(2, _.stubArray);
- *
- * console.log(arrays);
- * // => [[], []]
- *
- * console.log(arrays[0] === arrays[1]);
- * // => false
- */
-function stubArray() {
-  return [];
-}
-
-module.exports = stubArray;
-
-
-/***/ }),
-/* 107 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseTimes = __webpack_require__(108),
-    isArguments = __webpack_require__(40),
-    isArray = __webpack_require__(3),
-    isBuffer = __webpack_require__(41),
-    isIndex = __webpack_require__(22),
-    isTypedArray = __webpack_require__(43);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Creates an array of the enumerable property names of the array-like `value`.
- *
- * @private
- * @param {*} value The value to query.
- * @param {boolean} inherited Specify returning inherited property names.
- * @returns {Array} Returns the array of property names.
- */
-function arrayLikeKeys(value, inherited) {
-  var isArr = isArray(value),
-      isArg = !isArr && isArguments(value),
-      isBuff = !isArr && !isArg && isBuffer(value),
-      isType = !isArr && !isArg && !isBuff && isTypedArray(value),
-      skipIndexes = isArr || isArg || isBuff || isType,
-      result = skipIndexes ? baseTimes(value.length, String) : [],
-      length = result.length;
-
-  for (var key in value) {
-    if ((inherited || hasOwnProperty.call(value, key)) &&
-        !(skipIndexes && (
-           // Safari 9 has enumerable `arguments.length` in strict mode.
-           key == 'length' ||
-           // Node.js 0.10 has enumerable non-index properties on buffers.
-           (isBuff && (key == 'offset' || key == 'parent')) ||
-           // PhantomJS 2 has enumerable non-index properties on typed arrays.
-           (isType && (key == 'buffer' || key == 'byteLength' || key == 'byteOffset')) ||
-           // Skip index properties.
-           isIndex(key, length)
-        ))) {
-      result.push(key);
-    }
-  }
-  return result;
-}
-
-module.exports = arrayLikeKeys;
-
-
-/***/ }),
-/* 108 */
-/***/ (function(module, exports) {
-
-/**
- * The base implementation of `_.times` without support for iteratee shorthands
- * or max array length checks.
- *
- * @private
- * @param {number} n The number of times to invoke `iteratee`.
- * @param {Function} iteratee The function invoked per iteration.
- * @returns {Array} Returns the array of results.
- */
-function baseTimes(n, iteratee) {
-  var index = -1,
-      result = Array(n);
-
-  while (++index < n) {
-    result[index] = iteratee(index);
-  }
-  return result;
-}
-
-module.exports = baseTimes;
-
-
-/***/ }),
-/* 109 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseGetTag = __webpack_require__(6),
-    isObjectLike = __webpack_require__(7);
-
-/** `Object#toString` result references. */
-var argsTag = '[object Arguments]';
-
-/**
- * The base implementation of `_.isArguments`.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an `arguments` object,
- */
-function baseIsArguments(value) {
-  return isObjectLike(value) && baseGetTag(value) == argsTag;
-}
-
-module.exports = baseIsArguments;
-
-
-/***/ }),
-/* 110 */
-/***/ (function(module, exports) {
-
-/**
- * This method returns `false`.
- *
- * @static
- * @memberOf _
- * @since 4.13.0
- * @category Util
- * @returns {boolean} Returns `false`.
- * @example
- *
- * _.times(2, _.stubFalse);
- * // => [false, false]
- */
-function stubFalse() {
-  return false;
-}
-
-module.exports = stubFalse;
-
-
-/***/ }),
-/* 111 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseGetTag = __webpack_require__(6),
-    isLength = __webpack_require__(23),
-    isObjectLike = __webpack_require__(7);
-
-/** `Object#toString` result references. */
-var argsTag = '[object Arguments]',
-    arrayTag = '[object Array]',
-    boolTag = '[object Boolean]',
-    dateTag = '[object Date]',
-    errorTag = '[object Error]',
-    funcTag = '[object Function]',
-    mapTag = '[object Map]',
-    numberTag = '[object Number]',
-    objectTag = '[object Object]',
-    regexpTag = '[object RegExp]',
-    setTag = '[object Set]',
-    stringTag = '[object String]',
-    weakMapTag = '[object WeakMap]';
-
-var arrayBufferTag = '[object ArrayBuffer]',
-    dataViewTag = '[object DataView]',
-    float32Tag = '[object Float32Array]',
-    float64Tag = '[object Float64Array]',
-    int8Tag = '[object Int8Array]',
-    int16Tag = '[object Int16Array]',
-    int32Tag = '[object Int32Array]',
-    uint8Tag = '[object Uint8Array]',
-    uint8ClampedTag = '[object Uint8ClampedArray]',
-    uint16Tag = '[object Uint16Array]',
-    uint32Tag = '[object Uint32Array]';
-
-/** Used to identify `toStringTag` values of typed arrays. */
-var typedArrayTags = {};
-typedArrayTags[float32Tag] = typedArrayTags[float64Tag] =
-typedArrayTags[int8Tag] = typedArrayTags[int16Tag] =
-typedArrayTags[int32Tag] = typedArrayTags[uint8Tag] =
-typedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] =
-typedArrayTags[uint32Tag] = true;
-typedArrayTags[argsTag] = typedArrayTags[arrayTag] =
-typedArrayTags[arrayBufferTag] = typedArrayTags[boolTag] =
-typedArrayTags[dataViewTag] = typedArrayTags[dateTag] =
-typedArrayTags[errorTag] = typedArrayTags[funcTag] =
-typedArrayTags[mapTag] = typedArrayTags[numberTag] =
-typedArrayTags[objectTag] = typedArrayTags[regexpTag] =
-typedArrayTags[setTag] = typedArrayTags[stringTag] =
-typedArrayTags[weakMapTag] = false;
-
-/**
- * The base implementation of `_.isTypedArray` without Node.js optimizations.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
- */
-function baseIsTypedArray(value) {
-  return isObjectLike(value) &&
-    isLength(value.length) && !!typedArrayTags[baseGetTag(value)];
-}
-
-module.exports = baseIsTypedArray;
-
-
-/***/ }),
-/* 112 */
-/***/ (function(module, exports) {
-
-/**
- * The base implementation of `_.unary` without support for storing metadata.
- *
- * @private
- * @param {Function} func The function to cap arguments for.
- * @returns {Function} Returns the new capped function.
- */
-function baseUnary(func) {
-  return function(value) {
-    return func(value);
-  };
-}
-
-module.exports = baseUnary;
-
-
-/***/ }),
-/* 113 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/* WEBPACK VAR INJECTION */(function(module) {var freeGlobal = __webpack_require__(36);
-
-/** Detect free variable `exports`. */
-var freeExports = typeof exports == 'object' && exports && !exports.nodeType && exports;
-
-/** Detect free variable `module`. */
-var freeModule = freeExports && typeof module == 'object' && module && !module.nodeType && module;
-
-/** Detect the popular CommonJS extension `module.exports`. */
-var moduleExports = freeModule && freeModule.exports === freeExports;
-
-/** Detect free variable `process` from Node.js. */
-var freeProcess = moduleExports && freeGlobal.process;
-
-/** Used to access faster Node.js helpers. */
-var nodeUtil = (function() {
-  try {
-    return freeProcess && freeProcess.binding && freeProcess.binding('util');
-  } catch (e) {}
-}());
-
-module.exports = nodeUtil;
-
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(42)(module)))
-
-/***/ }),
-/* 114 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isPrototype = __webpack_require__(115),
-    nativeKeys = __webpack_require__(116);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * The base implementation of `_.keys` which doesn't treat sparse arrays as dense.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- */
-function baseKeys(object) {
-  if (!isPrototype(object)) {
-    return nativeKeys(object);
-  }
-  var result = [];
-  for (var key in Object(object)) {
-    if (hasOwnProperty.call(object, key) && key != 'constructor') {
-      result.push(key);
-    }
-  }
-  return result;
-}
-
-module.exports = baseKeys;
-
-
-/***/ }),
-/* 115 */
-/***/ (function(module, exports) {
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/**
- * Checks if `value` is likely a prototype object.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a prototype, else `false`.
- */
-function isPrototype(value) {
-  var Ctor = value && value.constructor,
-      proto = (typeof Ctor == 'function' && Ctor.prototype) || objectProto;
-
-  return value === proto;
-}
-
-module.exports = isPrototype;
-
-
-/***/ }),
-/* 116 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var overArg = __webpack_require__(117);
-
-/* Built-in method references for those with the same name as other `lodash` methods. */
-var nativeKeys = overArg(Object.keys, Object);
-
-module.exports = nativeKeys;
-
-
-/***/ }),
-/* 117 */
-/***/ (function(module, exports) {
-
-/**
- * Creates a unary function that invokes `func` with its argument transformed.
- *
- * @private
- * @param {Function} func The function to wrap.
- * @param {Function} transform The argument transform.
- * @returns {Function} Returns the new function.
- */
-function overArg(func, transform) {
-  return function(arg) {
-    return func(transform(arg));
-  };
-}
-
-module.exports = overArg;
-
-
-/***/ }),
-/* 118 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var DataView = __webpack_require__(119),
-    Map = __webpack_require__(19),
-    Promise = __webpack_require__(120),
-    Set = __webpack_require__(121),
-    WeakMap = __webpack_require__(122),
-    baseGetTag = __webpack_require__(6),
-    toSource = __webpack_require__(37);
-
-/** `Object#toString` result references. */
-var mapTag = '[object Map]',
-    objectTag = '[object Object]',
-    promiseTag = '[object Promise]',
-    setTag = '[object Set]',
-    weakMapTag = '[object WeakMap]';
-
-var dataViewTag = '[object DataView]';
-
-/** Used to detect maps, sets, and weakmaps. */
-var dataViewCtorString = toSource(DataView),
-    mapCtorString = toSource(Map),
-    promiseCtorString = toSource(Promise),
-    setCtorString = toSource(Set),
-    weakMapCtorString = toSource(WeakMap);
-
-/**
- * Gets the `toStringTag` of `value`.
- *
- * @private
- * @param {*} value The value to query.
- * @returns {string} Returns the `toStringTag`.
- */
-var getTag = baseGetTag;
-
-// Fallback for data views, maps, sets, and weak maps in IE 11 and promises in Node.js < 6.
-if ((DataView && getTag(new DataView(new ArrayBuffer(1))) != dataViewTag) ||
-    (Map && getTag(new Map) != mapTag) ||
-    (Promise && getTag(Promise.resolve()) != promiseTag) ||
-    (Set && getTag(new Set) != setTag) ||
-    (WeakMap && getTag(new WeakMap) != weakMapTag)) {
-  getTag = function(value) {
-    var result = baseGetTag(value),
-        Ctor = result == objectTag ? value.constructor : undefined,
-        ctorString = Ctor ? toSource(Ctor) : '';
-
-    if (ctorString) {
-      switch (ctorString) {
-        case dataViewCtorString: return dataViewTag;
-        case mapCtorString: return mapTag;
-        case promiseCtorString: return promiseTag;
-        case setCtorString: return setTag;
-        case weakMapCtorString: return weakMapTag;
-      }
-    }
-    return result;
-  };
-}
-
-module.exports = getTag;
-
-
-/***/ }),
-/* 119 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getNative = __webpack_require__(5),
-    root = __webpack_require__(1);
-
-/* Built-in method references that are verified to be native. */
-var DataView = getNative(root, 'DataView');
-
-module.exports = DataView;
-
-
-/***/ }),
-/* 120 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getNative = __webpack_require__(5),
-    root = __webpack_require__(1);
-
-/* Built-in method references that are verified to be native. */
-var Promise = getNative(root, 'Promise');
-
-module.exports = Promise;
-
-
-/***/ }),
-/* 121 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getNative = __webpack_require__(5),
-    root = __webpack_require__(1);
-
-/* Built-in method references that are verified to be native. */
-var Set = getNative(root, 'Set');
-
-module.exports = Set;
-
-
-/***/ }),
-/* 122 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var getNative = __webpack_require__(5),
-    root = __webpack_require__(1);
-
-/* Built-in method references that are verified to be native. */
-var WeakMap = getNative(root, 'WeakMap');
-
-module.exports = WeakMap;
-
-
-/***/ }),
-/* 123 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isStrictComparable = __webpack_require__(45),
-    keys = __webpack_require__(21);
-
-/**
- * Gets the property names, values, and compare flags of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {Array} Returns the match data of `object`.
- */
-function getMatchData(object) {
-  var result = keys(object),
-      length = result.length;
-
-  while (length--) {
-    var key = result[length],
-        value = object[key];
-
-    result[length] = [key, value, isStrictComparable(value)];
-  }
-  return result;
-}
-
-module.exports = getMatchData;
-
-
-/***/ }),
-/* 124 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseIsEqual = __webpack_require__(38),
-    get = __webpack_require__(125),
-    hasIn = __webpack_require__(132),
-    isKey = __webpack_require__(26),
-    isStrictComparable = __webpack_require__(45),
-    matchesStrictComparable = __webpack_require__(46),
-    toKey = __webpack_require__(8);
-
-/** Used to compose bitmasks for value comparisons. */
-var COMPARE_PARTIAL_FLAG = 1,
-    COMPARE_UNORDERED_FLAG = 2;
-
-/**
- * The base implementation of `_.matchesProperty` which doesn't clone `srcValue`.
- *
- * @private
- * @param {string} path The path of the property to get.
- * @param {*} srcValue The value to match.
- * @returns {Function} Returns the new spec function.
- */
-function baseMatchesProperty(path, srcValue) {
-  if (isKey(path) && isStrictComparable(srcValue)) {
-    return matchesStrictComparable(toKey(path), srcValue);
-  }
-  return function(object) {
-    var objValue = get(object, path);
-    return (objValue === undefined && objValue === srcValue)
-      ? hasIn(object, path)
-      : baseIsEqual(srcValue, objValue, COMPARE_PARTIAL_FLAG | COMPARE_UNORDERED_FLAG);
-  };
-}
-
-module.exports = baseMatchesProperty;
-
-
-/***/ }),
-/* 125 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseGet = __webpack_require__(24);
-
-/**
- * Gets the value at `path` of `object`. If the resolved value is
- * `undefined`, the `defaultValue` is returned in its place.
- *
- * @static
- * @memberOf _
- * @since 3.7.0
- * @category Object
- * @param {Object} object The object to query.
- * @param {Array|string} path The path of the property to get.
- * @param {*} [defaultValue] The value returned for `undefined` resolved values.
- * @returns {*} Returns the resolved value.
- * @example
- *
- * var object = { 'a': [{ 'b': { 'c': 3 } }] };
- *
- * _.get(object, 'a[0].b.c');
- * // => 3
- *
- * _.get(object, ['a', '0', 'b', 'c']);
- * // => 3
- *
- * _.get(object, 'a.b.c', 'default');
- * // => 'default'
- */
-function get(object, path, defaultValue) {
-  var result = object == null ? undefined : baseGet(object, path);
-  return result === undefined ? defaultValue : result;
-}
-
-module.exports = get;
-
-
-/***/ }),
-/* 126 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var memoizeCapped = __webpack_require__(127);
-
-/** Used to match property names within property paths. */
-var reLeadingDot = /^\./,
-    rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g;
-
-/** Used to match backslashes in property paths. */
-var reEscapeChar = /\\(\\)?/g;
-
-/**
- * Converts `string` to a property path array.
- *
- * @private
- * @param {string} string The string to convert.
- * @returns {Array} Returns the property path array.
- */
-var stringToPath = memoizeCapped(function(string) {
-  var result = [];
-  if (reLeadingDot.test(string)) {
-    result.push('');
-  }
-  string.replace(rePropName, function(match, number, quote, string) {
-    result.push(quote ? string.replace(reEscapeChar, '$1') : (number || match));
-  });
-  return result;
-});
-
-module.exports = stringToPath;
-
-
-/***/ }),
-/* 127 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var memoize = __webpack_require__(128);
-
-/** Used as the maximum memoize cache size. */
-var MAX_MEMOIZE_SIZE = 500;
-
-/**
- * A specialized version of `_.memoize` which clears the memoized function's
- * cache when it exceeds `MAX_MEMOIZE_SIZE`.
- *
- * @private
- * @param {Function} func The function to have its output memoized.
- * @returns {Function} Returns the new memoized function.
- */
-function memoizeCapped(func) {
-  var result = memoize(func, function(key) {
-    if (cache.size === MAX_MEMOIZE_SIZE) {
-      cache.clear();
-    }
-    return key;
-  });
-
-  var cache = result.cache;
-  return result;
-}
-
-module.exports = memoizeCapped;
-
-
-/***/ }),
-/* 128 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var MapCache = __webpack_require__(20);
-
-/** Error message constants. */
-var FUNC_ERROR_TEXT = 'Expected a function';
-
-/**
- * Creates a function that memoizes the result of `func`. If `resolver` is
- * provided, it determines the cache key for storing the result based on the
- * arguments provided to the memoized function. By default, the first argument
- * provided to the memoized function is used as the map cache key. The `func`
- * is invoked with the `this` binding of the memoized function.
- *
- * **Note:** The cache is exposed as the `cache` property on the memoized
- * function. Its creation may be customized by replacing the `_.memoize.Cache`
- * constructor with one whose instances implement the
- * [`Map`](http://ecma-international.org/ecma-262/7.0/#sec-properties-of-the-map-prototype-object)
- * method interface of `clear`, `delete`, `get`, `has`, and `set`.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Function
- * @param {Function} func The function to have its output memoized.
- * @param {Function} [resolver] The function to resolve the cache key.
- * @returns {Function} Returns the new memoized function.
- * @example
- *
- * var object = { 'a': 1, 'b': 2 };
- * var other = { 'c': 3, 'd': 4 };
- *
- * var values = _.memoize(_.values);
- * values(object);
- * // => [1, 2]
- *
- * values(other);
- * // => [3, 4]
- *
- * object.a = 2;
- * values(object);
- * // => [1, 2]
- *
- * // Modify the result cache.
- * values.cache.set(object, ['a', 'b']);
- * values(object);
- * // => ['a', 'b']
- *
- * // Replace `_.memoize.Cache`.
- * _.memoize.Cache = WeakMap;
- */
-function memoize(func, resolver) {
-  if (typeof func != 'function' || (resolver != null && typeof resolver != 'function')) {
-    throw new TypeError(FUNC_ERROR_TEXT);
-  }
-  var memoized = function() {
-    var args = arguments,
-        key = resolver ? resolver.apply(this, args) : args[0],
-        cache = memoized.cache;
-
-    if (cache.has(key)) {
-      return cache.get(key);
-    }
-    var result = func.apply(this, args);
-    memoized.cache = cache.set(key, result) || cache;
-    return result;
-  };
-  memoized.cache = new (memoize.Cache || MapCache);
-  return memoized;
-}
-
-// Expose `MapCache`.
-memoize.Cache = MapCache;
-
-module.exports = memoize;
-
-
-/***/ }),
-/* 129 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseToString = __webpack_require__(130);
-
-/**
- * Converts `value` to a string. An empty string is returned for `null`
- * and `undefined` values. The sign of `-0` is preserved.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to convert.
- * @returns {string} Returns the converted string.
- * @example
- *
- * _.toString(null);
- * // => ''
- *
- * _.toString(-0);
- * // => '-0'
- *
- * _.toString([1, 2, 3]);
- * // => '1,2,3'
- */
-function toString(value) {
-  return value == null ? '' : baseToString(value);
-}
-
-module.exports = toString;
-
-
-/***/ }),
-/* 130 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var Symbol = __webpack_require__(12),
-    arrayMap = __webpack_require__(131),
-    isArray = __webpack_require__(3),
-    isSymbol = __webpack_require__(16);
-
-/** Used as references for various `Number` constants. */
-var INFINITY = 1 / 0;
-
-/** Used to convert symbols to primitives and strings. */
-var symbolProto = Symbol ? Symbol.prototype : undefined,
-    symbolToString = symbolProto ? symbolProto.toString : undefined;
-
-/**
- * The base implementation of `_.toString` which doesn't convert nullish
- * values to empty strings.
- *
- * @private
- * @param {*} value The value to process.
- * @returns {string} Returns the string.
- */
-function baseToString(value) {
-  // Exit early for strings to avoid a performance hit in some environments.
-  if (typeof value == 'string') {
-    return value;
-  }
-  if (isArray(value)) {
-    // Recursively convert values (susceptible to call stack limits).
-    return arrayMap(value, baseToString) + '';
-  }
-  if (isSymbol(value)) {
-    return symbolToString ? symbolToString.call(value) : '';
-  }
-  var result = (value + '');
-  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
-}
-
-module.exports = baseToString;
-
-
-/***/ }),
-/* 131 */
-/***/ (function(module, exports) {
-
-/**
- * A specialized version of `_.map` for arrays without support for iteratee
- * shorthands.
- *
- * @private
- * @param {Array} [array] The array to iterate over.
- * @param {Function} iteratee The function invoked per iteration.
- * @returns {Array} Returns the new mapped array.
- */
-function arrayMap(array, iteratee) {
-  var index = -1,
-      length = array == null ? 0 : array.length,
-      result = Array(length);
-
-  while (++index < length) {
-    result[index] = iteratee(array[index], index, array);
-  }
-  return result;
-}
-
-module.exports = arrayMap;
-
-
-/***/ }),
-/* 132 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseHasIn = __webpack_require__(133),
-    hasPath = __webpack_require__(134);
-
-/**
- * Checks if `path` is a direct or inherited property of `object`.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Object
- * @param {Object} object The object to query.
- * @param {Array|string} path The path to check.
- * @returns {boolean} Returns `true` if `path` exists, else `false`.
- * @example
- *
- * var object = _.create({ 'a': _.create({ 'b': 2 }) });
- *
- * _.hasIn(object, 'a');
- * // => true
- *
- * _.hasIn(object, 'a.b');
- * // => true
- *
- * _.hasIn(object, ['a', 'b']);
- * // => true
- *
- * _.hasIn(object, 'b');
- * // => false
- */
-function hasIn(object, path) {
-  return object != null && hasPath(object, path, baseHasIn);
-}
-
-module.exports = hasIn;
-
-
-/***/ }),
-/* 133 */
-/***/ (function(module, exports) {
-
-/**
- * The base implementation of `_.hasIn` without support for deep paths.
- *
- * @private
- * @param {Object} [object] The object to query.
- * @param {Array|string} key The key to check.
- * @returns {boolean} Returns `true` if `key` exists, else `false`.
- */
-function baseHasIn(object, key) {
-  return object != null && key in Object(object);
-}
-
-module.exports = baseHasIn;
-
-
-/***/ }),
-/* 134 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var castPath = __webpack_require__(25),
-    isArguments = __webpack_require__(40),
-    isArray = __webpack_require__(3),
-    isIndex = __webpack_require__(22),
-    isLength = __webpack_require__(23),
-    toKey = __webpack_require__(8);
-
-/**
- * Checks if `path` exists on `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {Array|string} path The path to check.
- * @param {Function} hasFunc The function to check properties.
- * @returns {boolean} Returns `true` if `path` exists, else `false`.
- */
-function hasPath(object, path, hasFunc) {
-  path = castPath(path, object);
-
-  var index = -1,
-      length = path.length,
-      result = false;
-
-  while (++index < length) {
-    var key = toKey(path[index]);
-    if (!(result = object != null && hasFunc(object, key))) {
-      break;
-    }
-    object = object[key];
-  }
-  if (result || ++index != length) {
-    return result;
-  }
-  length = object == null ? 0 : object.length;
-  return !!length && isLength(length) && isIndex(key, length) &&
-    (isArray(object) || isArguments(object));
-}
-
-module.exports = hasPath;
-
-
-/***/ }),
-/* 135 */
-/***/ (function(module, exports) {
-
-/**
- * This method returns the first argument it receives.
- *
- * @static
- * @since 0.1.0
- * @memberOf _
- * @category Util
- * @param {*} value Any value.
- * @returns {*} Returns `value`.
- * @example
- *
- * var object = { 'a': 1 };
- *
- * console.log(_.identity(object) === object);
- * // => true
- */
-function identity(value) {
-  return value;
-}
-
-module.exports = identity;
-
-
-/***/ }),
-/* 136 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseProperty = __webpack_require__(137),
-    basePropertyDeep = __webpack_require__(138),
-    isKey = __webpack_require__(26),
-    toKey = __webpack_require__(8);
-
-/**
- * Creates a function that returns the value at `path` of a given object.
- *
- * @static
- * @memberOf _
- * @since 2.4.0
- * @category Util
- * @param {Array|string} path The path of the property to get.
- * @returns {Function} Returns the new accessor function.
- * @example
- *
- * var objects = [
- *   { 'a': { 'b': 2 } },
- *   { 'a': { 'b': 1 } }
- * ];
- *
- * _.map(objects, _.property('a.b'));
- * // => [2, 1]
- *
- * _.map(_.sortBy(objects, _.property(['a', 'b'])), 'a.b');
- * // => [1, 2]
- */
-function property(path) {
-  return isKey(path) ? baseProperty(toKey(path)) : basePropertyDeep(path);
-}
-
-module.exports = property;
-
-
-/***/ }),
-/* 137 */
-/***/ (function(module, exports) {
-
-/**
- * The base implementation of `_.property` without support for deep paths.
- *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new accessor function.
- */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-module.exports = baseProperty;
-
-
-/***/ }),
-/* 138 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseGet = __webpack_require__(24);
-
-/**
- * A specialized version of `baseProperty` which supports deep paths.
- *
- * @private
- * @param {Array|string} path The path of the property to get.
- * @returns {Function} Returns the new accessor function.
- */
-function basePropertyDeep(path) {
-  return function(object) {
-    return baseGet(object, path);
-  };
-}
-
-module.exports = basePropertyDeep;
-
-
-/***/ }),
-/* 139 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseFindIndex = __webpack_require__(140),
-    baseIteratee = __webpack_require__(18),
-    toInteger = __webpack_require__(141);
-
-/* Built-in method references for those with the same name as other `lodash` methods. */
-var nativeMax = Math.max;
-
-/**
- * This method is like `_.find` except that it returns the index of the first
- * element `predicate` returns truthy for instead of the element itself.
- *
- * @static
- * @memberOf _
- * @since 1.1.0
- * @category Array
- * @param {Array} array The array to inspect.
- * @param {Function} [predicate=_.identity] The function invoked per iteration.
- * @param {number} [fromIndex=0] The index to search from.
- * @returns {number} Returns the index of the found element, else `-1`.
- * @example
- *
- * var users = [
- *   { 'user': 'barney',  'active': false },
- *   { 'user': 'fred',    'active': false },
- *   { 'user': 'pebbles', 'active': true }
- * ];
- *
- * _.findIndex(users, function(o) { return o.user == 'barney'; });
- * // => 0
- *
- * // The `_.matches` iteratee shorthand.
- * _.findIndex(users, { 'user': 'fred', 'active': false });
- * // => 1
- *
- * // The `_.matchesProperty` iteratee shorthand.
- * _.findIndex(users, ['active', false]);
- * // => 0
- *
- * // The `_.property` iteratee shorthand.
- * _.findIndex(users, 'active');
- * // => 2
- */
-function findIndex(array, predicate, fromIndex) {
-  var length = array == null ? 0 : array.length;
-  if (!length) {
-    return -1;
-  }
-  var index = fromIndex == null ? 0 : toInteger(fromIndex);
-  if (index < 0) {
-    index = nativeMax(length + index, 0);
-  }
-  return baseFindIndex(array, baseIteratee(predicate, 3), index);
-}
-
-module.exports = findIndex;
-
-
-/***/ }),
-/* 140 */
-/***/ (function(module, exports) {
-
-/**
- * The base implementation of `_.findIndex` and `_.findLastIndex` without
- * support for iteratee shorthands.
- *
- * @private
- * @param {Array} array The array to inspect.
- * @param {Function} predicate The function invoked per iteration.
- * @param {number} fromIndex The index to search from.
- * @param {boolean} [fromRight] Specify iterating from right to left.
- * @returns {number} Returns the index of the matched value, else `-1`.
- */
-function baseFindIndex(array, predicate, fromIndex, fromRight) {
-  var length = array.length,
-      index = fromIndex + (fromRight ? 1 : -1);
-
-  while ((fromRight ? index-- : ++index < length)) {
-    if (predicate(array[index], index, array)) {
-      return index;
-    }
-  }
-  return -1;
-}
-
-module.exports = baseFindIndex;
-
-
-/***/ }),
-/* 141 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var toFinite = __webpack_require__(142);
-
-/**
- * Converts `value` to an integer.
- *
- * **Note:** This method is loosely based on
- * [`ToInteger`](http://www.ecma-international.org/ecma-262/7.0/#sec-tointeger).
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to convert.
- * @returns {number} Returns the converted integer.
- * @example
- *
- * _.toInteger(3.2);
- * // => 3
- *
- * _.toInteger(Number.MIN_VALUE);
- * // => 0
- *
- * _.toInteger(Infinity);
- * // => 1.7976931348623157e+308
- *
- * _.toInteger('3.2');
- * // => 3
- */
-function toInteger(value) {
-  var result = toFinite(value),
-      remainder = result % 1;
-
-  return result === result ? (remainder ? result - remainder : result) : 0;
-}
-
-module.exports = toInteger;
-
-
-/***/ }),
-/* 142 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var toNumber = __webpack_require__(143);
-
-/** Used as references for various `Number` constants. */
-var INFINITY = 1 / 0,
-    MAX_INTEGER = 1.7976931348623157e+308;
-
-/**
- * Converts `value` to a finite number.
- *
- * @static
- * @memberOf _
- * @since 4.12.0
- * @category Lang
- * @param {*} value The value to convert.
- * @returns {number} Returns the converted number.
- * @example
- *
- * _.toFinite(3.2);
- * // => 3.2
- *
- * _.toFinite(Number.MIN_VALUE);
- * // => 5e-324
- *
- * _.toFinite(Infinity);
- * // => 1.7976931348623157e+308
- *
- * _.toFinite('3.2');
- * // => 3.2
- */
-function toFinite(value) {
-  if (!value) {
-    return value === 0 ? value : 0;
-  }
-  value = toNumber(value);
-  if (value === INFINITY || value === -INFINITY) {
-    var sign = (value < 0 ? -1 : 1);
-    return sign * MAX_INTEGER;
-  }
-  return value === value ? value : 0;
-}
-
-module.exports = toFinite;
-
-
-/***/ }),
-/* 143 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var isObject = __webpack_require__(13),
-    isSymbol = __webpack_require__(16);
-
-/** Used as references for various `Number` constants. */
-var NAN = 0 / 0;
-
-/** Used to match leading and trailing whitespace. */
-var reTrim = /^\s+|\s+$/g;
-
-/** Used to detect bad signed hexadecimal string values. */
-var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
-
-/** Used to detect binary string values. */
-var reIsBinary = /^0b[01]+$/i;
-
-/** Used to detect octal string values. */
-var reIsOctal = /^0o[0-7]+$/i;
-
-/** Built-in method references without a dependency on `root`. */
-var freeParseInt = parseInt;
-
-/**
- * Converts `value` to a number.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to process.
- * @returns {number} Returns the number.
- * @example
- *
- * _.toNumber(3.2);
- * // => 3.2
- *
- * _.toNumber(Number.MIN_VALUE);
- * // => 5e-324
- *
- * _.toNumber(Infinity);
- * // => Infinity
- *
- * _.toNumber('3.2');
- * // => 3.2
- */
-function toNumber(value) {
-  if (typeof value == 'number') {
-    return value;
-  }
-  if (isSymbol(value)) {
-    return NAN;
-  }
-  if (isObject(value)) {
-    var other = typeof value.valueOf == 'function' ? value.valueOf() : value;
-    value = isObject(other) ? (other + '') : other;
-  }
-  if (typeof value != 'string') {
-    return value === 0 ? value : +value;
-  }
-  value = value.replace(reTrim, '');
-  var isBinary = reIsBinary.test(value);
-  return (isBinary || reIsOctal.test(value))
-    ? freeParseInt(value.slice(2), isBinary ? 2 : 8)
-    : (reIsBadHex.test(value) ? NAN : +value);
-}
-
-module.exports = toNumber;
-
-
-/***/ }),
-/* 144 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseIteratee = __webpack_require__(18),
-    basePullAt = __webpack_require__(145);
-
-/**
- * Removes all elements from `array` that `predicate` returns truthy for
- * and returns an array of the removed elements. The predicate is invoked
- * with three arguments: (value, index, array).
- *
- * **Note:** Unlike `_.filter`, this method mutates `array`. Use `_.pull`
- * to pull elements from an array by value.
- *
- * @static
- * @memberOf _
- * @since 2.0.0
- * @category Array
- * @param {Array} array The array to modify.
- * @param {Function} [predicate=_.identity] The function invoked per iteration.
- * @returns {Array} Returns the new array of removed elements.
- * @example
- *
- * var array = [1, 2, 3, 4];
- * var evens = _.remove(array, function(n) {
- *   return n % 2 == 0;
- * });
- *
- * console.log(array);
- * // => [1, 3]
- *
- * console.log(evens);
- * // => [2, 4]
- */
-function remove(array, predicate) {
-  var result = [];
-  if (!(array && array.length)) {
-    return result;
-  }
-  var index = -1,
-      indexes = [],
-      length = array.length;
-
-  predicate = baseIteratee(predicate, 3);
-  while (++index < length) {
-    var value = array[index];
-    if (predicate(value, index, array)) {
-      result.push(value);
-      indexes.push(index);
-    }
-  }
-  basePullAt(array, indexes);
-  return result;
-}
-
-module.exports = remove;
-
-
-/***/ }),
-/* 145 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseUnset = __webpack_require__(146),
-    isIndex = __webpack_require__(22);
-
-/** Used for built-in method references. */
-var arrayProto = Array.prototype;
-
-/** Built-in value references. */
-var splice = arrayProto.splice;
-
-/**
- * The base implementation of `_.pullAt` without support for individual
- * indexes or capturing the removed elements.
- *
- * @private
- * @param {Array} array The array to modify.
- * @param {number[]} indexes The indexes of elements to remove.
- * @returns {Array} Returns `array`.
- */
-function basePullAt(array, indexes) {
-  var length = array ? indexes.length : 0,
-      lastIndex = length - 1;
-
-  while (length--) {
-    var index = indexes[length];
-    if (length == lastIndex || index !== previous) {
-      var previous = index;
-      if (isIndex(index)) {
-        splice.call(array, index, 1);
-      } else {
-        baseUnset(array, index);
-      }
-    }
-  }
-  return array;
-}
-
-module.exports = basePullAt;
-
-
-/***/ }),
-/* 146 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var castPath = __webpack_require__(25),
-    last = __webpack_require__(147),
-    parent = __webpack_require__(148),
-    toKey = __webpack_require__(8);
-
-/**
- * The base implementation of `_.unset`.
- *
- * @private
- * @param {Object} object The object to modify.
- * @param {Array|string} path The property path to unset.
- * @returns {boolean} Returns `true` if the property is deleted, else `false`.
- */
-function baseUnset(object, path) {
-  path = castPath(path, object);
-  object = parent(object, path);
-  return object == null || delete object[toKey(last(path))];
-}
-
-module.exports = baseUnset;
-
-
-/***/ }),
-/* 147 */
-/***/ (function(module, exports) {
-
-/**
- * Gets the last element of `array`.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Array
- * @param {Array} array The array to query.
- * @returns {*} Returns the last element of `array`.
- * @example
- *
- * _.last([1, 2, 3]);
- * // => 3
- */
-function last(array) {
-  var length = array == null ? 0 : array.length;
-  return length ? array[length - 1] : undefined;
-}
-
-module.exports = last;
-
-
-/***/ }),
-/* 148 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var baseGet = __webpack_require__(24),
-    baseSlice = __webpack_require__(149);
-
-/**
- * Gets the parent value at `path` of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {Array} path The path to get the parent value of.
- * @returns {*} Returns the parent value.
- */
-function parent(object, path) {
-  return path.length < 2 ? object : baseGet(object, baseSlice(path, 0, -1));
-}
-
-module.exports = parent;
-
-
-/***/ }),
-/* 149 */
-/***/ (function(module, exports) {
-
-/**
- * The base implementation of `_.slice` without an iteratee call guard.
- *
- * @private
- * @param {Array} array The array to slice.
- * @param {number} [start=0] The start position.
- * @param {number} [end=array.length] The end position.
- * @returns {Array} Returns the slice of `array`.
- */
-function baseSlice(array, start, end) {
-  var index = -1,
-      length = array.length;
-
-  if (start < 0) {
-    start = -start > length ? 0 : (length + start);
-  }
-  end = end > length ? length : end;
-  if (end < 0) {
-    end += length;
-  }
-  length = start > end ? 0 : ((end - start) >>> 0);
-  start >>>= 0;
-
-  var result = Array(length);
-  while (++index < length) {
-    result[index] = array[index + start];
-  }
-  return result;
-}
-
-module.exports = baseSlice;
-
 
 /***/ }),
-/* 150 */
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(151);
+module.exports = __webpack_require__(38);
 
 /***/ }),
-/* 151 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var isFactory = __webpack_require__(0).isFactory;
-var typedFactory = __webpack_require__(152);
-var emitter = __webpack_require__(47);
+var isFactory = __webpack_require__(1).isFactory;
+var typedFactory = __webpack_require__(39);
+var emitter = __webpack_require__(24);
 
-var importFactory = __webpack_require__(155);
-var configFactory = __webpack_require__(157);
+var importFactory = __webpack_require__(42);
+var configFactory = __webpack_require__(43);
 
 /**
  * Math.js core. Creates a new, empty math.js instance
@@ -8321,10 +7255,10 @@ exports.create = function create (options) {
 
 
 /***/ }),
-/* 152 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var typedFunction = __webpack_require__(153);
+var typedFunction = __webpack_require__(40);
 var digits = __webpack_require__(2).digits;
 
 // returns a new instance of typed-function
@@ -8564,7 +7498,7 @@ exports.create = function create(type) {
 
 
 /***/ }),
-/* 153 */
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -9961,7 +8895,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 
 
 /***/ }),
-/* 154 */
+/* 41 */
 /***/ (function(module, exports) {
 
 function E () {
@@ -10033,16 +8967,16 @@ module.exports = E;
 
 
 /***/ }),
-/* 155 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var lazy = __webpack_require__(0).lazy;
-var isFactory = __webpack_require__(0).isFactory;
-var traverse = __webpack_require__(0).traverse;
-var ArgumentsError = __webpack_require__(156);
+var lazy = __webpack_require__(1).lazy;
+var isFactory = __webpack_require__(1).isFactory;
+var traverse = __webpack_require__(1).traverse;
+var ArgumentsError = __webpack_require__(25);
 
 function factory (type, config, load, typed, math) {
   /**
@@ -10347,54 +9281,13 @@ exports.lazy = true;
 
 
 /***/ }),
-/* 156 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-/**
- * Create a syntax error with the message:
- *     'Wrong number of arguments in function <fn> (<count> provided, <min>-<max> expected)'
- * @param {string} fn     Function name
- * @param {number} count  Actual argument count
- * @param {number} min    Minimum required argument count
- * @param {number} [max]  Maximum required argument count
- * @extends Error
- */
-function ArgumentsError(fn, count, min, max) {
-  if (!(this instanceof ArgumentsError)) {
-    throw new SyntaxError('Constructor must be called with the new operator');
-  }
-
-  this.fn = fn;
-  this.count = count;
-  this.min = min;
-  this.max = max;
-
-  this.message = 'Wrong number of arguments in function ' + fn +
-      ' (' + count + ' provided, ' +
-      min + ((max != undefined) ? ('-' + max) : '') + ' expected)';
-
-  this.stack = (new Error()).stack;
-}
-
-ArgumentsError.prototype = new Error();
-ArgumentsError.prototype.constructor = Error;
-ArgumentsError.prototype.name = 'ArgumentsError';
-ArgumentsError.prototype.isArgumentsError = true;
-
-module.exports = ArgumentsError;
-
-
-/***/ }),
-/* 157 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var object = __webpack_require__(0);
+var object = __webpack_require__(1);
 
 function factory (type, config, load, typed, math) {
   var MATRIX = ['Matrix', 'Array'];                   // valid values for option matrix
@@ -10519,539 +9412,29 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 158 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = [
   // types
+  __webpack_require__(18),
   __webpack_require__(27),
+  __webpack_require__(47),
+  __webpack_require__(48),
   __webpack_require__(50),
-  __webpack_require__(164),
-  __webpack_require__(165),
-  __webpack_require__(171),
-  __webpack_require__(173),
-  __webpack_require__(174),
-  __webpack_require__(175),
+  __webpack_require__(52),
+  __webpack_require__(53),
+  __webpack_require__(54),
 
   // construction functions
-  __webpack_require__(176),
-  __webpack_require__(17),
-  __webpack_require__(177)
+  __webpack_require__(55),
+  __webpack_require__(0),
+  __webpack_require__(56)
 ];
 
 
 /***/ }),
-/* 159 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var number = __webpack_require__(2);
-var string = __webpack_require__(48);
-var object = __webpack_require__(0);
-var types = __webpack_require__(49);
-
-var DimensionError = __webpack_require__(4);
-var IndexError = __webpack_require__(161);
-
-/**
- * Calculate the size of a multi dimensional array.
- * This function checks the size of the first entry, it does not validate
- * whether all dimensions match. (use function `validate` for that)
- * @param {Array} x
- * @Return {Number[]} size
- */
-exports.size = function (x) {
-  var s = [];
-
-  while (Array.isArray(x)) {
-    s.push(x.length);
-    x = x[0];
-  }
-
-  return s;
-};
-
-/**
- * Recursively validate whether each element in a multi dimensional array
- * has a size corresponding to the provided size array.
- * @param {Array} array    Array to be validated
- * @param {number[]} size  Array with the size of each dimension
- * @param {number} dim   Current dimension
- * @throws DimensionError
- * @private
- */
-function _validate(array, size, dim) {
-  var i;
-  var len = array.length;
-
-  if (len != size[dim]) {
-    throw new DimensionError(len, size[dim]);
-  }
-
-  if (dim < size.length - 1) {
-    // recursively validate each child array
-    var dimNext = dim + 1;
-    for (i = 0; i < len; i++) {
-      var child = array[i];
-      if (!Array.isArray(child)) {
-        throw new DimensionError(size.length - 1, size.length, '<');
-      }
-      _validate(array[i], size, dimNext);
-    }
-  }
-  else {
-    // last dimension. none of the childs may be an array
-    for (i = 0; i < len; i++) {
-      if (Array.isArray(array[i])) {
-        throw new DimensionError(size.length + 1, size.length, '>');
-      }
-    }
-  }
-}
-
-/**
- * Validate whether each element in a multi dimensional array has
- * a size corresponding to the provided size array.
- * @param {Array} array    Array to be validated
- * @param {number[]} size  Array with the size of each dimension
- * @throws DimensionError
- */
-exports.validate = function(array, size) {
-  var isScalar = (size.length == 0);
-  if (isScalar) {
-    // scalar
-    if (Array.isArray(array)) {
-      throw new DimensionError(array.length, 0);
-    }
-  }
-  else {
-    // array
-    _validate(array, size, 0);
-  }
-};
-
-/**
- * Test whether index is an integer number with index >= 0 and index < length
- * when length is provided
- * @param {number} index    Zero-based index
- * @param {number} [length] Length of the array
- */
-exports.validateIndex = function(index, length) {
-  if (!number.isNumber(index) || !number.isInteger(index)) {
-    throw new TypeError('Index must be an integer (value: ' + index + ')');
-  }
-  if (index < 0 || (typeof length === 'number' && index >= length)) {
-    throw new IndexError(index, length);
-  }
-};
-
-// a constant used to specify an undefined defaultValue
-exports.UNINITIALIZED = {};
-
-/**
- * Resize a multi dimensional array. The resized array is returned.
- * @param {Array} array         Array to be resized
- * @param {Array.<number>} size Array with the size of each dimension
- * @param {*} [defaultValue=0]  Value to be filled in in new entries,
- *                              zero by default. To leave new entries undefined,
- *                              specify array.UNINITIALIZED as defaultValue
- * @return {Array} array         The resized array
- */
-exports.resize = function(array, size, defaultValue) {
-  // TODO: add support for scalars, having size=[] ?
-
-  // check the type of the arguments
-  if (!Array.isArray(array) || !Array.isArray(size)) {
-    throw new TypeError('Array expected');
-  }
-  if (size.length === 0) {
-    throw new Error('Resizing to scalar is not supported');
-  }
-
-  // check whether size contains positive integers
-  size.forEach(function (value) {
-    if (!number.isNumber(value) || !number.isInteger(value) || value < 0) {
-      throw new TypeError('Invalid size, must contain positive integers ' +
-          '(size: ' + string.format(size) + ')');
-    }
-  });
-
-  // recursively resize the array
-  var _defaultValue = (defaultValue !== undefined) ? defaultValue : 0;
-  _resize(array, size, 0, _defaultValue);
-
-  return array;
-};
-
-/**
- * Recursively resize a multi dimensional array
- * @param {Array} array         Array to be resized
- * @param {number[]} size       Array with the size of each dimension
- * @param {number} dim          Current dimension
- * @param {*} [defaultValue]    Value to be filled in in new entries,
- *                              undefined by default.
- * @private
- */
-function _resize (array, size, dim, defaultValue) {
-  var i;
-  var elem;
-  var oldLen = array.length;
-  var newLen = size[dim];
-  var minLen = Math.min(oldLen, newLen);
-
-  // apply new length
-  array.length = newLen;
-
-  if (dim < size.length - 1) {
-    // non-last dimension
-    var dimNext = dim + 1;
-
-    // resize existing child arrays
-    for (i = 0; i < minLen; i++) {
-      // resize child array
-      elem = array[i];
-      if (!Array.isArray(elem)) {
-        elem = [elem]; // add a dimension
-        array[i] = elem;
-      }
-      _resize(elem, size, dimNext, defaultValue);
-    }
-
-    // create new child arrays
-    for (i = minLen; i < newLen; i++) {
-      // get child array
-      elem = [];
-      array[i] = elem;
-
-      // resize new child array
-      _resize(elem, size, dimNext, defaultValue);
-    }
-  }
-  else {
-    // last dimension
-
-    // remove dimensions of existing values
-    for (i = 0; i < minLen; i++) {
-      while (Array.isArray(array[i])) {
-        array[i] = array[i][0];
-      }
-    }
-
-    if(defaultValue !== exports.UNINITIALIZED) {
-      // fill new elements with the default value
-      for (i = minLen; i < newLen; i++) {
-        array[i] = defaultValue;
-      }
-    }
-  }
-}
-
-/**
- * Re-shape a multi dimensional array to fit the specified dimensions
- * @param {Array} array           Array to be reshaped
- * @param {Array.<number>} sizes  List of sizes for each dimension
- * @returns {Array}               Array whose data has been formatted to fit the
- *                                specified dimensions
- *
- * @throws {DimensionError}       If the product of the new dimension sizes does
- *                                not equal that of the old ones
- */
-exports.reshape = function(array, sizes) {
-  var flatArray = exports.flatten(array);
-  var newArray;
-
-  var product = function (arr) {
-    return arr.reduce(function (prev, curr) {
-      return prev * curr;
-    });
-  };
-
-  if (!Array.isArray(array) || !Array.isArray(sizes)) {
-    throw new TypeError('Array expected');
-  }
-
-  if (sizes.length === 0) {
-    throw new DimensionError(0, product(exports.size(array)), '!=');
-  }
-
-  try {
-    newArray  = _reshape(flatArray, sizes);
-  } catch (e) {
-    if (e instanceof DimensionError) {
-      throw new DimensionError(
-        product(sizes),
-        product(exports.size(array)),
-        '!='
-      );
-    }
-    throw e;
-  }
-
-  if (flatArray.length > 0) {
-    throw new DimensionError(
-      product(sizes),
-      product(exports.size(array)),
-      '!='
-    );
-  }
-
-  return newArray;
-};
-
-/**
- * Recursively re-shape a multi dimensional array to fit the specified dimensions
- * @param {Array} array           Array to be reshaped
- * @param {Array.<number>} sizes  List of sizes for each dimension
- * @returns {Array}               Array whose data has been formatted to fit the
- *                                specified dimensions
- *
- * @throws {DimensionError}       If the product of the new dimension sizes does
- *                                not equal that of the old ones
- */
-function _reshape(array, sizes) {
-  var accumulator = [];
-  var i;
-
-  if (sizes.length === 0) {
-    if (array.length === 0) {
-      throw new DimensionError(null, null, '!=');
-    }
-    return array.shift();
-  }
-  for (i = 0; i < sizes[0]; i += 1) {
-    accumulator.push(_reshape(array, sizes.slice(1)));
-  }
-  return accumulator;
-}
-
-
-/**
- * Squeeze a multi dimensional array
- * @param {Array} array
- * @param {Array} [size]
- * @returns {Array} returns the array itself
- */
-exports.squeeze = function(array, size) {
-  var s = size || exports.size(array);
-
-  // squeeze outer dimensions
-  while (Array.isArray(array) && array.length === 1) {
-    array = array[0];
-    s.shift();
-  }
-
-  // find the first dimension to be squeezed
-  var dims = s.length;
-  while (s[dims - 1] === 1) {
-    dims--;
-  }
-
-  // squeeze inner dimensions
-  if (dims < s.length) {
-    array = _squeeze(array, dims, 0);
-    s.length = dims;
-  }
-
-  return array;
-};
-
-/**
- * Recursively squeeze a multi dimensional array
- * @param {Array} array
- * @param {number} dims Required number of dimensions
- * @param {number} dim  Current dimension
- * @returns {Array | *} Returns the squeezed array
- * @private
- */
-function _squeeze (array, dims, dim) {
-  var i, ii;
-
-  if (dim < dims) {
-    var next = dim + 1;
-    for (i = 0, ii = array.length; i < ii; i++) {
-      array[i] = _squeeze(array[i], dims, next);
-    }
-  }
-  else {
-    while (Array.isArray(array)) {
-      array = array[0];
-    }
-  }
-
-  return array;
-}
-
-/**
- * Unsqueeze a multi dimensional array: add dimensions when missing
- * 
- * Paramter `size` will be mutated to match the new, unqueezed matrix size.
- * 
- * @param {Array} array
- * @param {number} dims     Desired number of dimensions of the array
- * @param {number} [outer]  Number of outer dimensions to be added
- * @param {Array} [size]    Current size of array.
- * @returns {Array} returns the array itself
- * @private
- */
-exports.unsqueeze = function(array, dims, outer, size) {
-  var s = size || exports.size(array);
-
-  // unsqueeze outer dimensions
-  if (outer) {
-    for (var i = 0; i < outer; i++) {
-      array = [array];
-      s.unshift(1);
-    }
-  }
-
-  // unsqueeze inner dimensions
-  array = _unsqueeze(array, dims, 0);
-  while (s.length < dims) {
-    s.push(1);
-  }
-
-  return array;
-};
-
-/**
- * Recursively unsqueeze a multi dimensional array
- * @param {Array} array
- * @param {number} dims Required number of dimensions
- * @param {number} dim  Current dimension
- * @returns {Array | *} Returns the squeezed array
- * @private
- */
-function _unsqueeze (array, dims, dim) {
-  var i, ii;
-
-  if (Array.isArray(array)) {
-    var next = dim + 1;
-    for (i = 0, ii = array.length; i < ii; i++) {
-      array[i] = _unsqueeze(array[i], dims, next);
-    }
-  }
-  else {
-    for (var d = dim; d < dims; d++) {
-      array = [array];
-    }
-  }
-
-  return array;
-}
-/**
- * Flatten a multi dimensional array, put all elements in a one dimensional
- * array
- * @param {Array} array   A multi dimensional array
- * @return {Array}        The flattened array (1 dimensional)
- */
-exports.flatten = function(array) {
-  if (!Array.isArray(array)) {
-    //if not an array, return as is
-    return array;
-  }
-  var flat = [];
-
-  array.forEach(function callback(value) {
-    if (Array.isArray(value)) {
-      value.forEach(callback);  //traverse through sub-arrays recursively
-    }
-    else {
-      flat.push(value);
-    }
-  });
-
-  return flat;
-};
-
-/**
- * A safe map
- * @param {Array} array
- * @param {function} callback
- */
-exports.map = function (array, callback) {
-  return Array.prototype.map.call(array, callback);
-}
-
-/**
- * A safe forEach
- * @param {Array} array
- * @param {function} callback
- */
-exports.forEach = function (array, callback) {
-  Array.prototype.forEach.call(array, callback);
-}
-
-/**
- * A safe join
- * @param {Array} array
- * @param {string} separator
- */
-exports.join = function (array, separator) {
-  return Array.prototype.join.call(array, separator);
-}
-
-/**
- * Assign a numeric identifier to every element of a sorted array
- * @param {Array}	a  An array
- * @return {Array}	An array of objects containing the original value and its identifier
- */
-exports.identify = function(a) {
-  if (!Array.isArray(a)) {
-	throw new TypeError('Array input expected');
-  }
-	
-  if (a.length === 0) {
-	return a;
-  }
-	
-  var b = [];
-  var count = 0;
-  b[0] = {value: a[0], identifier: 0};
-  for (var i=1; i<a.length; i++) {
-    if (a[i] === a[i-1]) {
-  	count++;
-    }
-    else {
-      count = 0;
-    }
-    b.push({value: a[i], identifier: count});
-  }
-  return b;
-}
-
-/**
- * Remove the numeric identifier from the elements
- * @param	a  An array
- * @return	An array of values without identifiers
- */
-exports.generalize = function(a) {
-  if (!Array.isArray(a)) {
-	throw new TypeError('Array input expected');
-  }
-	
-  if (a.length === 0) {
-	return a;
-  }
-	
-  var b = [];
-  for (var i=0; i<a.length; i++) {
-    b.push(a[i].value);
-  }
-  return b;
-}
-
-/**
- * Test whether an object is an array
- * @param {*} value
- * @return {boolean} isArray
- */
-exports.isArray = Array.isArray;
-
-
-/***/ }),
-/* 160 */
+/* 45 */
 /***/ (function(module, exports) {
 
 /**
@@ -11240,60 +9623,7 @@ exports.toFixed = function (value, precision) {
 
 
 /***/ }),
-/* 161 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-/**
- * Create a range error with the message:
- *     'Index out of range (index < min)'
- *     'Index out of range (index < max)'
- *
- * @param {number} index     The actual index
- * @param {number} [min=0]   Minimum index (included)
- * @param {number} [max]     Maximum index (excluded)
- * @extends RangeError
- */
-function IndexError(index, min, max) {
-  if (!(this instanceof IndexError)) {
-    throw new SyntaxError('Constructor must be called with the new operator');
-  }
-
-  this.index = index;
-  if (arguments.length < 3) {
-    this.min = 0;
-    this.max = min;
-  }
-  else {
-    this.min = min;
-    this.max = max;
-  }
-
-  if (this.min !== undefined && this.index < this.min) {
-    this.message = 'Index out of range (' + this.index + ' < ' + this.min + ')';
-  }
-  else if (this.max !== undefined && this.index >= this.max) {
-    this.message = 'Index out of range (' + this.index + ' > ' + (this.max - 1) + ')';
-  }
-  else {
-    this.message = 'Index out of range (' + this.index + ')';
-  }
-
-  this.stack = (new Error()).stack;
-}
-
-IndexError.prototype = new RangeError();
-IndexError.prototype.constructor = RangeError;
-IndexError.prototype.name = 'IndexError';
-IndexError.prototype.isIndexError = true;
-
-module.exports = IndexError;
-
-
-/***/ }),
-/* 162 */
+/* 46 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -11310,64 +9640,13 @@ exports.isBoolean = function(value) {
 
 
 /***/ }),
-/* 163 */
-/***/ (function(module, exports) {
-
-// function utils
-
-/*
- * Memoize a given function by caching the computed result.
- * The cache of a memoized function can be cleared by deleting the `cache`
- * property of the function.
- *
- * @param {function} fn                     The function to be memoized.
- *                                          Must be a pure function.
- * @param {function(args: Array)} [hasher]  A custom hash builder.
- *                                          Is JSON.stringify by default.
- * @return {function}                       Returns the memoized function
- */
-exports.memoize = function(fn, hasher) {
-  return function memoize() {
-    if (typeof memoize.cache !== 'object') {
-      memoize.cache = {};
-    }
-
-    var args = [];
-    for (var i = 0; i < arguments.length; i++) {
-      args[i] = arguments[i];
-    }
-
-    var hash = hasher ? hasher(args) : JSON.stringify(args);
-    if (!(hash in memoize.cache)) {
-      return memoize.cache[hash] = fn.apply(fn, args);
-    }
-    return memoize.cache[hash];
-  };
-};
-
-/**
- * Find the maximum number of arguments expected by a typed function.
- * @param {function} fn   A typed function
- * @return {number} Returns the maximum number of expected arguments.
- *                  Returns -1 when no signatures where found on the function.
- */
-exports.maxArgumentCount = function (fn) {
-  return Object.keys(fn.signatures || {})
-      .reduce(function (args, signature) {
-        var count = (signature.match(/,/g) || []).length + 1;
-        return Math.max(args, count);
-      }, -1);
-};
-
-
-/***/ }),
-/* 164 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var util = __webpack_require__(9);
+var util = __webpack_require__(5);
 var DimensionError = __webpack_require__(4);
 
 var array = util.array;
@@ -11383,8 +9662,8 @@ var isString = string.isString;
 var validateIndex = array.validateIndex;
 
 function factory (type, config, load, typed) {
-  var Matrix = load(__webpack_require__(27)); // force loading Matrix (do not use via type.Matrix)
-  var equalScalar = load(__webpack_require__(28));
+  var Matrix = load(__webpack_require__(18)); // force loading Matrix (do not use via type.Matrix)
+  var equalScalar = load(__webpack_require__(7));
 
   /**
    * Sparse Matrix implementation. This type implements a Compressed Column Storage format
@@ -12802,7 +11081,7 @@ exports.lazy = false;  // no lazy loading, as we alter type.Matrix._storage
 
 
 /***/ }),
-/* 165 */
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -12810,8 +11089,8 @@ exports.lazy = false;  // no lazy loading, as we alter type.Matrix._storage
 
 function factory (type, config, load) {
   
-  var add = load(__webpack_require__(166));
-  var equalScalar = load(__webpack_require__(28));
+  var add = load(__webpack_require__(14));
+  var equalScalar = load(__webpack_require__(7));
   
   /**
    * An ordered Sparse Accumulator is a representation for a sparse vector that includes a dense array 
@@ -12950,236 +11229,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 166 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var extend = __webpack_require__(0).extend;
-
-function factory (type, config, load, typed) {
-
-  var matrix = load(__webpack_require__(17));
-  var addScalar = load(__webpack_require__(167));
-  var latex = __webpack_require__(30);
-  
-  var algorithm01 = load(__webpack_require__(168));
-  var algorithm04 = load(__webpack_require__(169));
-  var algorithm10 = load(__webpack_require__(170));
-  var algorithm13 = load(__webpack_require__(31));
-  var algorithm14 = load(__webpack_require__(32));
-
-  /**
-   * Add two or more values, `x + y`.
-   * For matrices, the function is evaluated element wise.
-   *
-   * Syntax:
-   *
-   *    math.add(x, y)
-   *    math.add(x, y, z, ...)
-   *
-   * Examples:
-   *
-   *    math.add(2, 3);               // returns number 5
-   *    math.add(2, 3, 4);            // returns number 9
-   *
-   *    var a = math.complex(2, 3);
-   *    var b = math.complex(-4, 1);
-   *    math.add(a, b);               // returns Complex -2 + 4i
-   *
-   *    math.add([1, 2, 3], 4);       // returns Array [5, 6, 7]
-   *
-   *    var c = math.unit('5 cm');
-   *    var d = math.unit('2.1 mm');
-   *    math.add(c, d);               // returns Unit 52.1 mm
-   *
-   *    math.add("2.3", "4");         // returns number 6.3
-   *
-   * See also:
-   *
-   *    subtract, sum
-   *
-   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} x First value to add
-   * @param  {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} y Second value to add
-   * @return {number | BigNumber | Fraction | Complex | Unit | Array | Matrix} Sum of `x` and `y`
-   */
-  var add = typed('add', extend({
-    // we extend the signatures of addScalar with signatures dealing with matrices
-
-    'Matrix, Matrix': function (x, y) {
-      // result
-      var c;
-      
-      // process matrix storage
-      switch (x.storage()) {
-        case 'sparse':
-          switch (y.storage()) {
-            case 'sparse':
-              // sparse + sparse
-              c = algorithm04(x, y, addScalar);
-              break;
-            default:
-              // sparse + dense
-              c = algorithm01(y, x, addScalar, true);
-              break;
-          }
-          break;
-        default:
-          switch (y.storage()) {
-            case 'sparse':
-              // dense + sparse
-              c = algorithm01(x, y, addScalar, false);
-              break;
-            default:
-              // dense + dense
-              c = algorithm13(x, y, addScalar);
-              break;
-          }
-          break;
-      }
-      return c;
-    },
-    
-    'Array, Array': function (x, y) {
-      // use matrix implementation
-      return add(matrix(x), matrix(y)).valueOf();
-    },
-    
-    'Array, Matrix': function (x, y) {
-      // use matrix implementation
-      return add(matrix(x), y);
-    },
-    
-    'Matrix, Array': function (x, y) {
-      // use matrix implementation
-      return add(x, matrix(y));
-    },
-    
-    'Matrix, any': function (x, y) {
-      // result
-      var c;
-      // check storage format
-      switch (x.storage()) {
-        case 'sparse':
-          c = algorithm10(x, y, addScalar, false);
-          break;
-        default:
-          c = algorithm14(x, y, addScalar, false);
-          break;
-      }
-      return c;
-    },
-    
-    'any, Matrix': function (x, y) {
-      // result
-      var c;
-      // check storage format
-      switch (y.storage()) {
-        case 'sparse':
-          c = algorithm10(y, x, addScalar, true);
-          break;
-        default:
-          c = algorithm14(y, x, addScalar, true);
-          break;
-      }
-      return c;
-    },
-    
-    'Array, any': function (x, y) {
-      // use matrix implementation
-      return algorithm14(matrix(x), y, addScalar, false).valueOf();
-    },
-
-    'any, Array': function (x, y) {
-      // use matrix implementation
-      return algorithm14(matrix(y), x, addScalar, true).valueOf();
-    },
-
-    'any, any': addScalar,
-
-    'any, any, ...any': function (x, y, rest) {
-      var result = add(x, y);
-
-      for (var i = 0; i < rest.length; i++) {
-        result = add(result, rest[i]);
-      }
-
-      return result;
-    }
-  }, addScalar.signatures));
-
-  add.toTex = {
-    2: '\\left(${args[0]}' + latex.operators['add'] + '${args[1]}\\right)'
-  };
-  
-  return add;
-}
-
-exports.name = 'add';
-exports.factory = factory;
-
-
-/***/ }),
-/* 167 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-function factory(type, config, load, typed) {
-
-  /**
-   * Add two scalar values, `x + y`.
-   * This function is meant for internal use: it is used by the public function
-   * `add`
-   *
-   * This function does not support collections (Array or Matrix), and does
-   * not validate the number of of inputs.
-   *
-   * @param  {number | BigNumber | Fraction | Complex | Unit} x   First value to add
-   * @param  {number | BigNumber | Fraction | Complex} y          Second value to add
-   * @return {number | BigNumber | Fraction | Complex | Unit}                      Sum of `x` and `y`
-   * @private
-   */
-  var add = typed('add', {
-
-    'number, number': function (x, y) {
-      return x + y;
-    },
-
-    'Complex, Complex': function (x, y) {
-      return x.add(y);
-    },
-
-    'BigNumber, BigNumber': function (x, y) {
-      return x.plus(y);
-    },
-
-    'Fraction, Fraction': function (x, y) {
-      return x.add(y);
-    },
-
-    'Unit, Unit': function (x, y) {
-      if (x.value == null) throw new Error('Parameter x contains a unit with undefined value');
-      if (y.value == null) throw new Error('Parameter y contains a unit with undefined value');
-      if (!x.equalBase(y)) throw new Error('Units do not match');
-
-      var res = x.clone();
-      res.value = add(res.value, y.value);
-      res.fixPrefix = false;
-      return res;
-    }
-  });
-
-  return add;
-}
-
-exports.factory = factory;
-
-
-/***/ }),
-/* 168 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13189,128 +11239,7 @@ var DimensionError = __webpack_require__(4);
 
 function factory (type, config, load, typed) {
 
-  var DenseMatrix = type.DenseMatrix;
-
-  /**
-   * Iterates over SparseMatrix nonzero items and invokes the callback function f(Dij, Sij). 
-   * Callback function invoked NNZ times (number of nonzero items in SparseMatrix).
-   *
-   *
-   *          ┌  f(Dij, Sij)  ; S(i,j) !== 0
-   * C(i,j) = ┤
-   *          └  Dij          ; otherwise
-   *
-   *
-   * @param {Matrix}   denseMatrix       The DenseMatrix instance (D)
-   * @param {Matrix}   sparseMatrix      The SparseMatrix instance (S)
-   * @param {Function} callback          The f(Dij,Sij) operation to invoke, where Dij = DenseMatrix(i,j) and Sij = SparseMatrix(i,j)
-   * @param {boolean}  inverse           A true value indicates callback should be invoked f(Sij,Dij)
-   *
-   * @return {Matrix}                    DenseMatrix (C)
-   *
-   * see https://github.com/josdejong/mathjs/pull/346#issuecomment-97477571
-   */
-  var algorithm01 = function (denseMatrix, sparseMatrix, callback, inverse) {
-    // dense matrix arrays
-    var adata = denseMatrix._data;
-    var asize = denseMatrix._size;
-    var adt = denseMatrix._datatype;
-    // sparse matrix arrays
-    var bvalues = sparseMatrix._values;
-    var bindex = sparseMatrix._index;
-    var bptr = sparseMatrix._ptr;
-    var bsize = sparseMatrix._size;
-    var bdt = sparseMatrix._datatype;
-
-    // validate dimensions
-    if (asize.length !== bsize.length)
-      throw new DimensionError(asize.length, bsize.length);
-
-    // check rows & columns
-    if (asize[0] !== bsize[0] || asize[1] !== bsize[1])
-      throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
-
-    // sparse matrix cannot be a Pattern matrix
-    if (!bvalues)
-      throw new Error('Cannot perform operation on Dense Matrix and Pattern Sparse Matrix');
-
-    // rows & columns
-    var rows = asize[0];
-    var columns = asize[1];
-
-    // process data types
-    var dt = typeof adt === 'string' && adt === bdt ? adt : undefined;
-    // callback function
-    var cf = dt ? typed.find(callback, [dt, dt]) : callback;
-
-    // vars
-    var i, j;
-    
-    // result (DenseMatrix)
-    var cdata = [];
-    // initialize c
-    for (i = 0; i < rows; i++)
-      cdata[i] = [];      
-    
-    // workspace
-    var x = [];
-    // marks indicating we have a value in x for a given column
-    var w = [];
-
-    // loop columns in b
-    for (j = 0; j < columns; j++) {
-      // column mark
-      var mark = j + 1;
-      // values in column j
-      for (var k0 = bptr[j], k1 = bptr[j + 1], k = k0; k < k1; k++) {
-        // row
-        i = bindex[k];
-        // update workspace
-        x[i] = inverse ? cf(bvalues[k], adata[i][j]) : cf(adata[i][j], bvalues[k]);
-        // mark i as updated
-        w[i] = mark;
-      }
-      // loop rows
-      for (i = 0; i < rows; i++) {
-        // check row is in workspace
-        if (w[i] === mark) {
-          // c[i][j] was already calculated
-          cdata[i][j] = x[i];
-        }
-        else {
-          // item does not exist in S
-          cdata[i][j] = adata[i][j];
-        }
-      }
-    }
-
-    // return dense matrix
-    return new DenseMatrix({
-      data: cdata,
-      size: [rows, columns],
-      datatype: dt
-    });
-  };
-  
-  return algorithm01;
-}
-
-exports.name = 'algorithm01';
-exports.factory = factory;
-
-
-/***/ }),
-/* 169 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var DimensionError = __webpack_require__(4);
-
-function factory (type, config, load, typed) {
-
-  var equalScalar = load(__webpack_require__(28));
+  var equalScalar = load(__webpack_require__(7));
 
   var SparseMatrix = type.SparseMatrix;
 
@@ -13494,124 +11423,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 170 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-function factory (type, config, load, typed) {
-
-  var DenseMatrix = type.DenseMatrix;
-
-  /**
-   * Iterates over SparseMatrix S nonzero items and invokes the callback function f(Sij, b). 
-   * Callback function invoked NZ times (number of nonzero items in S).
-   *
-   *
-   *          ┌  f(Sij, b)  ; S(i,j) !== 0
-   * C(i,j) = ┤  
-   *          └  b          ; otherwise
-   *
-   *
-   * @param {Matrix}   s                 The SparseMatrix instance (S)
-   * @param {Scalar}   b                 The Scalar value
-   * @param {Function} callback          The f(Aij,b) operation to invoke
-   * @param {boolean}  inverse           A true value indicates callback should be invoked f(b,Sij)
-   *
-   * @return {Matrix}                    DenseMatrix (C)
-   *
-   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97626813
-   */
-  var algorithm10 = function (s, b, callback, inverse) {
-    // sparse matrix arrays
-    var avalues = s._values;
-    var aindex = s._index;
-    var aptr = s._ptr;
-    var asize = s._size;
-    var adt = s._datatype;
-
-    // sparse matrix cannot be a Pattern matrix
-    if (!avalues)
-      throw new Error('Cannot perform operation on Pattern Sparse Matrix and Scalar value');
-
-    // rows & columns
-    var rows = asize[0];
-    var columns = asize[1];
-
-    // datatype
-    var dt;
-    // callback signature to use
-    var cf = callback;
-
-    // process data types
-    if (typeof adt === 'string') {
-      // datatype
-      dt = adt;
-      // convert b to the same datatype
-      b = typed.convert(b, dt);
-      // callback
-      cf = typed.find(callback, [dt, dt]);
-    }
-
-    // result arrays
-    var cdata = [];
-    // matrix
-    var c = new DenseMatrix({
-      data: cdata,
-      size: [rows, columns],
-      datatype: dt
-    });
-
-    // workspaces
-    var x = [];
-    // marks indicating we have a value in x for a given column
-    var w = [];
-
-    // loop columns
-    for (var j = 0; j < columns; j++) {
-      // columns mark
-      var mark = j + 1;
-      // values in j
-      for (var k0 = aptr[j], k1 = aptr[j + 1], k = k0; k < k1; k++) {
-        // row
-        var r = aindex[k];
-        // update workspace
-        x[r] = avalues[k];
-        w[r] = mark;
-      }
-      // loop rows
-      for (var i = 0; i < rows; i++) {
-        // initialize C on first column
-        if (j === 0) {
-          // create row array
-          cdata[i] = [];
-        }
-        // check sparse matrix has a value @ i,j
-        if (w[i] === mark) {
-          // invoke callback, update C
-          cdata[i][j] = inverse ? cf(b, x[i]) : cf(x[i], b);
-        }
-        else {
-          // dense matrix value @ i, j
-          cdata[i][j] = b;
-        }
-      }
-    }
-
-    // return sparse matrix
-    return c;
-  };
-
-  return algorithm10;
-}
-
-exports.name = 'algorithm10';
-exports.factory = factory;
-
-
-/***/ }),
-/* 171 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13619,8 +11431,8 @@ exports.factory = factory;
 
 function factory (type, config, load, typed) {
   
-  var smaller = load(__webpack_require__(52));
-  var larger = load(__webpack_require__(172));
+  var smaller = load(__webpack_require__(30));
+  var larger = load(__webpack_require__(51));
   
   var oneOverLogPhi = 1.0 / Math.log((1.0 + Math.sqrt(5.0)) / 2.0);
   
@@ -13967,26 +11779,26 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 172 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var nearlyEqual = __webpack_require__(2).nearlyEqual;
-var bigNearlyEqual = __webpack_require__(29);
+var bigNearlyEqual = __webpack_require__(13);
 
 function factory (type, config, load, typed) {
   
-  var matrix = load(__webpack_require__(17));
+  var matrix = load(__webpack_require__(0));
 
-  var algorithm03 = load(__webpack_require__(53));
-  var algorithm07 = load(__webpack_require__(54));
-  var algorithm12 = load(__webpack_require__(55));
-  var algorithm13 = load(__webpack_require__(31));
-  var algorithm14 = load(__webpack_require__(32));
+  var algorithm03 = load(__webpack_require__(16));
+  var algorithm07 = load(__webpack_require__(31));
+  var algorithm12 = load(__webpack_require__(20));
+  var algorithm13 = load(__webpack_require__(10));
+  var algorithm14 = load(__webpack_require__(8));
 
-  var latex = __webpack_require__(30);
+  var latex = __webpack_require__(6);
 
   /**
    * Test whether value x is larger than y.
@@ -14153,13 +11965,13 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 173 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var util = __webpack_require__(9);
+var util = __webpack_require__(5);
 
 var string = util.string;
 var object = util.object;
@@ -14169,9 +11981,9 @@ var isString = string.isString;
 
 function factory (type, config, load) {
 
-  var DenseMatrix = load(__webpack_require__(50));
+  var DenseMatrix = load(__webpack_require__(27));
 
-  var smaller = load(__webpack_require__(52));
+  var smaller = load(__webpack_require__(30));
 
   function ImmutableDenseMatrix(data, datatype) {
     if (!(this instanceof ImmutableDenseMatrix))
@@ -14393,13 +12205,13 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 174 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var clone = __webpack_require__(0).clone;
+var clone = __webpack_require__(1).clone;
 var isInteger = __webpack_require__(2).isInteger;
 
 function factory (type) {
@@ -14683,7 +12495,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 175 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -15006,7 +12818,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 176 */
+/* 55 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -15077,7 +12889,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 177 */
+/* 56 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -15145,13 +12957,3609 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 178 */
+/* 57 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = [
+  __webpack_require__(58),
+  __webpack_require__(59),
+  __webpack_require__(34),
+  __webpack_require__(62),
+  __webpack_require__(63),
+  __webpack_require__(35),
+  __webpack_require__(64),
+  __webpack_require__(65),
+  __webpack_require__(66),
+  __webpack_require__(67),
+  __webpack_require__(69),
+  __webpack_require__(70),
+  __webpack_require__(71),
+  __webpack_require__(72),
+  __webpack_require__(73),
+  __webpack_require__(74),
+  __webpack_require__(75),
+  __webpack_require__(76),
+  __webpack_require__(77),
+  __webpack_require__(81),
+  __webpack_require__(82),
+  __webpack_require__(83),
+  __webpack_require__(84),
+  __webpack_require__(85)
+];
+
+
+/***/ }),
+/* 58 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var clone = __webpack_require__(1).clone;
+var isInteger = __webpack_require__(2).isInteger;
+var array = __webpack_require__(3);
+var IndexError = __webpack_require__(26);
+var DimensionError = __webpack_require__(4);
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Concatenate two or more matrices.
+   *
+   * Syntax:
+   *
+   *     math.concat(A, B, C, ...)
+   *     math.concat(A, B, C, ..., dim)
+   *
+   * Where:
+   *
+   * - `dim: number` is a zero-based dimension over which to concatenate the matrices.
+   *   By default the last dimension of the matrices.
+   *
+   * Examples:
+   *
+   *    var A = [[1, 2], [5, 6]];
+   *    var B = [[3, 4], [7, 8]];
+   *
+   *    math.concat(A, B);                  // returns [[1, 2, 3, 4], [5, 6, 7, 8]]
+   *    math.concat(A, B, 0);               // returns [[1, 2], [5, 6], [3, 4], [7, 8]]
+   *    math.concat('hello', ' ', 'world'); // returns 'hello world'
+   *
+   * See also:
+   *
+   *    size, squeeze, subset, transpose
+   *
+   * @param {... Array | Matrix} args     Two or more matrices
+   * @return {Array | Matrix} Concatenated matrix
+   */
+  var concat = typed('concat', {
+    // TODO: change signature to '...Array | Matrix, dim?' when supported
+    '...Array | Matrix | number | BigNumber': function (args) {
+      var i;
+      var len = args.length;
+      var dim = -1;  // zero-based dimension
+      var prevDim;
+      var asMatrix = false;
+      var matrices = [];  // contains multi dimensional arrays
+
+      for (i = 0; i < len; i++) {
+        var arg = args[i];
+
+        // test whether we need to return a Matrix (if not we return an Array)
+        if (arg && arg.isMatrix === true) {
+          asMatrix = true;
+        }
+
+        if (typeof arg === 'number' || (arg && arg.isBigNumber === true)) {
+          if (i !== len - 1) {
+            throw new Error('Dimension must be specified as last argument');
+          }
+
+          // last argument contains the dimension on which to concatenate
+          prevDim = dim;
+          dim = arg.valueOf(); // change BigNumber to number
+
+          if (!isInteger(dim)) {
+            throw new TypeError('Integer number expected for dimension');
+          }
+
+          if (dim < 0 || (i > 0 && dim > prevDim)) {
+            // TODO: would be more clear when throwing a DimensionError here
+            throw new IndexError(dim, prevDim + 1);
+          }
+        }
+        else {
+          // this is a matrix or array
+          var m = clone(arg).valueOf();
+          var size = array.size(m);
+          matrices[i] = m;
+          prevDim = dim;
+          dim = size.length - 1;
+
+          // verify whether each of the matrices has the same number of dimensions
+          if (i > 0 && dim != prevDim) {
+            throw new DimensionError(prevDim + 1, dim + 1);
+          }
+        }
+      }
+
+      if (matrices.length == 0) {
+        throw new SyntaxError('At least one matrix expected');
+      }
+
+      var res = matrices.shift();
+      while (matrices.length) {
+        res = _concat(res, matrices.shift(), dim, 0);
+      }
+
+      return asMatrix ? matrix(res) : res;
+    },
+
+    '...string': function (args) {
+      return args.join('');
+    }
+  });
+
+  concat.toTex = undefined; // use default template
+
+  return concat;
+}
+
+/**
+ * Recursively concatenate two matrices.
+ * The contents of the matrices is not cloned.
+ * @param {Array} a             Multi dimensional array
+ * @param {Array} b             Multi dimensional array
+ * @param {number} concatDim    The dimension on which to concatenate (zero-based)
+ * @param {number} dim          The current dim (zero-based)
+ * @return {Array} c            The concatenated matrix
+ * @private
+ */
+function _concat(a, b, concatDim, dim) {
+  if (dim < concatDim) {
+    // recurse into next dimension
+    if (a.length != b.length) {
+      throw new DimensionError(a.length, b.length);
+    }
+
+    var c = [];
+    for (var i = 0; i < a.length; i++) {
+      c[i] = _concat(a[i], b[i], concatDim, dim + 1);
+    }
+    return c;
+  }
+  else {
+    // concatenate this dimension
+    return a.concat(b);
+  }
+}
+
+exports.name = 'concat';
+exports.factory = factory;
+
+
+/***/ }),
+/* 59 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var array = __webpack_require__(3);
+
+function factory (type, config, load, typed) {
+  var matrix   = load(__webpack_require__(0));
+  var subtract = load(__webpack_require__(32));
+  var multiply = load(__webpack_require__(17));
+
+  /**
+   * Calculate the cross product for two vectors in three dimensional space.
+   * The cross product of `A = [a1, a2, a3]` and `B = [b1, b2, b3]` is defined
+   * as:
+   *
+   *    cross(A, B) = [
+   *      a2 * b3 - a3 * b2,
+   *      a3 * b1 - a1 * b3,
+   *      a1 * b2 - a2 * b1
+   *    ]
+   *
+   * If one of the input vectors has a dimension greater than 1, the output
+   * vector will be a 1x3 (2-dimensional) matrix.
+   *
+   * Syntax:
+   *
+   *    math.cross(x, y)
+   *
+   * Examples:
+   *
+   *    math.cross([1, 1, 0],   [0, 1, 1]);       // Returns [1, -1, 1]
+   *    math.cross([3, -3, 1],  [4, 9, 2]);       // Returns [-15, -2, 39]
+   *    math.cross([2, 3, 4],   [5, 6, 7]);       // Returns [-3, 6, -3]
+   *    math.cross([[1, 2, 3]], [[4], [5], [6]]); // Returns [[-3, 6, -3]]
+   *
+   * See also:
+   *
+   *    dot, multiply
+   *
+   * @param  {Array | Matrix} x   First vector
+   * @param  {Array | Matrix} y   Second vector
+   * @return {Array | Matrix}     Returns the cross product of `x` and `y`
+   */
+  var cross = typed('cross', {
+    'Matrix, Matrix': function (x, y) {
+      return matrix(_cross(x.toArray(), y.toArray()));
+    },
+
+    'Matrix, Array': function (x, y) {
+      return matrix(_cross(x.toArray(), y));
+    },
+
+    'Array, Matrix': function (x, y) {
+      return matrix(_cross(x, y.toArray()));
+    },
+
+    'Array, Array': _cross
+  });
+
+  cross.toTex = {
+    2: '\\left(${args[0]}\\right)\\times\\left(${args[1]}\\right)'
+  };
+
+  return cross;
+
+  /**
+   * Calculate the cross product for two arrays
+   * @param {Array} x  First vector
+   * @param {Array} y  Second vector
+   * @returns {Array} Returns the cross product of x and y
+   * @private
+   */
+  function _cross(x, y) {
+    var highestDimension = Math.max(array.size(x).length, array.size(y).length);
+
+    x = array.squeeze(x);
+    y = array.squeeze(y);
+
+    var xSize = array.size(x);
+    var ySize = array.size(y);
+
+    if (xSize.length != 1 || ySize.length != 1 || xSize[0] != 3 || ySize[0] != 3) {
+      throw new RangeError('Vectors with length 3 expected ' +
+      '(Size A = [' + xSize.join(', ') + '], B = [' + ySize.join(', ') + '])');
+    }
+
+    var product = [
+      subtract(multiply(x[1], y[2]), multiply(x[2], y[1])),
+      subtract(multiply(x[2], y[0]), multiply(x[0], y[2])),
+      subtract(multiply(x[0], y[1]), multiply(x[1], y[0]))
+    ];
+
+    if (highestDimension > 1) {
+      return [product];
+    } else {
+      return product;
+    }
+  }
+}
+
+exports.name = 'cross';
+exports.factory = factory;
+
+
+/***/ }),
+/* 60 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+/**
+ * Execute the callback function element wise for each element in array and any
+ * nested array
+ * Returns an array with the results
+ * @param {Array | Matrix} array
+ * @param {Function} callback   The callback is called with two parameters:
+ *                              value1 and value2, which contain the current
+ *                              element of both arrays.
+ * @param {boolean} [skipZeros] Invoke callback function for non-zero values only.
+ *
+ * @return {Array | Matrix} res
+ */
+module.exports = function deepMap(array, callback, skipZeros) {
+  if (array && (typeof array.map === 'function')) {
+    // TODO: replace array.map with a for loop to improve performance
+    return array.map(function (x) {
+      return deepMap(x, callback, skipZeros);
+    });
+  }
+  else {
+    return callback(array);
+  }
+};
+
+
+/***/ }),
+/* 61 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+function factory (type, config, load, typed) {
+
+  var equalScalar = load(__webpack_require__(7));
+
+  var SparseMatrix = type.SparseMatrix;
+
+  /**
+   * Iterates over SparseMatrix S nonzero items and invokes the callback function f(Sij, b). 
+   * Callback function invoked NZ times (number of nonzero items in S).
+   *
+   *
+   *          ┌  f(Sij, b)  ; S(i,j) !== 0
+   * C(i,j) = ┤  
+   *          └  0          ; otherwise
+   *
+   *
+   * @param {Matrix}   s                 The SparseMatrix instance (S)
+   * @param {Scalar}   b                 The Scalar value
+   * @param {Function} callback          The f(Aij,b) operation to invoke
+   * @param {boolean}  inverse           A true value indicates callback should be invoked f(b,Sij)
+   *
+   * @return {Matrix}                    SparseMatrix (C)
+   *
+   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97626813
+   */
+  var algorithm11 = function (s, b, callback, inverse) {
+    // sparse matrix arrays
+    var avalues = s._values;
+    var aindex = s._index;
+    var aptr = s._ptr;
+    var asize = s._size;
+    var adt = s._datatype;
+
+    // sparse matrix cannot be a Pattern matrix
+    if (!avalues)
+      throw new Error('Cannot perform operation on Pattern Sparse Matrix and Scalar value');
+
+    // rows & columns
+    var rows = asize[0];
+    var columns = asize[1];
+
+    // datatype
+    var dt;
+    // equal signature to use
+    var eq = equalScalar;
+    // zero value
+    var zero = 0;
+    // callback signature to use
+    var cf = callback;
+
+    // process data types
+    if (typeof adt === 'string') {
+      // datatype
+      dt = adt;
+      // find signature that matches (dt, dt)
+      eq = typed.find(equalScalar, [dt, dt]);
+      // convert 0 to the same datatype
+      zero = typed.convert(0, dt);
+      // convert b to the same datatype
+      b = typed.convert(b, dt);
+      // callback
+      cf = typed.find(callback, [dt, dt]);
+    }
+
+    // result arrays
+    var cvalues = [];
+    var cindex = [];
+    var cptr = [];
+    // matrix
+    var c = new SparseMatrix({
+      values: cvalues,
+      index: cindex,
+      ptr: cptr,
+      size: [rows, columns],
+      datatype: dt
+    });
+
+    // loop columns
+    for (var j = 0; j < columns; j++) {
+      // initialize ptr
+      cptr[j] = cindex.length;
+      // values in j
+      for (var k0 = aptr[j], k1 = aptr[j + 1], k = k0; k < k1; k++) {
+        // row
+        var i = aindex[k];
+        // invoke callback
+        var v = inverse ? cf(b, avalues[k]) : cf(avalues[k], b);
+        // check value is zero
+        if (!eq(v, zero)) {
+          // push index & value
+          cindex.push(i);
+          cvalues.push(v);
+        }
+      }
+    }
+    // update ptr
+    cptr[columns] = cindex.length;
+
+    // return sparse matrix
+    return c;
+  };
+
+  return algorithm11;
+}
+
+exports.name = 'algorithm11';
+exports.factory = factory;
+
+
+/***/ }),
+/* 62 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var array     = __webpack_require__(3);
+var clone     = __webpack_require__(1).clone;
+var isInteger = __webpack_require__(2).isInteger;
+
+function factory (type, config, load, typed) {
+
+  var matrix = load(__webpack_require__(0));
+  
+  /**
+   * Create a diagonal matrix or retrieve the diagonal of a matrix
+   *
+   * When `x` is a vector, a matrix with vector `x` on the diagonal will be returned.
+   * When `x` is a two dimensional matrix, the matrixes `k`th diagonal will be returned as vector.
+   * When k is positive, the values are placed on the super diagonal.
+   * When k is negative, the values are placed on the sub diagonal.
+   *
+   * Syntax:
+   *
+   *     math.diag(X)
+   *     math.diag(X, format)
+   *     math.diag(X, k)
+   *     math.diag(X, k, format)
+   *
+   * Examples:
+   *
+   *     // create a diagonal matrix
+   *     math.diag([1, 2, 3]);      // returns [[1, 0, 0], [0, 2, 0], [0, 0, 3]]
+   *     math.diag([1, 2, 3], 1);   // returns [[0, 1, 0, 0], [0, 0, 2, 0], [0, 0, 0, 3]]
+   *     math.diag([1, 2, 3], -1);  // returns [[0, 0, 0], [1, 0, 0], [0, 2, 0], [0, 0, 3]]
+   *
+   *    // retrieve the diagonal from a matrix
+   *    var a = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+   *    math.diag(a);   // returns [1, 5, 9]
+   *
+   * See also:
+   *
+   *     ones, zeros, eye
+   *
+   * @param {Matrix | Array} x          A two dimensional matrix or a vector
+   * @param {number | BigNumber} [k=0]  The diagonal where the vector will be filled
+   *                                    in or retrieved.
+   * @param {string} [format='dense']   The matrix storage format.
+   *
+   * @returns {Matrix | Array} Diagonal matrix from input vector, or diagonal from input matrix.
+   */
+  var diag = typed('diag', {
+    // FIXME: simplify this huge amount of signatures as soon as typed-function supports optional arguments
+
+    'Array': function (x) {
+      return _diag(x, 0, array.size(x), null);
+    },
+
+    'Array, number': function (x, k) {
+      return _diag(x, k, array.size(x), null);
+    },
+    
+    'Array, BigNumber': function (x, k) {
+      return _diag(x, k.toNumber(), array.size(x), null);
+    },
+
+    'Array, string': function (x, format) {
+      return _diag(x, 0, array.size(x), format);
+    },
+
+    'Array, number, string': function (x, k, format) {
+      return _diag(x, k, array.size(x), format);
+    },
+
+    'Array, BigNumber, string': function (x, k, format) {
+      return _diag(x, k.toNumber(), array.size(x), format);
+    },
+
+    'Matrix': function (x) {
+      return _diag(x, 0, x.size(), x.storage());
+    },
+
+    'Matrix, number': function (x, k) {
+      return _diag(x, k, x.size(), x.storage());
+    },
+
+    'Matrix, BigNumber': function (x, k) {
+      return _diag(x, k.toNumber(), x.size(), x.storage());
+    },
+
+    'Matrix, string': function (x, format) {
+      return _diag(x, 0, x.size(), format);
+    },
+
+    'Matrix, number, string': function (x, k, format) {
+      return _diag(x, k, x.size(), format);
+    },
+
+    'Matrix, BigNumber, string': function (x, k, format) {
+      return _diag(x, k.toNumber(), x.size(), format);
+    }
+  });
+
+  diag.toTex = undefined; // use default template
+
+  return diag;
+
+  /**
+   * Creeate diagonal matrix from a vector or vice versa
+   * @param {Array | Matrix} x
+   * @param {number} k
+   * @param {string} format Storage format for matrix. If null,
+   *                          an Array is returned
+   * @returns {Array | Matrix}
+   * @private
+   */
+  function _diag (x, k, size, format) {
+    if (!isInteger(k)) {
+      throw new TypeError ('Second parameter in function diag must be an integer');
+    }
+    
+    var kSuper = k > 0 ? k : 0;
+    var kSub = k < 0 ? -k : 0;
+
+    // check dimensions
+    switch (size.length) {
+      case 1:
+        return _createDiagonalMatrix(x, k, format, size[0], kSub, kSuper);
+      case 2:
+        return _getDiagonal(x, k, format, size, kSub, kSuper);
+    }
+    throw new RangeError('Matrix for function diag must be 2 dimensional');
+  }
+  
+  function _createDiagonalMatrix(x, k, format, l, kSub, kSuper) {
+    // matrix size
+    var ms = [l + kSub, l + kSuper];
+    // get matrix constructor
+    var F = type.Matrix.storage(format || 'dense');
+    // create diagonal matrix
+    var m = F.diagonal(ms, x, k);
+    // check we need to return a matrix
+    return format !== null ? m : m.valueOf();
+  }
+  
+  function _getDiagonal(x, k, format, s, kSub, kSuper) {
+    // check x is a Matrix
+    if (x && x.isMatrix === true) {
+      // get diagonal matrix
+      var dm = x.diagonal(k);
+      // check we need to return a matrix
+      if (format !== null) {
+        // check we need to change matrix format
+        if (format !== dm.storage())
+          return matrix(dm, format);
+        return dm;
+      }
+      return dm.valueOf();
+    }
+    // vector size
+    var n = Math.min(s[0] - kSub, s[1] - kSuper);
+    // diagonal values
+    var vector = [];
+    // loop diagonal
+    for (var i = 0; i < n; i++) {
+      vector[i] = x[i + kSub][i + kSuper];
+    }
+    // check we need to return a matrix
+    return format !== null ? matrix(vector) : vector;
+  }
+}
+
+exports.name = 'diag';
+exports.factory = factory;
+
+
+/***/ }),
+/* 63 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var size = __webpack_require__(3).size;
+
+function factory (type, config, load, typed) {
+  var add      = load(__webpack_require__(14));
+  var multiply = load(__webpack_require__(17));
+
+  /**
+   * Calculate the dot product of two vectors. The dot product of
+   * `A = [a1, a2, a3, ..., an]` and `B = [b1, b2, b3, ..., bn]` is defined as:
+   *
+   *    dot(A, B) = a1 * b1 + a2 * b2 + a3 * b3 + ... + an * bn
+   *
+   * Syntax:
+   *
+   *    math.dot(x, y)
+   *
+   * Examples:
+   *
+   *    math.dot([2, 4, 1], [2, 2, 3]);       // returns number 15
+   *    math.multiply([2, 4, 1], [2, 2, 3]);  // returns number 15
+   *
+   * See also:
+   *
+   *    multiply, cross
+   *
+   * @param  {Array | Matrix} x     First vector
+   * @param  {Array | Matrix} y     Second vector
+   * @return {number}               Returns the dot product of `x` and `y`
+   */
+  var dot = typed('dot', {
+    'Matrix, Matrix': function (x, y) {
+      return _dot(x.toArray(), y.toArray());
+    },
+
+    'Matrix, Array': function (x, y) {
+      return _dot(x.toArray(), y);
+    },
+
+    'Array, Matrix': function (x, y) {
+      return _dot(x, y.toArray());
+    },
+
+    'Array, Array': _dot
+  });
+  
+  dot.toTex = {2: '\\left(${args[0]}\\cdot${args[1]}\\right)'};
+
+  return dot;
+
+  /**
+   * Calculate the dot product for two arrays
+   * @param {Array} x  First vector
+   * @param {Array} y  Second vector
+   * @returns {number} Returns the dot product of x and y
+   * @private
+   */
+  // TODO: double code with math.multiply
+  function _dot(x, y) {
+    var xSize= size(x);
+    var ySize = size(y);
+    var len = xSize[0];
+
+    if (xSize.length !== 1 || ySize.length !== 1) throw new RangeError('Vector expected'); // TODO: better error message
+    if (xSize[0] != ySize[0]) throw new RangeError('Vectors must have equal length (' + xSize[0] + ' != ' + ySize[0] + ')');
+    if (len == 0) throw new RangeError('Cannot calculate the dot product of empty vectors');
+
+    var prod = 0;
+    for (var i = 0; i < len; i++) {
+      prod = add(prod, multiply(x[i], y[i]));
+    }
+
+    return prod;
+  }
+}
+
+exports.name = 'dot';
+exports.factory = factory;
+
+
+/***/ }),
+/* 64 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var size = __webpack_require__(3).size;
+var maxArgumentCount = __webpack_require__(11).maxArgumentCount;
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+  
+  /**
+   * Filter the items in an array or one dimensional matrix.
+   *
+   * Syntax:
+   *
+   *    math.filter(x, test)
+   *
+   * Examples:
+   *
+   *    function isPositive (x) {
+   *      return x > 0;
+   *    }
+   *    math.filter([6, -2, -1, 4, 3], isPositive); // returns [6, 4, 3]
+   *
+   *    math.filter(["23", "foo", "100", "55", "bar"], /[0-9]+/); // returns ["23", "100", "55"]
+   *
+   * See also:
+   *
+   *    forEach, map, sort
+   *
+   * @param {Matrix | Array} x    A one dimensional matrix or array to filter
+   * @param {Function | RegExp} test
+   *        A function or regular expression to test items.
+   *        All entries for which `test` returns true are returned.
+   *        When `test` is a function, it is invoked with three parameters:
+   *        the value of the element, the index of the element, and the
+   *        matrix/array being traversed. The function must return a boolean.
+   * @return {Matrix | Array} Returns the filtered matrix.
+   */
+  var filter = typed('filter', {
+    'Array, function': _filterCallback,
+
+    'Array, RegExp': _filterRegExp,
+
+    'Matrix, function': function (x, test) {
+      return matrix(_filterCallback(x.toArray(), test));
+    },
+
+    'Matrix, RegExp': function (x, test) {
+      return matrix(_filterRegExp(x.toArray(), test));
+    }
+  });
+
+  filter.toTex = undefined; // use default template
+
+  return filter;
+}
+
+/**
+ * Filter values in a callback given a callback function
+ * @param {Array} x
+ * @param {Function} callback
+ * @return {Array} Returns the filtered array
+ * @private
+ */
+function _filterCallback (x, callback) {
+  if (size(x).length !== 1) {
+    throw new Error('Only one dimensional matrices supported');
+  }
+
+  // figure out what number of arguments the callback function expects
+  var args = maxArgumentCount(callback);
+
+  return x.filter(function (value, index, array) {
+    // invoke the callback function with the right number of arguments
+    if (args === 1) {
+      return callback(value);
+    }
+    else if (args === 2) {
+      return callback(value, [index]);
+    }
+    else { // 3 or -1
+      return callback(value, [index], array);
+    }
+  });
+}
+
+/**
+ * Filter values in a callback given a regular expression
+ * @param {Array} x
+ * @param {Function} regexp
+ * @return {Array} Returns the filtered array
+ * @private
+ */
+function _filterRegExp (x, regexp) {
+  if (size(x).length !== 1) {
+    throw new Error('Only one dimensional matrices supported');
+  }
+
+  return x.filter(function (entry) {
+    return regexp.test(entry);
+  });
+}
+
+exports.name = 'filter';
+exports.factory = factory;
+
+
+/***/ }),
+/* 65 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var clone = __webpack_require__(1).clone;
+var _flatten = __webpack_require__(3).flatten;
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Flatten a multi dimensional matrix into a single dimensional matrix.
+   *
+   * Syntax:
+   *
+   *    math.flatten(x)
+   *
+   * Examples:
+   *
+   *    math.flatten([[1,2], [3,4]]);   // returns [1, 2, 3, 4]
+   *
+   * See also:
+   *
+   *    concat, resize, size, squeeze
+   *
+   * @param {Matrix | Array} x   Matrix to be flattened
+   * @return {Matrix | Array} Returns the flattened matrix
+   */
+  var flatten = typed('flatten', {
+    'Array': function (x) {
+      return _flatten(clone(x));
+    },
+
+    'Matrix': function (x) {
+      var flat = _flatten(clone(x.toArray()));
+      // TODO: return the same matrix type as x
+      return matrix(flat);
+    }
+  });
+
+  flatten.toTex = undefined; // use default template
+
+  return flatten;
+}
+
+exports.name = 'flatten';
+exports.factory = factory;
+
+
+/***/ }),
+/* 66 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var maxArgumentCount = __webpack_require__(11).maxArgumentCount;
+
+function factory (type, config, load, typed) {
+  /**
+   * Iterate over all elements of a matrix/array, and executes the given callback function.
+   *
+   * Syntax:
+   *
+   *    math.forEach(x, callback)
+   *
+   * Examples:
+   *
+   *    math.forEach([1, 2, 3], function(value) {
+   *      console.log(value);
+   *    });
+   *    // outputs 1, 2, 3
+   *
+   * See also:
+   *
+   *    filter, map, sort
+   *
+   * @param {Matrix | Array} x    The matrix to iterate on.
+   * @param {Function} callback   The callback function is invoked with three
+   *                              parameters: the value of the element, the index
+   *                              of the element, and the Matrix/array being traversed.
+   */
+  var forEach = typed('forEach', {
+    'Array, function': _forEach,
+
+    'Matrix, function': function (x, callback) {
+      return x.forEach(callback);
+    }
+  });
+
+  forEach.toTex = undefined; // use default template
+
+  return forEach;
+}
+
+/**
+ * forEach for a multi dimensional array
+ * @param {Array} array
+ * @param {Function} callback
+ * @private
+ */
+function _forEach (array, callback) {
+  // figure out what number of arguments the callback function expects
+  var args = maxArgumentCount(callback);
+
+  var recurse = function (value, index) {
+    if (Array.isArray(value)) {
+      value.forEach(function (child, i) {
+        // we create a copy of the index array and append the new index value
+        recurse(child, index.concat(i));
+      });
+    }
+    else {
+      // invoke the callback function with the right number of arguments
+      if (args === 1) {
+        callback(value);
+      }
+      else if (args === 2) {
+        callback(value, index);
+      }
+      else { // 3 or -1
+        callback(value, index, array);
+      }
+    }
+  };
+  recurse(array, []);
+}
+
+exports.name = 'forEach';
+exports.factory = factory;
+
+
+/***/ }),
+/* 67 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var util = __webpack_require__(5);
+
+function factory (type, config, load, typed) {
+  var matrix       = load(__webpack_require__(0));
+  var divideScalar = load(__webpack_require__(68));
+  var addScalar    = load(__webpack_require__(15));
+  var multiply     = load(__webpack_require__(17));
+  var unaryMinus   = load(__webpack_require__(21));
+  var det          = load(__webpack_require__(34));
+  var eye          = load(__webpack_require__(35));
+
+  /**
+   * Calculate the inverse of a square matrix.
+   *
+   * Syntax:
+   *
+   *     math.inv(x)
+   *
+   * Examples:
+   *
+   *     math.inv([[1, 2], [3, 4]]);  // returns [[-2, 1], [1.5, -0.5]]
+   *     math.inv(4);                 // returns 0.25
+   *     1 / 4;                       // returns 0.25
+   *
+   * See also:
+   *
+   *     det, transpose
+   *
+   * @param {number | Complex | Array | Matrix} x     Matrix to be inversed
+   * @return {number | Complex | Array | Matrix} The inverse of `x`.
+   */
+  var inv = typed('inv', {
+    'Array | Matrix': function (x) {
+      var size = (x.isMatrix === true) ? x.size() : util.array.size(x);
+      switch (size.length) {
+        case 1:
+          // vector
+          if (size[0] == 1) {
+            if (x.isMatrix === true) {
+              return matrix([
+                divideScalar(1, x.valueOf()[0])
+              ]);
+            }
+            else {
+              return [
+                divideScalar(1, x[0])
+              ];
+            }
+          }
+          else {
+            throw new RangeError('Matrix must be square ' +
+            '(size: ' + util.string.format(size) + ')');
+          }
+
+        case 2:
+          // two dimensional array
+          var rows = size[0];
+          var cols = size[1];
+          if (rows == cols) {
+            if (x.isMatrix === true) {
+              return matrix(
+                  _inv(x.valueOf(), rows, cols),
+                  x.storage()
+              );
+            }
+            else {
+              // return an Array
+              return _inv(x, rows, cols);
+            }
+          }
+          else {
+            throw new RangeError('Matrix must be square ' +
+            '(size: ' + util.string.format(size) + ')');
+          }
+
+        default:
+          // multi dimensional array
+          throw new RangeError('Matrix must be two dimensional ' +
+          '(size: ' + util.string.format(size) + ')');
+      }
+    },
+
+    'any': function (x) {
+      // scalar
+      return divideScalar(1, x); // FIXME: create a BigNumber one when configured for bignumbers
+    }
+  });
+
+  /**
+   * Calculate the inverse of a square matrix
+   * @param {Array[]} mat     A square matrix
+   * @param {number} rows     Number of rows
+   * @param {number} cols     Number of columns, must equal rows
+   * @return {Array[]} inv    Inverse matrix
+   * @private
+   */
+  function _inv (mat, rows, cols){
+    var r, s, f, value, temp;
+
+    if (rows == 1) {
+      // this is a 1 x 1 matrix
+      value = mat[0][0];
+      if (value == 0) {
+        throw Error('Cannot calculate inverse, determinant is zero');
+      }
+      return [[
+        divideScalar(1, value)
+      ]];
+    }
+    else if (rows == 2) {
+      // this is a 2 x 2 matrix
+      var d = det(mat);
+      if (d == 0) {
+        throw Error('Cannot calculate inverse, determinant is zero');
+      }
+      return [
+        [
+          divideScalar(mat[1][1], d),
+          divideScalar(unaryMinus(mat[0][1]), d)
+        ],
+        [
+          divideScalar(unaryMinus(mat[1][0]), d),
+          divideScalar(mat[0][0], d)
+        ]
+      ];
+    }
+    else {
+      // this is a matrix of 3 x 3 or larger
+      // calculate inverse using gauss-jordan elimination
+      //      http://en.wikipedia.org/wiki/Gaussian_elimination
+      //      http://mathworld.wolfram.com/MatrixInverse.html
+      //      http://math.uww.edu/~mcfarlat/inverse.htm
+
+      // make a copy of the matrix (only the arrays, not of the elements)
+      var A = mat.concat();
+      for (r = 0; r < rows; r++) {
+        A[r] = A[r].concat();
+      }
+
+      // create an identity matrix which in the end will contain the
+      // matrix inverse
+      var B = eye(rows).valueOf();
+
+      // loop over all columns, and perform row reductions
+      for (var c = 0; c < cols; c++) {
+        // element Acc should be non zero. if not, swap content
+        // with one of the lower rows
+        r = c;
+        while (r < rows && A[r][c] == 0) {
+          r++;
+        }
+        if (r == rows || A[r][c] == 0) {
+          // TODO: in case of zero det, just return a matrix wih Infinity values? (like octave)
+          throw Error('Cannot calculate inverse, determinant is zero');
+        }
+        if (r != c) {
+          temp = A[c]; A[c] = A[r]; A[r] = temp;
+          temp = B[c]; B[c] = B[r]; B[r] = temp;
+        }
+
+        // eliminate non-zero values on the other rows at column c
+        var Ac = A[c],
+            Bc = B[c];
+        for (r = 0; r < rows; r++) {
+          var Ar = A[r],
+              Br = B[r];
+          if(r != c) {
+            // eliminate value at column c and row r
+            if (Ar[c] != 0) {
+              f = divideScalar(unaryMinus(Ar[c]), Ac[c]);
+
+              // add (f * row c) to row r to eliminate the value
+              // at column c
+              for (s = c; s < cols; s++) {
+                Ar[s] = addScalar(Ar[s], multiply(f, Ac[s]));
+              }
+              for (s = 0; s < cols; s++) {
+                Br[s] = addScalar(Br[s],  multiply(f, Bc[s]));
+              }
+            }
+          }
+          else {
+            // normalize value at Acc to 1,
+            // divide each value on row r with the value at Acc
+            f = Ac[c];
+            for (s = c; s < cols; s++) {
+              Ar[s] = divideScalar(Ar[s], f);
+            }
+            for (s = 0; s < cols; s++) {
+              Br[s] = divideScalar(Br[s], f);
+            }
+          }
+        }
+      }
+      return B;
+    }
+  }
+
+  inv.toTex = {1: '\\left(${args[0]}\\right)^{-1}'};
+
+  return inv;
+}
+
+exports.name = 'inv';
+exports.factory = factory;
+
+
+/***/ }),
+/* 68 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+function factory(type, config, load, typed) {
+  var multiplyScalar = load(__webpack_require__(22));
+
+  /**
+   * Divide two scalar values, `x / y`.
+   * This function is meant for internal use: it is used by the public functions
+   * `divide` and `inv`.
+   *
+   * This function does not support collections (Array or Matrix), and does
+   * not validate the number of of inputs.
+   *
+   * @param  {number | BigNumber | Fraction | Complex | Unit} x   Numerator
+   * @param  {number | BigNumber | Fraction | Complex} y          Denominator
+   * @return {number | BigNumber | Fraction | Complex | Unit}                      Quotient, `x / y`
+   * @private
+   */
+  var divideScalar = typed('divide', {
+    'number, number': function (x, y) {
+      return x / y;
+    },
+
+    'Complex, Complex': function (x, y) {
+      return x.div(y);
+    },
+
+    'BigNumber, BigNumber': function (x, y) {
+      return x.div(y);
+    },
+
+    'Fraction, Fraction': function (x, y) {
+      return x.div(y);
+    },
+
+    'Unit, number | Fraction | BigNumber': function (x, y) {
+      var res = x.clone();
+      // TODO: move the divide function to Unit.js, it uses internals of Unit
+      res.value = divideScalar(((res.value === null) ? res._normalize(1) : res.value), y);
+      return res;
+    },
+
+    'number | Fraction | BigNumber, Unit': function (x, y) {
+      var res = y.pow(-1);
+      // TODO: move the divide function to Unit.js, it uses internals of Unit
+      res.value = multiplyScalar(((res.value === null) ? res._normalize(1) : res.value), x);
+      return res;
+    },
+
+    'Unit, Unit': function (x, y) {
+      return x.divide(y);
+    }
+
+  });
+
+  return divideScalar;
+}
+
+exports.factory = factory;
+
+
+/***/ }),
+/* 69 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var size = __webpack_require__(3).size;
+
+function factory(type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+  var multiplyScalar = load(__webpack_require__(22))
+    /**
+     * Calculates the kronecker product of 2 matrices or vectors.
+     *
+     * NOTE: If a one dimensional vector / matrix is given, it will be
+     * wrapped so its two dimensions.
+     * See the examples.
+     *
+     * Syntax:
+     *
+     *    math.kron(x, y)
+     *
+     * Examples:
+     *
+     *    math.kron([[1, 0], [0, 1]], [[1, 2], [3, 4]]);
+     *    // returns [ [ 1, 2, 0, 0 ], [ 3, 4, 0, 0 ], [ 0, 0, 1, 2 ], [ 0, 0, 3, 4 ] ]
+     *
+     *    math.kron([1,1], [2,3,4]);
+     *    // returns [ [ 2, 3, 4, 2, 3, 4 ] ]
+     *
+     * See also:
+     *
+     *    multiply, dot, cross
+     *
+     * @param  {Array | Matrix} x     First vector
+     * @param  {Array | Matrix} y     Second vector
+     * @return {Array | Matrix}       Returns the kronecker product of `x` and `y`
+     */
+    var kron = typed('kron', {
+        'Matrix, Matrix': function(x, y) {
+            return matrix(_kron(x.toArray(), y.toArray()));
+        },
+
+        'Matrix, Array': function(x, y) {
+            return matrix(_kron(x.toArray(), y));
+        },
+
+        'Array, Matrix': function(x, y) {
+            return matrix(_kron(x, y.toArray()));
+        },
+
+        'Array, Array': _kron
+    });
+
+    return kron;
+
+    /**
+     * Calculate the kronecker product of two matrices / vectors
+     * @param {Array} a  First vector
+     * @param {Array} b  Second vector
+     * @returns {Array} Returns the kronecker product of x and y
+     * @private
+     */
+    function _kron(a, b) {
+        // Deal with the dimensions of the matricies.
+        if (size(a).length === 1) {
+          // Wrap it in a 2D Matrix
+          a = [a];
+        }
+        if (size(b).length === 1) {
+          // Wrap it in a 2D Matrix
+          b = [b]
+        }
+        if (size(a).length > 2 || size(b).length > 2) {
+            throw new RangeError('Vectors with dimensions greater then 2 are not supported expected ' +
+            '(Size x = ' + JSON.stringify(a.length) + ', y = ' + JSON.stringify(b.length) + ')');
+        }
+        var t = [];
+        var r = [];
+
+        return a.map(function(a) {
+            return b.map(function(b) {
+                return a.map(function(y) {
+                    return b.map(function(x) {
+                        return r.push(multiplyScalar(y, x));
+                    });
+                }, t.push(r = []));
+            });
+        }, t = []) && t;
+    }
+}
+
+exports.name = 'kron';
+exports.factory = factory;
+
+
+/***/ }),
+/* 70 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var maxArgumentCount = __webpack_require__(11).maxArgumentCount;
+
+function factory (type, config, load, typed) {
+  /**
+   * Create a new matrix or array with the results of the callback function executed on
+   * each entry of the matrix/array.
+   *
+   * Syntax:
+   *
+   *    math.map(x, callback)
+   *
+   * Examples:
+   *
+   *    math.map([1, 2, 3], function(value) {
+   *      return value * value;
+   *    });  // returns [1, 4, 9]
+   *
+   * See also:
+   *
+   *    filter, forEach, sort
+   *
+   * @param {Matrix | Array} x    The matrix to iterate on.
+   * @param {Function} callback   The callback method is invoked with three
+   *                              parameters: the value of the element, the index
+   *                              of the element, and the matrix being traversed.
+   * @return {Matrix | array}     Transformed map of x
+   */
+  var map = typed('map', {
+    'Array, function': _map,
+
+    'Matrix, function': function (x, callback) {
+      return x.map(callback);
+    }
+  });
+
+  map.toTex = undefined; // use default template
+
+  return map;
+}
+
+/**
+ * Map for a multi dimensional array
+ * @param {Array} array
+ * @param {Function} callback
+ * @return {Array}
+ * @private
+ */
+function _map (array, callback) {
+  // figure out what number of arguments the callback function expects
+  var args = maxArgumentCount(callback);
+
+  var recurse = function (value, index) {
+    if (Array.isArray(value)) {
+      return value.map(function (child, i) {
+        // we create a copy of the index array and append the new index value
+        return recurse(child, index.concat(i));
+      });
+    }
+    else {
+      // invoke the callback function with the right number of arguments
+      if (args === 1) {
+        return callback(value);
+      }
+      else if (args === 2) {
+        return callback(value, index);
+      }
+      else { // 3 or -1
+        return callback(value, index, array);
+      }
+    }
+  };
+
+  return recurse(array, []);
+}
+
+exports.name = 'map';
+exports.factory = factory;
+
+
+/***/ }),
+/* 71 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var isInteger = __webpack_require__(2).isInteger;
+var resize = __webpack_require__(3).resize;
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Create a matrix filled with ones. The created matrix can have one or
+   * multiple dimensions.
+   *
+   * Syntax:
+   *
+   *    math.ones(m)
+   *    math.ones(m, format)
+   *    math.ones(m, n)
+   *    math.ones(m, n, format)
+   *    math.ones([m, n])
+   *    math.ones([m, n], format)
+   *    math.ones([m, n, p, ...])
+   *    math.ones([m, n, p, ...], format)
+   *
+   * Examples:
+   *
+   *    math.ones(3);                   // returns [1, 1, 1]
+   *    math.ones(3, 2);                // returns [[1, 1], [1, 1], [1, 1]]
+   *    math.ones(3, 2, 'dense');       // returns Dense Matrix [[1, 1], [1, 1], [1, 1]]
+   *
+   *    var A = [[1, 2, 3], [4, 5, 6]];
+   *    math.ones(math.size(A));       // returns [[1, 1, 1], [1, 1, 1]]
+   *
+   * See also:
+   *
+   *    zeros, eye, size, range
+   *
+   * @param {...number | Array} size    The size of each dimension of the matrix
+   * @param {string} [format]           The Matrix storage format
+   *
+   * @return {Array | Matrix | number}  A matrix filled with ones
+   */
+  var ones = typed('ones', {
+    '': function () {
+      return (config.matrix === 'Array')
+          ? _ones([])
+          : _ones([], 'default');
+    },
+
+    // math.ones(m, n, p, ..., format)
+    // TODO: more accurate signature '...number | BigNumber, string' as soon as typed-function supports this
+    '...number | BigNumber | string': function (size) {
+      var last = size[size.length - 1];
+      if (typeof last === 'string') {
+        var format = size.pop();
+        return _ones(size, format);
+      }
+      else if (config.matrix === 'Array') {
+        return _ones(size);
+      }
+      else {
+        return _ones(size, 'default');
+      }
+    },
+
+    'Array': _ones,
+
+    'Matrix': function (size) {
+      var format = size.storage();
+      return _ones(size.valueOf(), format);
+    },
+
+    'Array | Matrix, string': function (size, format) {
+      return _ones (size.valueOf(), format);
+    }
+  });
+
+  ones.toTex = undefined; // use default template
+
+  return ones;
+
+  /**
+   * Create an Array or Matrix with ones
+   * @param {Array} size
+   * @param {string} [format='default']
+   * @return {Array | Matrix}
+   * @private
+   */
+  function _ones(size, format) {
+    var hasBigNumbers = _normalize(size);
+    var defaultValue = hasBigNumbers ? new type.BigNumber(1) : 1;
+    _validate(size);
+
+    if (format) {
+      // return a matrix
+      var m = matrix(format);
+      if (size.length > 0) {
+        return m.resize(size, defaultValue);
+      }
+      return m;
+    }
+    else {
+      // return an Array
+      var arr = [];
+      if (size.length > 0) {
+        return resize(arr, size, defaultValue);
+      }
+      return arr;
+    }
+  }
+
+  // replace BigNumbers with numbers, returns true if size contained BigNumbers
+  function _normalize(size) {
+    var hasBigNumbers = false;
+    size.forEach(function (value, index, arr) {
+      if (value && value.isBigNumber === true) {
+        hasBigNumbers = true;
+        arr[index] = value.toNumber();
+      }
+    });
+    return hasBigNumbers;
+  }
+
+  // validate arguments
+  function _validate (size) {
+    size.forEach(function (value) {
+      if (typeof value !== 'number' || !isInteger(value) || value < 0) {
+        throw new Error('Parameters in function ones must be positive integers');
+      }
+    });
+  }
+}
+
+exports.name = 'ones';
+exports.factory = factory;
+
+
+/***/ }),
+/* 72 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var isInteger = __webpack_require__(2).isInteger;
+
+function factory (type, config, load, typed) {
+  var asc = load(__webpack_require__(23));
+  function desc(a, b) {
+    return -asc(a, b);
+  }
+
+  /**
+   * Partition-based selection of an array or 1D matrix.
+   * Will find the kth smallest value, and mutates the input array.
+   * Uses Quickselect.
+   *
+   * Syntax:
+   *
+   *    math.partitionSelect(x, k)
+   *    math.partitionSelect(x, k, compare)
+   *
+   * Examples:
+   *
+   *    math.partitionSelect([5, 10, 1], 2);           // returns 10
+   *    math.partitionSelect(['C', 'B', 'A', 'D'], 1); // returns 'B'
+   *
+   *    function sortByLength (a, b) {
+   *      return a.length - b.length;
+   *    }
+   *    math.partitionSelect(['Langdon', 'Tom', 'Sara'], 2, sortByLength); // returns 'Langdon'
+   *
+   * See also:
+   *
+   *    sort
+   *
+   * @param {Matrix | Array} x    A one dimensional matrix or array to sort
+   * @param {Number} k            The kth smallest value to be retrieved; zero-based index
+   * @param {Function | 'asc' | 'desc'} [compare='asc']
+   *        An optional comparator function. The function is called as
+   *        `compare(a, b)`, and must return 1 when a > b, -1 when a < b,
+   *        and 0 when a == b.
+   * @return {*} Returns the kth lowest value.
+   */
+  return typed('partitionSelect', {
+    'Array | Matrix, number': function (x, k) {
+      return _partitionSelect(x, k, asc);
+    },
+
+    'Array | Matrix, number, string': function (x, k, compare) {
+      if (compare === 'asc') {
+        return _partitionSelect(x, k, asc);
+      }
+      else if (compare === 'desc') {
+        return _partitionSelect(x, k, desc);
+      }
+      else {
+        throw new Error('Compare string must be "asc" or "desc"');
+      }
+    },
+
+    'Array | Matrix, number, function': _partitionSelect
+  });
+
+  function _partitionSelect(x, k, compare) {
+    if (!isInteger(k) || k < 0) {
+      throw new Error('k must be a non-negative integer');
+    }
+
+    if (x && x.isMatrix) {
+      var size = x.size();
+      if (size.length > 1) {
+        throw new Error('Only one dimensional matrices supported');
+      }
+      return quickSelect(x.valueOf(), k, compare);
+    }
+
+    if (Array.isArray(x)) {
+      return quickSelect(x, k, compare);
+    }
+  }
+
+  /**
+   * Quickselect algorithm.
+   * Code adapted from:
+   * http://blog.teamleadnet.com/2012/07/quick-select-algorithm-find-kth-element.html
+   *
+   * @param {Array} arr
+   * @param {Number} k
+   * @param {Function} compare
+   * @private
+   */
+  function quickSelect(arr, k, compare) {
+    if (k >= arr.length) {
+      throw new Error('k out of bounds');
+    }
+
+    var from = 0;
+    var to = arr.length - 1;
+
+    // if from == to we reached the kth element
+    while (from < to) {
+      var r = from;
+      var w = to;
+      var pivot = arr[Math.floor(Math.random() * (to - from + 1)) + from];
+
+      // stop if the reader and writer meets
+      while (r < w) {
+        // arr[r] >= pivot
+        if (compare(arr[r], pivot) >= 0) { // put the large values at the end
+          var tmp = arr[w];
+          arr[w] = arr[r];
+          arr[r] = tmp;
+          --w;
+        } else { // the value is smaller than the pivot, skip
+          ++r;
+        }
+      }
+
+      // if we stepped up (r++) we need to step one down (arr[r] > pivot)
+      if (compare(arr[r], pivot) > 0) {
+        --r;
+      }
+
+      // the r pointer is on the end of the first k elements
+      if (k <= r) {
+        to = r;
+      } else {
+        from = r + 1;
+      }
+    }
+
+    return arr[k];
+  }
+}
+
+exports.name = 'partitionSelect';
+exports.factory = factory;
+
+
+/***/ }),
+/* 73 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  var ZERO = new type.BigNumber(0);
+  var ONE = new type.BigNumber(1);
+
+  /**
+   * Create an array from a range.
+   * By default, the range end is excluded. This can be customized by providing
+   * an extra parameter `includeEnd`.
+   *
+   * Syntax:
+   *
+   *     math.range(str [, includeEnd])               // Create a range from a string,
+   *                                                  // where the string contains the
+   *                                                  // start, optional step, and end,
+   *                                                  // separated by a colon.
+   *     math.range(start, end [, includeEnd])        // Create a range with start and
+   *                                                  // end and a step size of 1.
+   *     math.range(start, end, step [, includeEnd])  // Create a range with start, step,
+   *                                                  // and end.
+   *
+   * Where:
+   *
+   * - `str: string`
+   *   A string 'start:end' or 'start:step:end'
+   * - `start: {number | BigNumber}`
+   *   Start of the range
+   * - `end: number | BigNumber`
+   *   End of the range, excluded by default, included when parameter includeEnd=true
+   * - `step: number | BigNumber`
+   *   Step size. Default value is 1.
+   * - `includeEnd: boolean`
+   *   Option to specify whether to include the end or not. False by default.
+   *
+   * Examples:
+   *
+   *     math.range(2, 6);        // [2, 3, 4, 5]
+   *     math.range(2, -3, -1);   // [2, 1, 0, -1, -2]
+   *     math.range('2:1:6');     // [2, 3, 4, 5]
+   *     math.range(2, 6, true);  // [2, 3, 4, 5, 6]
+   *
+   * See also:
+   *
+   *     ones, zeros, size, subset
+   *
+   * @param {*} args   Parameters describing the ranges `start`, `end`, and optional `step`.
+   * @return {Array | Matrix} range
+   */
+  var range = typed('range', {
+    // TODO: simplify signatures when typed-function supports default values and optional arguments
+
+    // TODO: a number or boolean should not be converted to string here
+    'string': _strRange,
+    'string, boolean': _strRange,
+
+    'number, number':  function (start, end) {
+      return _out(_rangeEx(start, end, 1));
+    },
+    'number, number, number': function (start, end, step) {
+      return _out(_rangeEx(start, end, step));
+    },
+    'number, number, boolean': function (start, end, includeEnd) {
+      return includeEnd
+          ? _out(_rangeInc(start, end, 1))
+          : _out(_rangeEx(start, end, 1));
+    },
+    'number, number, number, boolean': function (start, end, step, includeEnd) {
+      return includeEnd
+          ? _out(_rangeInc(start, end, step))
+          : _out(_rangeEx(start, end, step));
+    },
+
+    'BigNumber, BigNumber':  function (start, end) {
+      return _out(_bigRangeEx(start, end, ONE));
+    },
+    'BigNumber, BigNumber, BigNumber': function (start, end, step) {
+      return _out(_bigRangeEx(start, end, step));
+    },
+    'BigNumber, BigNumber, boolean': function (start, end, includeEnd) {
+      return includeEnd
+          ? _out(_bigRangeInc(start, end, ONE))
+          : _out(_bigRangeEx(start, end, ONE));
+    },
+    'BigNumber, BigNumber, BigNumber, boolean': function (start, end, step, includeEnd) {
+      return includeEnd
+          ? _out(_bigRangeInc(start, end, step))
+          : _out(_bigRangeEx(start, end, step));
+    }
+
+  });
+
+  range.toTex = undefined; // use default template
+
+  return range;
+
+  function _out(arr) {
+    return config.matrix === 'Array' ? arr : matrix(arr);
+  }
+
+  function _strRange (str, includeEnd) {
+    var r = _parse(str);
+    if (!r){
+      throw new SyntaxError('String "' + str + '" is no valid range');
+    }
+
+    var fn;
+    if (config.number === 'BigNumber') {
+      fn = includeEnd ? _bigRangeInc : _bigRangeEx;
+      return _out(fn(
+          new type.BigNumber(r.start),
+          new type.BigNumber(r.end),
+          new type.BigNumber(r.step)));
+    }
+    else {
+      fn = includeEnd ? _rangeInc : _rangeEx;
+      return _out(fn(r.start, r.end, r.step));
+    }
+  }
+
+  /**
+   * Create a range with numbers. End is excluded
+   * @param {number} start
+   * @param {number} end
+   * @param {number} step
+   * @returns {Array} range
+   * @private
+   */
+  function _rangeEx (start, end, step) {
+    var array = [],
+        x = start;
+    if (step > 0) {
+      while (x < end) {
+        array.push(x);
+        x += step;
+      }
+    }
+    else if (step < 0) {
+      while (x > end) {
+        array.push(x);
+        x += step;
+      }
+    }
+
+    return array;
+  }
+
+  /**
+   * Create a range with numbers. End is included
+   * @param {number} start
+   * @param {number} end
+   * @param {number} step
+   * @returns {Array} range
+   * @private
+   */
+  function _rangeInc (start, end, step) {
+    var array = [],
+        x = start;
+    if (step > 0) {
+      while (x <= end) {
+        array.push(x);
+        x += step;
+      }
+    }
+    else if (step < 0) {
+      while (x >= end) {
+        array.push(x);
+        x += step;
+      }
+    }
+
+    return array;
+  }
+
+  /**
+   * Create a range with big numbers. End is excluded
+   * @param {BigNumber} start
+   * @param {BigNumber} end
+   * @param {BigNumber} step
+   * @returns {Array} range
+   * @private
+   */
+  function _bigRangeEx (start, end, step) {
+    var array = [],
+        x = start;
+    if (step.gt(ZERO)) {
+      while (x.lt(end)) {
+        array.push(x);
+        x = x.plus(step);
+      }
+    }
+    else if (step.lt(ZERO)) {
+      while (x.gt(end)) {
+        array.push(x);
+        x = x.plus(step);
+      }
+    }
+
+    return array;
+  }
+
+  /**
+   * Create a range with big numbers. End is included
+   * @param {BigNumber} start
+   * @param {BigNumber} end
+   * @param {BigNumber} step
+   * @returns {Array} range
+   * @private
+   */
+  function _bigRangeInc (start, end, step) {
+    var array = [],
+        x = start;
+    if (step.gt(ZERO)) {
+      while (x.lte(end)) {
+        array.push(x);
+        x = x.plus(step);
+      }
+    }
+    else if (step.lt(ZERO)) {
+      while (x.gte(end)) {
+        array.push(x);
+        x = x.plus(step);
+      }
+    }
+
+    return array;
+  }
+
+  /**
+   * Parse a string into a range,
+   * The string contains the start, optional step, and end, separated by a colon.
+   * If the string does not contain a valid range, null is returned.
+   * For example str='0:2:11'.
+   * @param {string} str
+   * @return {{start: number, end: number, step: number} | null} range Object containing properties start, end, step
+   * @private
+   */
+  function _parse (str) {
+    var args = str.split(':');
+
+    // number
+    var nums = args.map(function (arg) {
+      // use Number and not parseFloat as Number returns NaN on invalid garbage in the string
+      return Number(arg);
+    });
+
+    var invalid = nums.some(function (num) {
+      return isNaN(num);
+    });
+    if(invalid) {
+      return null;
+    }
+
+    switch (nums.length) {
+      case 2:
+        return {
+          start: nums[0],
+          end: nums[1],
+          step: 1
+        };
+
+      case 3:
+        return {
+          start: nums[0],
+          end: nums[2],
+          step: nums[1]
+        };
+
+      default:
+        return null;
+    }
+  }
+
+}
+
+exports.name = 'range';
+exports.factory = factory;
+
+
+/***/ }),
+/* 74 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var DimensionError = __webpack_require__(4);
+
+var isInteger = __webpack_require__(2).isInteger;
+var array = __webpack_require__(3);
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Reshape a multi dimensional array to fit the specified dimensions
+   *
+   * Syntax:
+   *
+   *     math.reshape(x, sizes)
+   *
+   * Examples:
+   *
+   *     math.reshape([1, 2, 3, 4, 5, 6], [2, 3]);
+   *     // returns Array  [[1, 2, 3], [4, 5, 6]]
+   *
+   *     math.reshape([[1, 2], [3, 4]], [1, 4]);
+   *     // returns Array  [[1, 2, 3, 4]]
+   *
+   *     math.reshape([[1, 2], [3, 4]], [4]);
+   *     // returns Array [1, 2, 3, 4]
+   *
+   *     var x = math.matrix([1, 2, 3, 4, 5, 6, 7, 8]);
+   *     math.reshape(x, [2, 2, 2]);
+   *     // returns Matrix [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+   *
+   * See also:
+   *
+   *     size, squeeze, resize
+   *
+   * @param {Array | Matrix | *} x  Matrix to be reshaped
+   * @param {number[]} sizes        One dimensional array with integral sizes for
+   *                                each dimension
+   *
+   * @return {* | Array | Matrix}   A reshaped clone of matrix `x`
+   *
+   * @throws {TypeError}            If `sizes` does not contain solely integers
+   * @throws {DimensionError}       If the product of the new dimension sizes does
+   *                                not equal that of the old ones
+   */
+  var reshape = typed('reshape', {
+
+    'Matrix, Array': function (x, sizes) {
+      if(x.reshape) {
+        return x.reshape(sizes);
+      } else {
+        return matrix(array.reshape(x.valueOf(), sizes));
+      }
+    },
+
+    'Array, Array': function (x, sizes) {
+      sizes.forEach(function (size) {
+        if (!isInteger(size)) {
+          throw new TypeError('Invalid size for dimension: ' + size);
+        }
+      });
+      return array.reshape(x, sizes);
+    }
+
+  });
+
+  reshape.toTex = undefined; // use default template
+
+  return reshape;
+}
+
+exports.name = 'reshape';
+exports.factory = factory;
+
+
+/***/ }),
+/* 75 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var DimensionError = __webpack_require__(4);
+var ArgumentsError = __webpack_require__(25);
+
+var isInteger = __webpack_require__(2).isInteger;
+var format = __webpack_require__(9).format;
+var clone = __webpack_require__(1).clone;
+var array = __webpack_require__(3);
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Resize a matrix
+   *
+   * Syntax:
+   *
+   *     math.resize(x, size)
+   *     math.resize(x, size, defaultValue)
+   *
+   * Examples:
+   *
+   *     math.resize([1, 2, 3, 4, 5], [3]); // returns Array  [1, 2, 3]
+   *     math.resize([1, 2, 3], [5], 0);    // returns Array  [1, 2, 3, 0, 0]
+   *     math.resize(2, [2, 3], 0);         // returns Matrix [[2, 0, 0], [0, 0, 0]]
+   *     math.resize("hello", [8], "!");    // returns string 'hello!!!'
+   *
+   * See also:
+   *
+   *     size, squeeze, subset, reshape
+   *
+   * @param {Array | Matrix | *} x             Matrix to be resized
+   * @param {Array | Matrix} size              One dimensional array with numbers
+   * @param {number | string} [defaultValue=0] Zero by default, except in
+   *                                           case of a string, in that case
+   *                                           defaultValue = ' '
+   * @return {* | Array | Matrix} A resized clone of matrix `x`
+   */
+  // TODO: rework resize to a typed-function
+  var resize = function resize (x, size, defaultValue) {
+    if (arguments.length != 2 && arguments.length != 3) {
+      throw new ArgumentsError('resize', arguments.length, 2, 3);
+    }
+
+    if (size && size.isMatrix === true) {
+      size = size.valueOf(); // get Array
+    }
+
+    if (size.length && size[0] && size[0].isBigNumber === true) {
+      // convert bignumbers to numbers
+      size = size.map(function (value) {
+        return (value && value.isBigNumber === true) ? value.toNumber() : value;
+      });
+    }
+    
+    // check x is a Matrix
+    if (x && x.isMatrix === true) {
+      // use optimized matrix implementation, return copy
+      return x.resize(size, defaultValue, true);
+    }
+    
+    if (typeof x === 'string') {
+      // resize string
+      return _resizeString(x, size, defaultValue);
+    }
+    
+    // check result should be a matrix
+    var asMatrix = Array.isArray(x) ? false : (config.matrix !== 'Array');
+
+    if (size.length == 0) {
+      // output a scalar
+      while (Array.isArray(x)) {
+        x = x[0];
+      }
+
+      return clone(x);
+    }
+    else {
+      // output an array/matrix
+      if (!Array.isArray(x)) {
+        x = [x];
+      }
+      x = clone(x);
+
+      var res = array.resize(x, size, defaultValue);
+      return asMatrix ? matrix(res) : res;
+    }
+  };
+
+  resize.toTex = undefined; // use default template
+
+  return resize;
+
+  /**
+   * Resize a string
+   * @param {string} str
+   * @param {number[]} size
+   * @param {string} [defaultChar=' ']
+   * @private
+   */
+  function _resizeString(str, size, defaultChar) {
+    if (defaultChar !== undefined) {
+      if (typeof defaultChar !== 'string' || defaultChar.length !== 1) {
+        throw new TypeError('Single character expected as defaultValue');
+      }
+    }
+    else {
+      defaultChar = ' ';
+    }
+
+    if (size.length !== 1) {
+      throw new DimensionError(size.length, 1);
+    }
+    var len = size[0];
+    if (typeof len !== 'number' || !isInteger(len)) {
+      throw new TypeError('Invalid size, must contain positive integers ' +
+          '(size: ' + format(size) + ')');
+    }
+
+    if (str.length > len) {
+      return str.substring(0, len);
+    }
+    else if (str.length < len) {
+      var res = str;
+      for (var i = 0, ii = len - str.length; i < ii; i++) {
+        res += defaultChar;
+      }
+      return res;
+    }
+    else {
+      return str;
+    }
+  }
+}
+
+exports.name = 'resize';
+exports.factory = factory;
+
+
+/***/ }),
+/* 76 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var array = __webpack_require__(3);
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Calculate the size of a matrix or scalar.
+   *
+   * Syntax:
+   *
+   *     math.size(x)
+   *
+   * Examples:
+   *
+   *     math.size(2.3);                  // returns []
+   *     math.size('hello world');        // returns [11]
+   *
+   *     var A = [[1, 2, 3], [4, 5, 6]];
+   *     math.size(A);                    // returns [2, 3]
+   *     math.size(math.range(1,6));      // returns [5]
+   *
+   * See also:
+   *
+   *     resize, squeeze, subset
+   *
+   * @param {boolean | number | Complex | Unit | string | Array | Matrix} x  A matrix
+   * @return {Array | Matrix} A vector with size of `x`.
+   */
+  var size = typed('size', {
+    'Matrix': function (x) {
+      // TODO: return the same matrix type as the input
+      return matrix(x.size());
+    },
+
+    'Array': array.size,
+
+    'string': function (x) {
+      return (config.matrix === 'Array') ? [x.length] : matrix([x.length]);
+    },
+
+    'number | Complex | BigNumber | Unit | boolean | null': function (x) {
+      // scalar
+      return (config.matrix === 'Array') ? [] : matrix([]);
+    }
+  });
+
+  size.toTex = undefined; // use default template
+
+  return size;
+}
+
+exports.name = 'size';
+exports.factory = factory;
+
+
+/***/ }),
+/* 77 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var size = __webpack_require__(3).size;
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+  var compareAsc = load(__webpack_require__(23));
+  var compareDesc = function (a, b) {
+    return -compareAsc(a, b);
+  };
+  var compareNatural = load(__webpack_require__(78));
+
+  /**
+   * Sort the items in a matrix.
+   *
+   * Syntax:
+   *
+   *    math.sort(x)
+   *    math.sort(x, compare)
+   *
+   * Examples:
+   *
+   *    math.sort([5, 10, 1]); // returns [1, 5, 10]
+   *    math.sort(['C', 'B', 'A', 'D']); // returns ['A', 'B', 'C', 'D']
+   *
+   *    function sortByLength (a, b) {
+   *      return a.length - b.length;
+   *    }
+   *    math.sort(['Langdon', 'Tom', 'Sara'], sortByLength); // returns ['Tom', 'Sara', 'Langdon']
+   *
+   * See also:
+   *
+   *    filter, forEach, map, compare, compareNatural
+   *
+   * @param {Matrix | Array} x    A one dimensional matrix or array to sort
+   * @param {Function | 'asc' | 'desc' | 'natural'} [compare='asc']
+   *        An optional _comparator function or name. The function is called as
+   *        `compare(a, b)`, and must return 1 when a > b, -1 when a < b,
+   *        and 0 when a == b.
+   * @return {Matrix | Array} Returns the sorted matrix.
+   */
+  var sort = typed('sort', {
+    'Array': function (x) {
+      _arrayIsVector(x);
+      return x.sort(compareAsc);
+    },
+
+    'Matrix': function (x) {
+      _matrixIsVector(x);
+      return matrix(x.toArray().sort(compareAsc), x.storage());
+    },
+
+    'Array, function': function (x, _comparator) {
+      _arrayIsVector(x);
+      return x.sort(_comparator);
+    },
+
+    'Matrix, function': function (x, _comparator) {
+      _matrixIsVector(x);
+      return matrix(x.toArray().sort(_comparator), x.storage());
+    },
+
+    'Array, string': function (x, order) {
+      _arrayIsVector(x);
+      return x.sort(_comparator(order));
+    },
+
+    'Matrix, string': function (x, order) {
+      _matrixIsVector(x);
+      return matrix(x.toArray().sort(_comparator(order)), x.storage());
+    }
+  });
+
+  sort.toTex = undefined; // use default template
+
+  /**
+   * Get the comparator for given order ('asc', 'desc', 'natural')
+   * @param {'asc' | 'desc' | 'natural'} order
+   * @return {Function} Returns a _comparator function
+   */
+  function _comparator (order) {
+    if (order === 'asc') {
+      return compareAsc;
+    }
+    else if (order === 'desc') {
+      return compareDesc;
+    }
+    else if (order === 'natural') {
+      return compareNatural;
+    }
+    else {
+      throw new Error('String "asc", "desc", or "natural" expected');
+    }
+  }
+
+  /**
+   * Validate whether an array is one dimensional
+   * Throws an error when this is not the case
+   * @param {Array} array
+   * @private
+   */
+  function _arrayIsVector (array) {
+    if (size(array).length !== 1) {
+      throw new Error('One dimensional array expected');
+    }
+  }
+
+  /**
+   * Validate whether a matrix is one dimensional
+   * Throws an error when this is not the case
+   * @param {Matrix} matrix
+   * @private
+   */
+  function _matrixIsVector (matrix) {
+    if (matrix.size().length !== 1) {
+      throw new Error('One dimensional matrix expected');
+    }
+  }
+
+  return sort;
+}
+
+exports.name = 'sort';
+exports.factory = factory;
+
+
+/***/ }),
+/* 78 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var naturalSort = __webpack_require__(79);
+
+function factory (type, config, load, typed) {
+  var getTypeOf = load(__webpack_require__(80));
+  var matrix = load(__webpack_require__(0));
+  var compare = load(__webpack_require__(23));
+
+  var compareBooleans = compare.signatures['boolean,boolean']
+
+  /**
+   * Compare two values of any type in a deterministic, natural way.
+   *
+   * For numeric values, the function works the same as `math.compare`.
+   * For types of values that can't be compared mathematically,
+   * the function compares in a natural way.
+   *
+   * For numeric values, x and y are considered equal when the relative
+   * difference between x and y is smaller than the configured epsilon.
+   * The function cannot be used to compare values smaller than
+   * approximately 2.22e-16.
+   *
+   * For Complex numbers, first the real parts are compared. If equal,
+   * the imaginary parts are compared.
+   *
+   * Arrays and Matrices are compared value by value until there is an
+   * unequal pair of values encountered. Objects are compared by sorted
+   * keys until the keys or their values are unequal.
+   *
+   * Syntax:
+   *
+   *    math.compareNatural(x, y)
+   *
+   * Examples:
+   *
+   *    math.compareNatural(6, 1);              // returns 1
+   *    math.compareNatural(2, 3);              // returns -1
+   *    math.compareNatural(7, 7);              // returns 0
+   *
+   *    math.compareNatural('10', '2');         // returns 1
+   *
+   *    var a = math.unit('5 cm');
+   *    var b = math.unit('40 mm');
+   *    math.compareNatural(a, b);              // returns 1
+   *
+   *    var c = math.complex('2 + 3i');
+   *    var d = math.complex('2 + 4i');
+   *    math.compareNatural(c, d);              // returns -1
+   *
+   *    math.compareNatural([1, 2, 4], [1, 2, 3]); // returns 1
+   *    math.compareNatural([1, 2, 3], [1, 2]);    // returns 1
+   *    math.compareNatural([1, 5], [1, 2, 3]);    // returns 1
+   *    math.compareNatural([1, 2], [1, 2]);       // returns 0
+   *
+   *    math.compareNatural({a: 2}, {a: 4});       // returns -1
+   *
+   * See also:
+   *
+   *    equal, unequal, smaller, smallerEq, larger, largerEq, compare
+   *
+   * @param  {*} x First value to compare
+   * @param  {*} y Second value to compare
+   * @return {number} Returns the result of the comparison: 1, 0 or -1.
+   */
+  var compareNatural = typed('compareNatural', {
+    'any, any': function (x, y) {
+      var typeX = getTypeOf(x);
+      var typeY = getTypeOf(y);
+      var c;
+
+      // numeric types
+      if ((typeX === 'number' || typeX === 'BigNumber' || typeX === 'Fraction') &&
+          (typeY === 'number' || typeY === 'BigNumber' || typeY === 'Fraction')) {
+        c = compare(x, y);
+        if (c.toString() !== '0') {
+          // c can be number, BigNumber, or Fraction
+          return c > 0 ? 1 : -1; // return a number
+        }
+        else {
+          return naturalSort(typeX, typeY);
+        }
+      }
+
+      // matrix types
+      if (typeX === 'Array' || typeX === 'Matrix' ||
+          typeY === 'Array' || typeY === 'Matrix') {
+        c = compareMatricesAndArrays (x, y);
+        if (c !== 0) {
+          return c;
+        }
+        else {
+          return naturalSort(typeX, typeY);
+        }
+      }
+
+      // in case of different types, order by name of type, i.e. 'BigNumber' < 'Complex'
+      if (typeX !== typeY) {
+        return naturalSort(typeX, typeY);
+      }
+
+      if (typeX === 'Complex') {
+        return compareComplexNumbers(x, y);
+      }
+
+      if (typeX === 'Unit') {
+        if (x.equalBase(y)) {
+          return compareNatural(x.value, y.value);
+        }
+
+        // compare by units
+        return compareArrays(x.formatUnits(), y.formatUnits());
+      }
+
+      if (typeX === 'boolean') {
+        return compareBooleans(x, y);
+      }
+
+      if (typeX === 'string') {
+        return naturalSort(x, y);
+      }
+
+      if (typeX === 'Object') {
+        return compareObjects(x, y);
+      }
+
+      if (typeX === 'null') {
+        return 0;
+      }
+
+      if (typeX === 'undefined') {
+        return 0;
+      }
+
+      // this should not occur...
+      throw new TypeError('Unsupported type of value "' + typeX + '"');
+    }
+  });
+
+  compareNatural.toTex = undefined; // use default template
+
+  /**
+   * Compare mixed matrix/array types, by converting to same-shaped array.
+   * This comparator is non-deterministic regarding input types.
+   * @param {Array | SparseMatrix | DenseMatrix | *} x
+   * @param {Array | SparseMatrix | DenseMatrix | *} y
+   * @returns {number} Returns the comparison result: -1, 0, or 1
+   */
+  function compareMatricesAndArrays (x, y) {
+    if (x && x.isSparseMatrix && y && y.isSparseMatrix) {
+      return compareArrays(x.toJSON().values, y.toJSON().values);
+    }
+    if (x && x.isSparseMatrix) {
+      // note: convert to array is expensive
+      return compareMatricesAndArrays(x.toArray(), y);
+    }
+    if (y && y.isSparseMatrix) {
+      // note: convert to array is expensive
+      return compareMatricesAndArrays(x, y.toArray());
+    }
+
+    // convert DenseArray into Array
+    if (x && x.isDenseMatrix) {
+      return compareMatricesAndArrays(x.toJSON().data, y);
+    }
+    if (y && y.isDenseMatrix) {
+      return compareMatricesAndArrays(x, y.toJSON().data);
+    }
+
+    // convert scalars to array
+    if (!Array.isArray(x)) {
+      return compareMatricesAndArrays([x], y);
+    }
+    if (!Array.isArray(y)) {
+      return compareMatricesAndArrays(x, [y]);
+    }
+
+    return compareArrays(x, y);
+  }
+
+  /**
+   * Compare two Arrays
+   *
+   * - First, compares value by value
+   * - Next, if all corresponding values are equal,
+   *   look at the length: longest array will be considered largest
+   *
+   * @param {Array} x
+   * @param {Array} y
+   * @returns {number} Returns the comparison result: -1, 0, or 1
+   */
+  function compareArrays (x, y) {
+    // compare each value
+    for (var i = 0, ii = Math.min(x.length, y.length); i < ii; i++) {
+      var v = compareNatural(x[i], y[i]);
+      if (v !== 0) {
+        return v;
+      }
+    }
+
+    // compare the size of the arrays
+    if (x.length > y.length) { return 1; }
+    if (x.length < y.length) { return -1; }
+
+    // both Arrays have equal size and content
+    return 0;
+  }
+
+  /**
+   * Compare two objects
+   *
+   * - First, compare sorted property names
+   * - Next, compare the property values
+   *
+   * @param {Object} x
+   * @param {Object} y
+   * @returns {number} Returns the comparison result: -1, 0, or 1
+   */
+  function compareObjects (x, y) {
+    var keysX = Object.keys(x);
+    var keysY = Object.keys(y);
+
+    // compare keys
+    keysX.sort(naturalSort)
+    keysY.sort(naturalSort)
+    var c = compareArrays(keysX, keysY);
+    if (c !== 0) {
+      return c;
+    }
+
+    // compare values
+    for (var i = 0; i < keysX.length; i++) {
+      var v = compareNatural(x[keysX[i]], y[keysY[i]]);
+      if (v !== 0) {
+        return v;
+      }
+    }
+
+    return 0;
+  }
+
+  return compareNatural;
+}
+
+/**
+ * Compare two complex numbers, `x` and `y`:
+ *
+ * - First, compare the real values of `x` and `y`
+ * - If equal, compare the imaginary values of `x` and `y`
+ * 
+ * @params {Complex} x
+ * @params {Complex} y
+ * @returns {number} Returns the comparison result: -1, 0, or 1
+ */
+function compareComplexNumbers (x, y) {
+  if (x.re > y.re) { return 1; }
+  if (x.re < y.re) { return -1; }
+
+  if (x.im > y.im) { return 1; }
+  if (x.im < y.im) { return -1; }
+
+  return 0;
+}
+
+exports.name = 'compareNatural';
+exports.factory = factory;
+
+
+/***/ }),
+/* 79 */
+/***/ (function(module, exports) {
+
+/*
+ * Natural Sort algorithm for Javascript - Version 0.7 - Released under MIT license
+ * Author: Jim Palmer (based on chunking idea from Dave Koelle)
+ */
+/*jshint unused:false */
+module.exports = function naturalSort (a, b) {
+	"use strict";
+	var re = /(^([+\-]?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)?)?$|^0x[0-9a-f]+$|\d+)/gi,
+		sre = /(^[ ]*|[ ]*$)/g,
+		dre = /(^([\w ]+,?[\w ]+)?[\w ]+,?[\w ]+\d+:\d+(:\d+)?[\w ]?|^\d{1,4}[\/\-]\d{1,4}[\/\-]\d{1,4}|^\w+, \w+ \d+, \d{4})/,
+		hre = /^0x[0-9a-f]+$/i,
+		ore = /^0/,
+		i = function(s) { return naturalSort.insensitive && ('' + s).toLowerCase() || '' + s; },
+		// convert all to strings strip whitespace
+		x = i(a).replace(sre, '') || '',
+		y = i(b).replace(sre, '') || '',
+		// chunk/tokenize
+		xN = x.replace(re, '\0$1\0').replace(/\0$/,'').replace(/^\0/,'').split('\0'),
+		yN = y.replace(re, '\0$1\0').replace(/\0$/,'').replace(/^\0/,'').split('\0'),
+		// numeric, hex or date detection
+		xD = parseInt(x.match(hre), 16) || (xN.length !== 1 && x.match(dre) && Date.parse(x)),
+		yD = parseInt(y.match(hre), 16) || xD && y.match(dre) && Date.parse(y) || null,
+		oFxNcL, oFyNcL;
+	// first try and sort Hex codes or Dates
+	if (yD) {
+		if ( xD < yD ) { return -1; }
+		else if ( xD > yD ) { return 1; }
+	}
+	// natural sorting through split numeric strings and default strings
+	for(var cLoc=0, numS=Math.max(xN.length, yN.length); cLoc < numS; cLoc++) {
+		// find floats not starting with '0', string or 0 if not defined (Clint Priest)
+		oFxNcL = !(xN[cLoc] || '').match(ore) && parseFloat(xN[cLoc]) || xN[cLoc] || 0;
+		oFyNcL = !(yN[cLoc] || '').match(ore) && parseFloat(yN[cLoc]) || yN[cLoc] || 0;
+		// handle numeric vs string comparison - number < string - (Kyle Adams)
+		if (isNaN(oFxNcL) !== isNaN(oFyNcL)) { return (isNaN(oFxNcL)) ? 1 : -1; }
+		// rely on string comparison if different types - i.e. '02' < 2 != '02' < '2'
+		else if (typeof oFxNcL !== typeof oFyNcL) {
+			oFxNcL += '';
+			oFyNcL += '';
+		}
+		if (oFxNcL < oFyNcL) { return -1; }
+		if (oFxNcL > oFyNcL) { return 1; }
+	}
+	return 0;
+};
+
+
+/***/ }),
+/* 80 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var types = __webpack_require__(19);
+
+function factory (type, config, load, typed) {
+  /**
+   * Determine the type of a variable.
+   *
+   * Function `typeof` recognizes the following types of objects:
+   *
+   * Object                 | Returns       | Example
+   * ---------------------- | ------------- | ------------------------------------------
+   * null                   | `'null'`      | `math.typeof(null)`
+   * number                 | `'number'`    | `math.typeof(3.5)`
+   * boolean                | `'boolean'`   | `math.typeof (true)`
+   * string                 | `'string'`    | `math.typeof ('hello world')`
+   * Array                  | `'Array'`     | `math.typeof ([1, 2, 3])`
+   * Date                   | `'Date'`      | `math.typeof (new Date())`
+   * Function               | `'Function'`  | `math.typeof (function () {})`
+   * Object                 | `'Object'`    | `math.typeof ({a: 2, b: 3})`
+   * RegExp                 | `'RegExp'`    | `math.typeof (/a regexp/)`
+   * undefined              | `'undefined'` | `math.typeof(undefined)`
+   * math.type.BigNumber    | `'BigNumber'` | `math.typeof (math.bignumber('2.3e500'))`
+   * math.type.Chain        | `'Chain'`     | `math.typeof (math.chain(2))`
+   * math.type.Complex      | `'Complex'`   | `math.typeof (math.complex(2, 3))`
+   * math.type.Fraction     | `'Fraction'`  | `math.typeof (math.fraction(1, 3))`
+   * math.type.Help         | `'Help'`      | `math.typeof (math.help('sqrt'))`
+   * math.type.Index        | `'Index'`     | `math.typeof (math.index(1, 3))`
+   * math.type.Matrix       | `'Matrix'`    | `math.typeof (math.matrix([[1,2], [3, 4]]))`
+   * math.type.Range        | `'Range'`     | `math.typeof (math.range(0, 10))`
+   * math.type.Unit         | `'Unit'`      | `math.typeof (math.unit('45 deg'))`
+   *
+   * Syntax:
+   *
+   *    math.typeof(x)
+   *
+   * Examples:
+   *
+   *    math.typeof(3.5);                     // returns 'number'
+   *    math.typeof(math.complex('2-4i'));    // returns 'Complex'
+   *    math.typeof(math.unit('45 deg'));     // returns 'Unit'
+   *    math.typeof('hello world');           // returns 'string'
+   *
+   * @param {*} x     The variable for which to test the type.
+   * @return {string} Returns the name of the type. Primitive types are lower case,
+   *                  non-primitive types are upper-camel-case.
+   *                  For example 'number', 'string', 'Array', 'Date'.
+   */
+  var _typeof = typed('_typeof', {
+    'any': function (x) {
+      // JavaScript types
+      var t = types.type(x);
+
+      // math.js types
+      if (t === 'Object') {
+        if (x.isBigNumber === true) return 'BigNumber';
+        if (x.isComplex === true)   return 'Complex';
+        if (x.isFraction === true)  return 'Fraction';
+        if (x.isMatrix === true)    return 'Matrix';
+        if (x.isUnit === true)      return 'Unit';
+        if (x.isIndex === true)     return 'Index';
+        if (x.isRange === true)     return 'Range';
+        if (x.isChain === true)     return 'Chain';
+        if (x.isHelp === true)      return 'Help';
+      }
+
+      return t;
+    }
+  });
+
+  _typeof.toTex = undefined; // use default template
+
+  return _typeof;
+}
+
+exports.name = 'typeof';
+exports.factory = factory;
+
+
+/***/ }),
+/* 81 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var object = __webpack_require__(1);
+var array = __webpack_require__(3);
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Squeeze a matrix, remove inner and outer singleton dimensions from a matrix.
+   *
+   * Syntax:
+   *
+   *     math.squeeze(x)
+   *
+   * Examples:
+   *
+   *     math.squeeze([3]);           // returns 3
+   *     math.squeeze([[3]]);         // returns 3
+   *
+   *     var A = math.zeros(3, 1);    // returns [[0], [0], [0]] (size 3x1)
+   *     math.squeeze(A);             // returns [0, 0, 0] (size 3)
+   *
+   *     var B = math.zeros(1, 3);    // returns [[0, 0, 0]] (size 1x3)
+   *     math.squeeze(B);             // returns [0, 0, 0] (size 3)
+   *
+   *     // only inner and outer dimensions are removed
+   *     var C = math.zeros(2, 1, 3); // returns [[[0, 0, 0]], [[0, 0, 0]]] (size 2x1x3)
+   *     math.squeeze(C);             // returns [[[0, 0, 0]], [[0, 0, 0]]] (size 2x1x3)
+   *
+   * See also:
+   *
+   *     subset
+   *
+   * @param {Matrix | Array} x      Matrix to be squeezed
+   * @return {Matrix | Array} Squeezed matrix
+   */
+  var squeeze = typed('squeeze', {
+    'Array': function (x) {
+      return array.squeeze(object.clone(x));
+    },
+
+    'Matrix': function (x) {
+      var res = array.squeeze(x.toArray());
+      // FIXME: return the same type of matrix as the input
+      return Array.isArray(res) ? matrix(res) : res;
+    },
+
+    'any': function (x) {
+      // scalar
+      return object.clone(x);
+    }
+  });
+
+  squeeze.toTex = undefined; // use default template
+
+  return squeeze;
+}
+
+exports.name = 'squeeze';
+exports.factory = factory;
+
+
+/***/ }),
+/* 82 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var clone = __webpack_require__(1).clone;
+var validateIndex = __webpack_require__(3).validateIndex;
+var getSafeProperty = __webpack_require__(12).getSafeProperty;
+var setSafeProperty = __webpack_require__(12).setSafeProperty;
+var DimensionError = __webpack_require__(4);
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Get or set a subset of a matrix or string.
+   *
+   * Syntax:
+   *     math.subset(value, index)                                // retrieve a subset
+   *     math.subset(value, index, replacement [, defaultValue])  // replace a subset
+   *
+   * Examples:
+   *
+   *     // get a subset
+   *     var d = [[1, 2], [3, 4]];
+   *     math.subset(d, math.index(1, 0));        // returns 3
+   *     math.subset(d, math.index([0, 2], 1));   // returns [[2], [4]]
+   *
+   *     // replace a subset
+   *     var e = [];
+   *     var f = math.subset(e, math.index(0, [0, 2]), [5, 6]);  // f = [[5, 6]]
+   *     var g = math.subset(f, math.index(1, 1), 7, 0);         // g = [[5, 6], [0, 7]]
+   *
+   * See also:
+   *
+   *     size, resize, squeeze, index
+   *
+   * @param {Array | Matrix | string} matrix  An array, matrix, or string
+   * @param {Index} index                     An index containing ranges for each
+   *                                          dimension
+   * @param {*} [replacement]                 An array, matrix, or scalar.
+   *                                          If provided, the subset is replaced with replacement.
+   *                                          If not provided, the subset is returned
+   * @param {*} [defaultValue=undefined]      Default value, filled in on new entries when
+   *                                          the matrix is resized. If not provided,
+   *                                          math.matrix elements will be left undefined.
+   * @return {Array | Matrix | string} Either the retrieved subset or the updated matrix.
+   */
+  var subset = typed('subset', {
+    // get subset
+    'Array, Index': function (value, index) {
+      var m = matrix(value);
+      var subset = m.subset(index);       // returns a Matrix
+      return index.isScalar()
+          ? subset
+          : subset.valueOf();  // return an Array (like the input)
+    },
+
+    'Matrix, Index': function (value, index) {
+      return value.subset(index);
+    },
+
+    'Object, Index': _getObjectProperty,
+
+    'string, Index': _getSubstring,
+
+    // set subset
+    'Array, Index, any': function (value, index, replacement) {
+      return matrix(clone(value))
+          .subset(index, replacement, undefined)
+          .valueOf();
+    },
+
+    'Array, Index, any, any': function (value, index, replacement, defaultValue) {
+      return matrix(clone(value))
+          .subset(index, replacement, defaultValue)
+          .valueOf();
+    },
+
+    'Matrix, Index, any': function (value, index, replacement) {
+      return value.clone().subset(index, replacement);
+    },
+
+    'Matrix, Index, any, any': function (value, index, replacement, defaultValue) {
+      return value.clone().subset(index, replacement, defaultValue);
+    },
+
+    'string, Index, string': _setSubstring,
+    'string, Index, string, string': _setSubstring,
+    'Object, Index, any': _setObjectProperty
+  });
+
+  subset.toTex = undefined; // use default template
+
+  return subset;
+
+  /**
+   * Retrieve a subset of a string
+   * @param {string} str            string from which to get a substring
+   * @param {Index} index           An index containing ranges for each dimension
+   * @returns {string} substring
+   * @private
+   */
+  function _getSubstring(str, index) {
+    if (!index || index.isIndex !== true) {
+      // TODO: better error message
+      throw new TypeError('Index expected');
+    }
+    if (index.size().length != 1) {
+      throw new DimensionError(index.size().length, 1);
+    }
+
+    // validate whether the range is out of range
+    var strLen = str.length;
+    validateIndex(index.min()[0], strLen);
+    validateIndex(index.max()[0], strLen);
+
+    var range = index.dimension(0);
+
+    var substr = '';
+    range.forEach(function (v) {
+      substr += str.charAt(v);
+    });
+
+    return substr;
+  }
+
+  /**
+   * Replace a substring in a string
+   * @param {string} str            string to be replaced
+   * @param {Index} index           An index containing ranges for each dimension
+   * @param {string} replacement    Replacement string
+   * @param {string} [defaultValue] Default value to be uses when resizing
+   *                                the string. is ' ' by default
+   * @returns {string} result
+   * @private
+   */
+  function _setSubstring(str, index, replacement, defaultValue) {
+    if (!index || index.isIndex !== true) {
+      // TODO: better error message
+      throw new TypeError('Index expected');
+    }
+    if (index.size().length != 1) {
+      throw new DimensionError(index.size().length, 1);
+    }
+    if (defaultValue !== undefined) {
+      if (typeof defaultValue !== 'string' || defaultValue.length !== 1) {
+        throw new TypeError('Single character expected as defaultValue');
+      }
+    }
+    else {
+      defaultValue = ' ';
+    }
+
+    var range = index.dimension(0);
+    var len = range.size()[0];
+
+    if (len != replacement.length) {
+      throw new DimensionError(range.size()[0], replacement.length);
+    }
+
+    // validate whether the range is out of range
+    var strLen = str.length;
+    validateIndex(index.min()[0]);
+    validateIndex(index.max()[0]);
+
+    // copy the string into an array with characters
+    var chars = [];
+    for (var i = 0; i < strLen; i++) {
+      chars[i] = str.charAt(i);
+    }
+
+    range.forEach(function (v, i) {
+      chars[v] = replacement.charAt(i[0]);
+    });
+
+    // initialize undefined characters with a space
+    if (chars.length > strLen) {
+      for (i = strLen - 1, len = chars.length; i < len; i++) {
+        if (!chars[i]) {
+          chars[i] = defaultValue;
+        }
+      }
+    }
+
+    return chars.join('');
+  }
+}
+
+/**
+ * Retrieve a property from an object
+ * @param {Object} object
+ * @param {Index} index
+ * @return {*} Returns the value of the property
+ * @private
+ */
+function _getObjectProperty (object, index) {
+  if (index.size().length !== 1) {
+    throw new DimensionError(index.size(), 1);
+  }
+
+  var key = index.dimension(0);
+  if (typeof key !== 'string') {
+    throw new TypeError('String expected as index to retrieve an object property');
+  }
+
+  return getSafeProperty(object, key);
+}
+
+/**
+ * Set a property on an object
+ * @param {Object} object
+ * @param {Index} index
+ * @param {*} replacement
+ * @return {*} Returns the updated object
+ * @private
+ */
+function _setObjectProperty (object, index, replacement) {
+  if (index.size().length !== 1) {
+    throw new DimensionError(index.size(), 1);
+  }
+
+  var key = index.dimension(0);
+  if (typeof key !== 'string') {
+    throw new TypeError('String expected as index to retrieve an object property');
+  }
+
+  // clone the object, and apply the property to the clone
+  var updated = clone(object);
+  setSafeProperty(updated, key, replacement);
+
+  return updated;
+}
+
+exports.name = 'subset';
+exports.factory = factory;
+
+
+/***/ }),
+/* 83 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var clone = __webpack_require__(1).clone;
+var format = __webpack_require__(9).format;
+
+function factory (type, config, load, typed) {
+  
+  var matrix = load(__webpack_require__(0));
+  var add = load(__webpack_require__(14));
+
+  /**
+   * Calculate the trace of a matrix: the sum of the elements on the main
+   * diagonal of a square matrix.
+   *
+   * Syntax:
+   *
+   *    math.trace(x)
+   *
+   * Examples:
+   *
+   *    math.trace([[1, 2], [3, 4]]); // returns 5
+   *
+   *    var A = [
+   *      [1, 2, 3],
+   *      [-1, 2, 3],
+   *      [2, 0, 3]
+   *    ]
+   *    math.trace(A); // returns 6
+   *
+   * See also:
+   *
+   *    diag
+   *
+   * @param {Array | Matrix} x  A matrix
+   *
+   * @return {number} The trace of `x`
+   */
+  var trace = typed('trace', {
+    
+    'Array': function (x) {
+      // use dense matrix implementation
+      return trace(matrix(x));
+    },
+
+    'Matrix': function (x) {
+      // result
+      var c;
+      // process storage format
+      switch (x.storage()) {
+        case 'dense':
+          c = _denseTrace(x);
+          break;
+        case 'sparse':
+          c = _sparseTrace(x);
+          break;
+      }
+      return c;
+    },
+    
+    'any': clone
+  });
+  
+  var _denseTrace = function (m) {
+    // matrix size & data
+    var size = m._size;
+    var data = m._data;
+    
+    // process dimensions
+    switch (size.length) {
+      case 1:
+        // vector
+        if (size[0] == 1) {
+          // return data[0]
+          return clone(data[0]);
+        }
+        throw new RangeError('Matrix must be square (size: ' + format(size) + ')');
+      case 2:
+        // two dimensional
+        var rows = size[0];
+        var cols = size[1];
+        if (rows === cols) {
+          // calulate sum
+          var sum = 0;
+          // loop diagonal
+          for (var i = 0; i < rows; i++)
+            sum = add(sum, data[i][i]);
+          // return trace
+          return sum;
+        }
+        throw new RangeError('Matrix must be square (size: ' + format(size) + ')');        
+      default:
+        // multi dimensional
+        throw new RangeError('Matrix must be two dimensional (size: ' + format(size) + ')');
+    }
+  };
+  
+  var _sparseTrace = function (m) {
+    // matrix arrays
+    var values = m._values;
+    var index = m._index;
+    var ptr = m._ptr;
+    var size = m._size;
+    // check dimensions
+    var rows = size[0];
+    var columns = size[1];
+    // matrix must be square
+    if (rows === columns) {
+      // calulate sum
+      var sum = 0;
+      // check we have data (avoid looping columns)
+      if (values.length > 0) {
+        // loop columns
+        for (var j = 0; j < columns; j++) {
+          // k0 <= k < k1 where k0 = _ptr[j] && k1 = _ptr[j+1]
+          var k0 = ptr[j];
+          var k1 = ptr[j + 1];
+          // loop k within [k0, k1[
+          for (var k = k0; k < k1; k++) {
+            // row index
+            var i = index[k];
+            // check row
+            if (i === j) {
+              // accumulate value
+              sum = add(sum, values[k]);
+              // exit loop
+              break;
+            }
+            if (i > j) {
+              // exit loop, no value on the diagonal for column j
+              break;
+            }
+          }
+        }
+      }
+      // return trace
+      return sum;
+    }
+    throw new RangeError('Matrix must be square (size: ' + format(size) + ')');   
+  };
+
+  trace.toTex = {1: '\\mathrm{tr}\\left(${args[0]}\\right)'};
+  
+  return trace;
+}
+
+exports.name = 'trace';
+exports.factory = factory;
+
+
+/***/ }),
+/* 84 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var clone = __webpack_require__(1).clone;
+var format = __webpack_require__(9).format;
+
+function factory (type, config, load, typed) {
+  var latex = __webpack_require__(6);
+
+  var matrix = load(__webpack_require__(0));
+
+  var DenseMatrix = type.DenseMatrix,
+      SparseMatrix = type.SparseMatrix;
+
+  /**
+   * Transpose a matrix. All values of the matrix are reflected over its
+   * main diagonal. Only applicable to two dimensional matrices containing
+   * a vector (i.e. having size `[1,n]` or `[n,1]`). One dimensional
+   * vectors and scalars return the input unchanged.
+   *
+   * Syntax:
+   *
+   *     math.transpose(x)
+   *
+   * Examples:
+   *
+   *     var A = [[1, 2, 3], [4, 5, 6]];
+   *     math.transpose(A);               // returns [[1, 4], [2, 5], [3, 6]]
+   *
+   * See also:
+   *
+   *     diag, inv, subset, squeeze
+   *
+   * @param {Array | Matrix} x  Matrix to be transposed
+   * @return {Array | Matrix}   The transposed matrix
+   */
+  var transpose = typed('transpose', {
+
+    'Array': function (x) {
+      // use dense matrix implementation
+      return transpose(matrix(x)).valueOf();
+    },
+
+    'Matrix': function (x) {
+      // matrix size
+      var size = x.size();
+
+      // result
+      var c;
+      
+      // process dimensions
+      switch (size.length) {
+        case 1:
+          // vector
+          c = x.clone();
+          break;
+
+        case 2:
+          // rows and columns
+          var rows = size[0];
+          var columns = size[1];
+
+          // check columns
+          if (columns === 0) {
+            // throw exception
+            throw new RangeError('Cannot transpose a 2D matrix with no columns (size: ' + format(size) + ')');
+          }
+
+          // process storage format
+          switch (x.storage()) {
+            case 'dense':
+              c = _denseTranspose(x, rows, columns);
+              break;
+            case 'sparse':
+              c = _sparseTranspose(x, rows, columns);
+              break;
+          }
+          break;
+          
+        default:
+          // multi dimensional
+          throw new RangeError('Matrix must be a vector or two dimensional (size: ' + format(this._size) + ')');
+      }
+      return c;
+    },
+
+    // scalars
+    'any': function (x) {
+      return clone(x);
+    }
+  });
+
+  var _denseTranspose = function (m, rows, columns) {
+    // matrix array
+    var data = m._data;
+    // transposed matrix data
+    var transposed = [];
+    var transposedRow;
+    // loop columns
+    for (var j = 0; j < columns; j++) {
+      // initialize row
+      transposedRow = transposed[j] = [];
+      // loop rows
+      for (var i = 0; i < rows; i++) {
+        // set data
+        transposedRow[i] = clone(data[i][j]);
+      }
+    }
+    // return matrix
+    return new DenseMatrix({
+      data: transposed,
+      size: [columns, rows],
+      datatype: m._datatype
+    });
+  };
+
+  var _sparseTranspose = function (m, rows, columns) {
+    // matrix arrays
+    var values = m._values;
+    var index = m._index;
+    var ptr = m._ptr;
+    // result matrices
+    var cvalues = values ? [] : undefined;
+    var cindex = [];
+    var cptr = [];
+    // row counts
+    var w = [];
+    for (var x = 0; x < rows; x++)
+      w[x] = 0;
+    // vars
+    var p, l, j;
+    // loop values in matrix
+    for (p = 0, l = index.length; p < l; p++) {
+      // number of values in row
+      w[index[p]]++;
+    }
+    // cumulative sum
+    var sum = 0;
+    // initialize cptr with the cummulative sum of row counts
+    for (var i = 0; i < rows; i++) {
+      // update cptr
+      cptr.push(sum);
+      // update sum
+      sum += w[i];
+      // update w
+      w[i] = cptr[i];
+    }
+    // update cptr
+    cptr.push(sum);
+    // loop columns
+    for (j = 0; j < columns; j++) {
+      // values & index in column
+      for (var k0 = ptr[j], k1 = ptr[j + 1], k = k0; k < k1; k++) {
+        // C values & index
+        var q = w[index[k]]++;
+        // C[j, i] = A[i, j]
+        cindex[q] = j;
+        // check we need to process values (pattern matrix)
+        if (values)
+          cvalues[q] = clone(values[k]);
+      }
+    }
+    // return matrix
+    return new SparseMatrix({
+      values: cvalues,
+      index: cindex,
+      ptr: cptr,
+      size: [columns, rows],
+      datatype: m._datatype
+    });
+  };
+
+  transpose.toTex = {1: '\\left(${args[0]}\\right)' + latex.operators['transpose']};
+
+  return transpose;
+}
+
+exports.name = 'transpose';
+exports.factory = factory;
+
+
+/***/ }),
+/* 85 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var isInteger = __webpack_require__(2).isInteger;
+var resize = __webpack_require__(3).resize;
+
+function factory (type, config, load, typed) {
+  var matrix = load(__webpack_require__(0));
+
+  /**
+   * Create a matrix filled with zeros. The created matrix can have one or
+   * multiple dimensions.
+   *
+   * Syntax:
+   *
+   *    math.zeros(m)
+   *    math.zeros(m, format)
+   *    math.zeros(m, n)
+   *    math.zeros(m, n, format)
+   *    math.zeros([m, n])
+   *    math.zeros([m, n], format)
+   *
+   * Examples:
+   *
+   *    math.zeros(3);                  // returns [0, 0, 0]
+   *    math.zeros(3, 2);               // returns [[0, 0], [0, 0], [0, 0]]
+   *    math.zeros(3, 'dense');         // returns [0, 0, 0]
+   *
+   *    var A = [[1, 2, 3], [4, 5, 6]];
+   *    math.zeros(math.size(A));       // returns [[0, 0, 0], [0, 0, 0]]
+   *
+   * See also:
+   *
+   *    ones, eye, size, range
+   *
+   * @param {...number | Array} size    The size of each dimension of the matrix
+   * @param {string} [format]           The Matrix storage format
+   *
+   * @return {Array | Matrix}           A matrix filled with zeros
+   */
+  var zeros = typed('zeros', {
+    '': function () {
+      return (config.matrix === 'Array')
+          ? _zeros([])
+          : _zeros([], 'default');
+    },
+
+    // math.zeros(m, n, p, ..., format)
+    // TODO: more accurate signature '...number | BigNumber, string' as soon as typed-function supports this
+    '...number | BigNumber | string': function (size) {
+      var last = size[size.length - 1];
+      if (typeof last === 'string') {
+        var format = size.pop();
+        return _zeros(size, format);
+      }
+      else if (config.matrix === 'Array') {
+        return _zeros(size);
+      }
+      else {
+        return _zeros(size, 'default');
+      }
+    },
+
+    'Array': _zeros,
+
+    'Matrix': function (size) {
+      var format = size.storage();
+      return _zeros(size.valueOf(), format);
+    },
+
+    'Array | Matrix, string': function (size, format) {
+      return _zeros (size.valueOf(), format);
+    }
+  });
+
+  zeros.toTex = undefined; // use default template
+
+  return zeros;
+
+  /**
+   * Create an Array or Matrix with zeros
+   * @param {Array} size
+   * @param {string} [format='default']
+   * @return {Array | Matrix}
+   * @private
+   */
+  function _zeros(size, format) {
+    var hasBigNumbers = _normalize(size);
+    var defaultValue = hasBigNumbers ? new type.BigNumber(0) : 0;
+    _validate(size);
+
+    if (format) {
+      // return a matrix
+      var m = matrix(format);
+      if (size.length > 0) {
+        return m.resize(size, defaultValue);
+      }
+      return m;
+    }
+    else {
+      // return an Array
+      var arr = [];
+      if (size.length > 0) {
+        return resize(arr, size, defaultValue);
+      }
+      return arr;
+    }
+  }
+
+  // replace BigNumbers with numbers, returns true if size contained BigNumbers
+  function _normalize(size) {
+    var hasBigNumbers = false;
+    size.forEach(function (value, index, arr) {
+      if (value && value.isBigNumber === true) {
+        hasBigNumbers = true;
+        arr[index] = value.toNumber();
+      }
+    });
+    return hasBigNumbers;
+  }
+
+  // validate arguments
+  function _validate (size) {
+    size.forEach(function (value) {
+      if (typeof value !== 'number' || !isInteger(value) || value < 0) {
+        throw new Error('Parameters in function zeros must be positive integers');
+      }
+    });
+  }
+}
+
+// TODO: zeros contains almost the same code as ones. Reuse this?
+
+exports.name = 'zeros';
+exports.factory = factory;
+
+
+/***/ }),
+/* 86 */
 /***/ (function(module, exports, __webpack_require__) {
 
 // style-loader: Adds some css to the DOM by adding a <style> tag
 
 // load the styles
-var content = __webpack_require__(179);
+var content = __webpack_require__(87);
 if(typeof content === 'string') content = [[module.i, content, '']];
 // Prepare cssTransformation
 var transform;
@@ -15159,7 +16567,7 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(181)(content, options);
+var update = __webpack_require__(89)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
@@ -15176,10 +16584,10 @@ if(false) {
 }
 
 /***/ }),
-/* 179 */
+/* 87 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(180)(undefined);
+exports = module.exports = __webpack_require__(88)(undefined);
 // imports
 
 
@@ -15190,7 +16598,7 @@ exports.push([module.i, "html, body {\n    margin: 0;\n    padding: 0;\n    font
 
 
 /***/ }),
-/* 180 */
+/* 88 */
 /***/ (function(module, exports) {
 
 /*
@@ -15272,7 +16680,7 @@ function toComment(sourceMap) {
 
 
 /***/ }),
-/* 181 */
+/* 89 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /*
@@ -15318,7 +16726,7 @@ var singleton = null;
 var	singletonCounter = 0;
 var	stylesInsertedAtTop = [];
 
-var	fixUrls = __webpack_require__(182);
+var	fixUrls = __webpack_require__(90);
 
 module.exports = function(list, options) {
 	if (typeof DEBUG !== "undefined" && DEBUG) {
@@ -15631,7 +17039,7 @@ function updateLink (link, options, obj) {
 
 
 /***/ }),
-/* 182 */
+/* 90 */
 /***/ (function(module, exports) {
 
 

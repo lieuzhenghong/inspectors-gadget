@@ -2,12 +2,23 @@
 /*jshint esversion: 6 */
 /* jshint node: true */
 
-import _find from 'lodash/find';
-import _remove from 'lodash/remove';
 
 import core from 'mathjs/core';
-const math = core.create();
+let math = core.create();
 math.import(require('mathjs/lib/type/matrix'));
+math.import(require('mathjs/lib/function/matrix'));
+
+
+const _ = {
+  find_id: function(id) {
+    return LABELS.find((ele) => {return ele.id === parseInt(id);});
+  },
+  remove_id: function(id) {
+    return LABELS.splice(LABELS.findIndex(
+      (ele) => {return ele.id === parseInt(id);}
+      ), 1);
+  }
+};
 
 import './style.css';
 
@@ -65,6 +76,7 @@ function init() {
     else if (e.keyCode === 68) { pan_right(); }
     else if (e.keyCode === 69) { zoom_in(); }
     else if (e.keyCode === 82) { zoom_out(); }
+    else if (e.keyCode === 71) { export_table(); }
   };
   document.getElementById('plan-upload').addEventListener('change', (e) => {
     return get_plan(e.target.files);
@@ -76,7 +88,7 @@ function init() {
     return export_image(e.target);
   });
   document.getElementById('image-tag').addEventListener('change', (e) => {
-    return handletagImg(e.target.files);
+    return add_label(e.target.files);
   });
   document.getElementById('left').addEventListener('click', pan_left);
   document.getElementById('right').addEventListener('click', pan_right);
@@ -103,8 +115,8 @@ function batch_upload(file_list) {
   draw_table(LABELS);
 }
 
-function handletagImg(files) {
-  let label = new Label(
+function add_label(files) {
+  const label = new Label(
     ID, CLICKED_X, CLICKED_Y,
     window.prompt('Enter label title:'),
     0,
@@ -116,7 +128,8 @@ function handletagImg(files) {
   insert_row(label, document.querySelector('tbody'));
 }
 
-function draw_label(label) {
+function draw_label(context, label) {
+  const CTX = context;
   if (label.x !== null && label.y !== null) {
     CTX.textAlign = 'center';
     const wid = CTX.measureText(label.title).width;
@@ -146,7 +159,7 @@ function draw_canvas(LABELS) {
   CTX.setTransform.apply(CTX, TRANSFORM);
   CTX.save();
   CTX.drawImage(IMAGE, 0, 0);
-  LABELS.map( (label) => { draw_label(label); });
+  LABELS.map( (label) => { draw_label(CTX, label); });
 }
 
 function insert_row(label, tbody){
@@ -184,12 +197,10 @@ function draw_table(LABELS){
 }
 
 function edit_name(e) {
-  let val = window.prompt('Edit name:');
+  const val = window.prompt('Edit name:');
   if (val !== '') {
     const id = e.target.closest('tr').id;
-    console.log('id: ', id);
-    let label = _find(LABELS, ['id', parseInt(id)]);
-    console.log(label);
+    const label = _.find_id(LABELS, ['id', parseInt(id)]);
     label.title = val;
     draw_canvas(LABELS);
     draw_table(LABELS);
@@ -197,10 +208,11 @@ function edit_name(e) {
 }
 
 function delete_row(id) {
-   _remove(LABELS, ['id', parseInt(id)]);
+  _.remove_id(parseInt(id));
   draw_canvas(LABELS);
   draw_table(LABELS);
 }
+
 
 function onClick(evt) {
   // Matrix multiplication of affine transformation vector and mouse 
@@ -213,8 +225,10 @@ function onClick(evt) {
   */
   let t = TRANSFORM;
   t = math.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
+  console.log(t);
   t = math.reshape(t.concat(0,0,1), [3,3]);
   const inv = math.inv(t);
+  console.log(inv);
           
   CLICKED_X = evt.x * inv[0][0] + evt.y * inv[0][1] + inv[0][2];
   CLICKED_Y = evt.x * inv[1][0] + evt.y * inv[1][1] + inv[1][2];
@@ -223,7 +237,7 @@ function onClick(evt) {
   // If Shift key is held down, go to tag-editing mode
   if (KEYS[16]) {
     let id = window.prompt('Enter id of label: ');
-    let label = _find(LABELS, ['id', parseInt(id)]);
+    let label = _.find_id(parseInt(id));
     if (label === undefined) {
       window.alert('Bad ID.');
     }
@@ -240,12 +254,12 @@ function onClick(evt) {
   }
 }
 
+
 function get_plan(file_list) {
   const plan_img = file_list[0];
   let img = new Image();
   img.onload = () => {
     IMAGE = img;
-    console.log(IMAGE.height, IMAGE.width);
     draw_canvas(LABELS);
     BUILDING = window.prompt('Enter building letter (e.g. A)');
     FLOOR = window.prompt('Enter building floor (e.g. 1)');
@@ -254,8 +268,68 @@ function get_plan(file_list) {
 }
 
 function export_image(e) {
-  let image = canvas.toDataURL("image/png");
-  e.href = image;
+  const export_canvas = document.createElement('canvas');
+  export_canvas.height = 3000;
+  export_canvas.width = Math.round(export_canvas.height * Math.sqrt(2));
+  const ctx = export_canvas.getContext('2d');
+  ctx.clearRect(0, 0, export_canvas.height, export_canvas.width); 
+  ctx.drawImage(IMAGE, 0, 0);
+  LABELS.map( (label) => { draw_label(ctx, label); });
+
+  e.href = export_canvas.toDataURL("image/png");
+  e.download = 'exported_plan.png';
+  export_canvas.remove();
+}
+
+
+function generate_table() {
+  /*
+  let html = `<!DOCTYPE html>
+              <body>
+                <h1>Hello World</h1>
+                <table>
+             `;
+  function read_image(file, callback) {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      callback(reader.result);
+    });
+    reader.readAsDataURL(file);
+  }
+
+  html += LABELS.reduce((acc, label) => {
+    read_image(label.image, (src) => {
+    acc += `<tr>
+              <td>${label.title}</td>
+              <td>${label.defect}</td>
+              <td><img src="${src}"></td>
+            </tr>
+            `;
+  });
+    return acc;
+  }, '');
+  console.log(html); 
+  html += `</table>`;
+  */
+}
+
+function export_table() {
+  const table_win = window.open('', 'table_window');
+  let table = table_win.document.createElement("table"); 
+  LABELS.map( (label) => {
+    let tr = table_win.document.createElement('tr');
+    table.appendChild(tr);
+    let td = table_win.document.createElement('td');
+    tr.appendChild(td);
+    td.innerHTML1 = label.title;
+    td = table_win.document.createElement('td');
+    tr.appendChild(td);
+    td.innerHTML1 = label.defect;
+    td = table_win.document.createElement('td');
+    tr.appendChild(td);
+    td.innerHTML1 = label.image.name;
+  });
+  table_win.document.body.insertBefore(table, null);
 }
 
 function preview_image(id) {
@@ -264,7 +338,7 @@ function preview_image(id) {
   function load_placeholder(e){
     e.target.src = './assets/placeholder.png';
   }
-  const file = _find(LABELS, ['id', parseInt(id)]).image;
+  const file = _.find_id(parseInt(id)).image;
   const img = document.getElementById('img-preview');
   const reader = new FileReader();
   img.addEventListener('error', load_placeholder);
@@ -309,3 +383,4 @@ function zoom_out() {
 }
 
 init();
+
