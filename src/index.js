@@ -27,6 +27,8 @@ const _ = {
 
 const ct = require('./canvas_transforms');
 //import ct from ('./canvas_transforms'); This line doesn't work, dunno why
+const canvasBuffer = require('electron-canvas-to-buffer');
+const electron = require('electron');
 
 let BUILDING = '';  
 let FLOOR = '';                   
@@ -61,8 +63,8 @@ class Label {
 function init() {
   // Set canvas dimensions
   canvas = document.getElementById('c');
-  canvas.width = 800;
-  canvas.height = Math.round(800/Math.sqrt(2));
+  canvas.width = 1000;
+  canvas.height = Math.round(1000/Math.sqrt(2));
   WIDTH = canvas.width;
   HEIGHT = canvas.height;
   document.getElementById('c').addEventListener('mousedown', handle_mousedown,
@@ -94,15 +96,6 @@ function init() {
       ct.pan_down(TRANSFORM, 50);
       draw_canvas(LABELS); 
     }
-    /*
-    if (e.keyCode === 87) { pan_up(); }
-    else if (e.keyCode === 83) { pan_down(); }
-    else if (e.keyCode === 65) { pan_left(); }
-    else if (e.keyCode === 68) { pan_right(); }
-    else if (e.keyCode === 69) { zoom_in(); }
-    else if (e.keyCode === 82) { zoom_out(); }
-    else if (e.keyCode === 71) { export_table(); }
-    */
   };
   document.getElementById('plan-upload').addEventListener('change', (e) => {
     return get_plan(e.target.files);
@@ -384,11 +377,42 @@ function export_image(e) {
   export_canvas.width = Math.round(export_canvas.height * Math.sqrt(2));
   const ctx = export_canvas.getContext('2d');
   ctx.clearRect(0, 0, export_canvas.height, export_canvas.width); 
-  ctx.drawImage(IMAGE, 0, 0);
-  LABELS.map( (label) => { draw_label(ctx, label); });
 
+  // Rescale image such that the largest dimension of the image fits nicely
+  const working_height = export_canvas.height - 200;
+  const working_width = export_canvas.width - 200;
+  const max_x = IMAGE.width;
+  const max_y = IMAGE.height;
+  let ratio = 1;
+
+  if (max_x > working_width || max_y > working_height) {
+    let xratio = working_width / max_x;
+    let yratio = working_height / max_y; 
+    ratio = Math.min(xratio, yratio);
+  }
+
+  const x_offset = (export_canvas.width - max_x * ratio) / 2;
+  const y_offset = (export_canvas.height - max_y * ratio) / 2;
+
+  let temp_labels = LABELS;
+  temp_labels.map( (label) => { 
+    label.x = label.x * ratio + x_offset;
+    label.y = label.y * ratio + y_offset;
+  });
+  ctx.drawImage(IMAGE, 0, 0, IMAGE.width, IMAGE.height,
+                       x_offset, y_offset, IMAGE.width * ratio,
+                       IMAGE.height * ratio);
+  
+  temp_labels.map( (label) => { draw_label(ctx, label); });
+  // as a buffer
+  let buffer = canvasBuffer(export_canvas, 'image/png');
+  electron.remote.getGlobal('data').exportedImage = buffer;
+  electron.ipcRenderer.send('export_image', buffer);
+
+  /*
   e.href = export_canvas.toDataURL("image/png");
   e.download = 'exported_plan.png';
+  */
   export_canvas.remove();
 }
 
@@ -396,6 +420,7 @@ function export_image(e) {
 function generate_table() {
 }
 
+/*
 function export_table() {
   const table_win = window.open('', 'table_window');
   let table = table_win.document.createElement("table"); 
@@ -414,6 +439,7 @@ function export_table() {
   });
   table_win.document.body.insertBefore(table, null);
 }
+*/
 
 function preview_image(id) {
   // I purposely declared load_placeholder as a separate rather than a
