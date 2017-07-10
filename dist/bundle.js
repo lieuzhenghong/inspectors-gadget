@@ -7447,6 +7447,19 @@ function handle_mousedown(evt) {
   CLICKED_X = evt.offsetX * inv[0][0] + evt.offsetY * inv[0][1] + inv[0][2];
   CLICKED_Y = evt.offsetX * inv[1][0] + evt.offsetY * inv[1][1] + inv[1][2];
 
+  // If the left mouse button was clicked, find the first label that has yet to
+  // be tagged on the floor plan
+  if (evt.button === 0) {
+    console.log(evt.button);
+    console.log('called');
+    let label = LABELS.find( (label) => {return label.x === null});
+    if (label !== undefined) {
+      label.x = CLICKED_X;
+      label.y = CLICKED_Y;
+      draw_canvas(LABELS);
+    }
+  }
+
   // If right click, go to tag editing mode
   if (evt.button === 2 || evt.shiftKey) {
     __WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.dialog.prompt({
@@ -7456,14 +7469,13 @@ function handle_mousedown(evt) {
         if (label !== undefined) {
           label.x = CLICKED_X;
           label.y = CLICKED_Y;
+          draw_canvas(LABELS);
         }
-        draw_canvas(LABELS);
       }
     })
   }
+  
   else {
-    // Upload an image
-    document.getElementById('image-tag').click();
   }
 }
 
