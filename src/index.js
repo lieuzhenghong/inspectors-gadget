@@ -315,9 +315,11 @@ function export_image(e) {
   // canvas
   let x_ratio = working_height / globals.CVS.image.height;
   let y_ratio = working_width / globals.CVS.image.width;
+  let draw_ratio = Math.min(x_ratio, y_ratio);
+  draw_ratio = 1;
 
-  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, x_ratio, y_ratio); });
-  globals.CVS.draw_overlay(export_canvas, ctx, x_ratio, y_ratio);
+  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, draw_ratio); });
+  globals.CVS.draw_overlay(export_canvas, ctx);
   let buffer = canvasBuffer(export_canvas, 'image/png');
   electron.remote.getGlobal('data').exportedImage = buffer;
   electron.ipcRenderer.send('export_image', buffer);

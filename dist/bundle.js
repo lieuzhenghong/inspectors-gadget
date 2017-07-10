@@ -7492,9 +7492,11 @@ function export_image(e) {
   // canvas
   let x_ratio = working_height / globals.CVS.image.height;
   let y_ratio = working_width / globals.CVS.image.width;
+  let draw_ratio = Math.min(x_ratio, y_ratio);
+  draw_ratio = 1;
 
-  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, x_ratio, y_ratio); });
-  globals.CVS.draw_overlay(export_canvas, ctx, x_ratio, y_ratio);
+  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, draw_ratio); });
+  globals.CVS.draw_overlay(export_canvas, ctx);
   let buffer = canvasBuffer(export_canvas, 'image/png');
   electron.remote.getGlobal('data').exportedImage = buffer;
   electron.ipcRenderer.send('export_image', buffer);
@@ -18597,21 +18599,25 @@ class Canvas {
     this.transform = transform;
     this.image = image;
     this.globals_ = globals_;
+    // Hardcoded draw_ratio value
+    this.draw_ratio = 1;
   }
 
-  draw_label(label, ctx=this.context, xratio=1, yratio=1) {
+  draw_label(label, ctx=this.context, draw_ratio=1) {
     if (label.x !== null && label.y !== null) {
-      let font_size = 20 * yratio;
+      console.log(draw_ratio);
+      let font_size = 60 / (draw_ratio);
       ctx.textAlign = 'center';
       ctx.font = `${font_size}px sans-serif`;
       const wid = ctx.measureText(label.title).width;
-      const ht = ctx.measureText(label.title).height;
+      const ht = font_size;
+      console.log(font_size, wid, ht);
       if (label.defect === 0) { ctx.fillStyle = 'rgba(0, 200, 0, 0.8)'; }
       else if (label.defect === 1) { ctx.fillStyle = 'rgba(255, 200, 0, 0.9)'; }
       else { ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; }
       // Dictates minimum label width
-      let l_w = (wid+10 > 40 ? wid+10 : 40) * xratio;
-      let l_h = (ht+10 > 20 ? ht+10 : 20) * yratio;
+      let l_w = (wid + 10/draw_ratio)
+      let l_h = (ht + 10/draw_ratio)
       ctx.fillRect(label.x - l_w/2, 
                   label.y - l_h/2,
                   l_w,
@@ -18628,20 +18634,21 @@ class Canvas {
     }
   }
 
-  draw_overlay(c=this.canvas, ctx=this.context, xratio=1, yratio=1) {
+  draw_overlay(c=this.canvas, ctx=this.context) {
     // Clear the transform to draw the overlay
 
-    let ht = 30 * yratio;
-    let font_size = 20 * yratio;
+    let ht = c.height/15;
+    let font_size = c.height/30;
     ctx.setTransform.apply(ctx, [1, 0, 0, 1, 0, 0]);
-    ctx.fillStyle = 'rgba(200, 200, 200, 0.6)';
-    ctx.fillRect(0, c.height-ht, c.width, ht)
+    ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+    ctx.fillRect(0, c.height-ht, c.width, ht);
     ctx.fillStyle = 'rgba(0, 0, 0, 1)';
     ctx.font = `${font_size}px sans-serif`;
     ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
     let text = `Building ${this.globals_.BUILDING} ${this.globals_.FLOOR}`;
     let textwidth = this.context.measureText(text).width;
-    ctx.fillText(text, (c.width-textwidth)/2,
+    ctx.fillText(text, c.width/2,
                   c.height-ht/2);
     
     // Restore the previous transform
@@ -18654,7 +18661,8 @@ class Canvas {
     this.context.setTransform.apply(this.context, this.transform);
     this.context.save();
     this.context.drawImage(this.image, 0, 0);
-    this.globals_.LABELS.map( (label) => {this.draw_label(label); });
+    this.draw_ratio = Math.min(3800/this.image.height, 4043/this.image.width);
+    this.globals_.LABELS.map( (label) => {this.draw_label(label, this.context, this.draw_ratio); });
     this.draw_overlay();
   }
 
@@ -18695,7 +18703,6 @@ class Canvas {
   }
 
   handle_scroll(e) {
-    console.log(deltaY);
     e.deltaY < 0 ? this.zoom_in(1.03) : this.zoom_out(1.03);
     this.draw_canvas(); 
   }
