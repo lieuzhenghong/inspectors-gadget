@@ -2,7 +2,7 @@
   "name": "surveyor",
   "version": "1.0.0",
   "description": "A report generation tool for civil engineers",
-  "main": "main.js",
+  "main": "index.js",
   "dependencies": {
     "css-loader": "^0.28.4",
     "electron-canvas-to-buffer": "^2.0.0",
@@ -21,7 +21,7 @@
   },
   "scripts": {
     "build": "webpack",
-    "start": "electron ."
+    "start": "electron ./dist/main.js"
   },
   "repository": {
     "type": "git",
