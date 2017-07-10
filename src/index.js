@@ -25,6 +25,9 @@ const _ = {
   }
 };
 
+const ct = require('./canvas_transforms');
+//import ct from ('./canvas_transforms'); This line doesn't work, dunno why
+
 let BUILDING = '';  
 let FLOOR = '';                   
 let KEYS = [];
@@ -62,7 +65,9 @@ function init() {
   canvas.height = Math.round(800/Math.sqrt(2));
   WIDTH = canvas.width;
   HEIGHT = canvas.height;
-  document.getElementById('c').addEventListener('mousedown', handle_mousedown, false); 
+  document.getElementById('c').addEventListener('mousedown', handle_mousedown,
+  false); 
+  canvas.addEventListener('wheel', handle_scroll);
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
   IMAGE = img;
@@ -73,6 +78,22 @@ function init() {
   };
   window.onkeydown = (e) => {
     KEYS[e.keyCode] = true;
+    if (e.keyCode === 37) {
+      ct.pan_left(TRANSFORM, 50);
+      draw_canvas(LABELS); 
+    }
+    else if (e.keyCode === 38) {
+      ct.pan_up(TRANSFORM, 50);
+      draw_canvas(LABELS); 
+    }
+    else if (e.keyCode === 39) {
+      ct.pan_right(TRANSFORM, 50);
+      draw_canvas(LABELS); 
+    }
+    else if (e.keyCode === 40) {
+      ct.pan_down(TRANSFORM, 50);
+      draw_canvas(LABELS); 
+    }
     /*
     if (e.keyCode === 87) { pan_up(); }
     else if (e.keyCode === 83) { pan_down(); }
@@ -92,15 +113,36 @@ function init() {
   document.getElementById('image-export').addEventListener('click', (e) => {
     return export_image(e.target);
   });
-  document.getElementById('image-tag').addEventListener('change', (e) => {
-    return add_label(e.target.files);
-  });
-  document.getElementById('left').addEventListener('click', pan_left);
-  document.getElementById('right').addEventListener('click', pan_right);
-  document.getElementById('down').addEventListener('click', pan_down);
-  document.getElementById('up').addEventListener('click', pan_up);
-  document.getElementById('zoom-in').addEventListener('click', zoom_in);
-  document.getElementById('zoom-out').addEventListener('click', zoom_out);
+  document.getElementById('left').addEventListener('click', () => {
+    ct.pan_left(TRANSFORM, 50);
+    draw_canvas(LABELS);
+    });
+  document.getElementById('right').addEventListener('click', () => {
+    ct.pan_right(TRANSFORM, 50);
+    draw_canvas(LABELS);
+    });
+  document.getElementById('up').addEventListener('click', () => {
+    ct.pan_up(TRANSFORM, 50);
+    draw_canvas(LABELS);
+    });
+  document.getElementById('down').addEventListener('click', () => {
+    ct.pan_down(TRANSFORM, 50);
+    draw_canvas(LABELS);
+    });
+  document.getElementById('zoom-in').addEventListener('click', () => {
+    ct.zoom_in(TRANSFORM, 1.1);
+    draw_canvas(LABELS);
+    });
+  document.getElementById('zoom-out').addEventListener('click', () => {
+    ct.zoom_out(TRANSFORM, 1.1);
+    draw_canvas(LABELS);
+    });
+}
+
+function handle_scroll(e) {
+  console.log(e.deltaY, e.deltaX);
+  e.deltaY > 0 ? ct.zoom_in(TRANSFORM, 1.01) : ct.zoom_out(TRANSFORM, 1.01);
+  draw_canvas(LABELS); 
 }
 
 function batch_upload(file_list) {
@@ -120,6 +162,8 @@ function batch_upload(file_list) {
   draw_table(LABELS);
 }
 
+/*
+ * I no longer need this function as I have removed the individual tag feature
 function add_label(files) {
   if (files[0] !== undefined) {
     vex.dialog.prompt({
@@ -140,6 +184,7 @@ function add_label(files) {
     })
   }
 }
+*/
 
 function update_labels(labels) {
   labels.map( (label) => {
@@ -268,6 +313,8 @@ function handle_mousedown(evt) {
                 0 1 Ty
                 0 0 1 ] [x y 1]
   */
+
+  // These 6 lines take up 500Kb.... ridiculous
   let t = TRANSFORM;
   t = math.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
   t = math.reshape(t.concat(0,0,1), [3,3]);
@@ -275,17 +322,6 @@ function handle_mousedown(evt) {
 
   CLICKED_X = evt.offsetX * inv[0][0] + evt.offsetY * inv[0][1] + inv[0][2];
   CLICKED_Y = evt.offsetX * inv[1][0] + evt.offsetY * inv[1][1] + inv[1][2];
-
-  // If the left mouse button was clicked, find the first label that has yet to
-  // be tagged on the floor plan
-  if (evt.button === 0) {
-    let label = LABELS.find( (label) => {return label.x === null});
-    if (label !== undefined) {
-      label.x = CLICKED_X;
-      label.y = CLICKED_Y;
-      draw_canvas(LABELS);
-    }
-  }
 
   // If right click, go to tag editing mode
   if (evt.button === 2 || evt.shiftKey) {
@@ -301,8 +337,20 @@ function handle_mousedown(evt) {
       }
     })
   }
+
+  // If the left mouse button was clicked, find the first label that has yet to
+  // be tagged on the floor plan
+  else if (evt.button === 0) {
+    let label = LABELS.find( (label) => {return label.x === null});
+    if (label !== undefined) {
+      label.x = CLICKED_X;
+      label.y = CLICKED_Y;
+      draw_canvas(LABELS);
+    }
+  }
   
   else {
+    //There should be nothing here
   }
 }
 
@@ -379,42 +427,6 @@ function preview_image(id) {
   img.addEventListener('error', load_placeholder);
   reader.addEventListener("load", () => {  img.src = reader.result; });
   reader.readAsDataURL(file);
-}
-
-function pan_up() {
-  TRANSFORM[5] += 50;
-  draw_canvas(LABELS);
-}
-
-function pan_down() {
-  TRANSFORM[5] -= 50;
-  draw_canvas(LABELS);
-}
-
-function pan_left() {
-  TRANSFORM[4] += 50;
-  draw_canvas(LABELS);
-}
-
-function pan_right() {
-  TRANSFORM[4] -= 50;
-  draw_canvas(LABELS);
-}
-
-function zoom_in() {
-  TRANSFORM[0] *= 1.1;
-  TRANSFORM[1] *= 1.1;
-  TRANSFORM[2] *= 1.1;
-  TRANSFORM[3] *= 1.1;
-  draw_canvas(LABELS);
-}
-
-function zoom_out() {
-  TRANSFORM[0] /= 1.1;
-  TRANSFORM[1] /= 1.1;
-  TRANSFORM[2] /= 1.1;
-  TRANSFORM[3] /= 1.1;
-  draw_canvas(LABELS);
 }
 
 init();
