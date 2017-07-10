@@ -16,119 +16,101 @@ vex.defaultOptions.className = 'vex-theme-flat-attack';
 
 const _ = {
   find_id: function(id) {
-    return LABELS.find((ele) => {return ele.id === parseInt(id);});
+    return globals.LABELS.find((ele) => {return ele.id === parseInt(id);});
   },
   remove_id: function(id) {
-    return LABELS.splice(LABELS.findIndex(
+    return globals.LABELS.splice(globals.LABELS.findIndex(
       (ele) => {return ele.id === parseInt(id);}
       ), 1);
   }
 };
 
-const ct = require('./canvas_transforms');
-//import ct from ('./canvas_transforms'); This line doesn't work, dunno why
 const canvasBuffer = require('electron-canvas-to-buffer');
 const electron = require('electron');
 
-let BUILDING = '';  
-let FLOOR = '';                   
-let KEYS = [];
-let LABELS = [];
-let CLICKED_X = 0;
-let CLICKED_Y = 0;
-let IMAGE = null;
-let ID = 1;
-let canvas = null;
-let CTX = null;
-let WIDTH = 0;
-let HEIGHT = 0;
-let TRANSFORM = [1, 0, 0, 1, 0, 0];
+// My own imports
+const Canvas_Helper = require('./Canvas');
 
 class Label {
-  constructor(id, x, y, title, defect, image) {
+  constructor(id, x=null, y=null, title, caption='', defect=0,
+  image) {
     this.id = id;
     this.x = x;
     this.y = y;
     this.title = title;
+    this.caption = caption;
     this.defect = defect;
     this.image = image;
   }
 
   toggle_defect() {
+    console.log('hello');
     this.defect = (this.defect + 1) % 3;
-    draw_canvas(LABELS);
+    globals.CVS.draw_canvas();
   }
 }
 
+let globals = {
+  BUILDING : '',  
+  FLOOR : '',                   
+  KEYS : [],
+  LABELS : [],
+  ID : 1,
+  CVS : null
+};
+
 function init() {
   // Set canvas dimensions
-  canvas = document.getElementById('c');
+  let canvas = document.getElementById('c');
   canvas.width = 1000;
   canvas.height = Math.round(1000/Math.sqrt(2));
-  WIDTH = canvas.width;
-  HEIGHT = canvas.height;
   document.getElementById('c').addEventListener('mousedown', handle_mousedown,
   false); 
-  canvas.addEventListener('wheel', handle_scroll);
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
-  IMAGE = img;
-  CTX = document.getElementById('c').getContext('2d');
-  draw_canvas(LABELS);
+  let ctx = document.getElementById('c').getContext('2d');
+  // Set the Canvas helper context to the global canvas context
+  globals.CVS = new Canvas_Helper(canvas, [1,0,0,1,0,0], globals, img);
+  // This line is necessary: set cvs.labels to point to the global object LABELS
+  globals.CVS.globals_ = globals;
+  canvas.addEventListener('wheel', globals.CVS.handle_scroll.bind(globals.CVS));
+  globals.CVS.draw_canvas();
   window.onkeyup = (e) => {
-    KEYS[e.keyCode] = false;
+    globals.KEYS[e.keyCode] = false;
   };
   window.onkeydown = (e) => {
-    KEYS[e.keyCode] = true;
-    if (e.keyCode === 37) {
-      ct.pan_left(TRANSFORM, 50);
-      draw_canvas(LABELS); 
-    }
-    else if (e.keyCode === 38) {
-      ct.pan_up(TRANSFORM, 50);
-      draw_canvas(LABELS); 
-    }
-    else if (e.keyCode === 39) {
-      ct.pan_right(TRANSFORM, 50);
-      draw_canvas(LABELS); 
-    }
-    else if (e.keyCode === 40) {
-      ct.pan_down(TRANSFORM, 50);
-      draw_canvas(LABELS); 
-    }
+    globals.KEYS[e.keyCode] = true;
+    if (e.keyCode === 37) { globals.CVS.pan_left(50); }
+    else if (e.keyCode === 38) { globals.CVS.pan_up(50); }
+    else if (e.keyCode === 39) { globals.CVS.pan_right(50); }
+    else if (e.keyCode === 40) { globals.CVS.pan_down(50); }
   };
   document.getElementById('plan-upload').addEventListener('change', (e) => {
-    return get_plan(e.target.files);
+    return upload_plan(e.target.files);
   });
   document.getElementById('batch-upload').addEventListener('change', (e) => {
-    return batch_upload(e.target.files);
+    return upload_images(e.target.files);
   });
   document.getElementById('image-export').addEventListener('click', (e) => {
     return export_image(e.target);
   });
   document.getElementById('left').addEventListener('click', () => {
-    ct.pan_left(TRANSFORM, 50);
-    draw_canvas(LABELS);
+      globals.CVS.pan_left(50);
     });
   document.getElementById('right').addEventListener('click', () => {
-    ct.pan_right(TRANSFORM, 50);
-    draw_canvas(LABELS);
+    globals.CVS.pan_right(50);
     });
   document.getElementById('up').addEventListener('click', () => {
-    ct.pan_up(TRANSFORM, 50);
-    draw_canvas(LABELS);
+    globals.CVS.pan_up(50);
     });
   document.getElementById('down').addEventListener('click', () => {
-    ct.pan_down(TRANSFORM, 50);
-    draw_canvas(LABELS);
+    globals.CVS.pan_down(50);
     });
   document.getElementById('zoom-in').addEventListener('click', () => {
-    ct.zoom_in(TRANSFORM, 1.1);
-    draw_canvas(LABELS);
+    globals.CVS.zoom_in(1.1);
     });
   document.getElementById('zoom-out').addEventListener('click', () => {
-    ct.zoom_out(TRANSFORM, 1.1);
-    draw_canvas(LABELS);
+    globals.CVS.zoom_out(1.1);
     });
   // Handling the reply when we send the exported floor plan
   electron.ipcRenderer.on('export_image', (e, args) => {
@@ -136,107 +118,30 @@ function init() {
   })
 }
 
-function handle_scroll(e) {
-  console.log(e.deltaY, e.deltaX);
-  e.deltaY > 0 ? ct.zoom_in(TRANSFORM, 1.01) : ct.zoom_out(TRANSFORM, 1.01);
-  draw_canvas(LABELS); 
-}
 
-function batch_upload(file_list) {
+function upload_images(file_list) {
   // FileList has no method map nor forEach
   for (let i = 0; i < file_list.length; i++) {
-    LABELS.push(new Label(
-      ID,
+    globals.LABELS.push(new Label(
+      globals.ID,
       null,
       null, 
-      BUILDING + FLOOR + '-' + (ID).toString(),
+      globals.BUILDING + globals.FLOOR + '-' + (globals.ID).toString(),
+      '',
       0,
       file_list[i]
     ));
-    ID++;
+    globals.ID++;
   }
-  draw_canvas(LABELS);
-  draw_table(LABELS);
+  globals.CVS.draw_canvas();
+  draw_table(globals.LABELS);
 }
-
-/*
- * I no longer need this function as I have removed the individual tag feature
-function add_label(files) {
-  if (files[0] !== undefined) {
-    vex.dialog.prompt({
-      message: 'Enter label title:',
-      placeholder: 'A1-1',
-      callback: (label_title) => {
-        const label = new Label(
-          ID, CLICKED_X, CLICKED_Y,
-          label_title,
-          0,
-          files[0]
-        );
-        ID++;
-        LABELS.push(label);
-        draw_canvas(LABELS);
-        insert_row(label, document.querySelector('tbody'));
-        }
-    })
-  }
-}
-*/
 
 function update_labels(labels) {
   labels.map( (label) => {
-    label.title = `${BUILDING}${FLOOR}-${label.id}`;
+    label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
   })
 }
-
-function draw_label(context, label) {
-  const CTX = context;
-  if (label.x !== null && label.y !== null) {
-    CTX.textAlign = 'center';
-    const wid = CTX.measureText(label.title).width;
-    if (label.defect === 0) { CTX.fillStyle = 'rgba(0, 200, 0, 0.8)'; }
-    else if (label.defect === 1) { CTX.fillStyle = 'rgba(255, 200, 0, 0.9)'; }
-    else { CTX.fillStyle = 'rgba(255, 0, 0, 0.8)'; }
-    // Dictates minimum label width
-    CTX.fillRect(label.x-(wid+10)/2, 
-                 label.y-(20/2),
-                 (wid+10 > 40? wid+10 : 40),
-                 20
-                );
-    CTX.strokeRect(label.x-(wid+10)/2,
-                   label.y-(20/2),
-                   (wid+10 > 40? wid+10 : 40),
-                   20
-                  );
-    CTX.fillStyle = 'rgba(0, 0, 0, 1)';
-    CTX.font = '12px sans-serif';
-    CTX.textBaseline = 'middle';
-    CTX.fillText(label.title, label.x, label.y);
-  }
-}
-
-function draw_canvas(LABELS) {
-  CTX.clearRect(0, 0, 9999, 9999); // This code can break if image > 9999x9999
-  CTX.setTransform.apply(CTX, TRANSFORM);
-  CTX.save();
-  CTX.drawImage(IMAGE, 0, 0);
-  LABELS.map( (label) => { draw_label(CTX, label); });
-
-  // Clear the transform to draw the overlay
-  CTX.setTransform.apply(CTX, [1, 0, 0, 1, 0, 0]);
-  CTX.fillStyle = 'rgba(200, 200, 200, 0.6)';
-  CTX.fillRect(0, canvas.height-30, canvas.width, 30)
-  CTX.fillStyle = 'rgba(0, 0, 0, 1)';
-  CTX.font = '20px sans-serif';
-  CTX.textBaseline = 'middle';
-  let text = `Building ${BUILDING} ${FLOOR}`;
-  let textwidth = CTX.measureText(text).width;
-  CTX.fillText(text, (canvas.width-textwidth)/2, canvas.height-30/2);
-  
-  // Restore the previous transform
-  CTX.restore();
-}
-
 
 function insert_row(label, tbody){
   function display_defect_emoji(img, defect) {
@@ -267,10 +172,10 @@ function insert_row(label, tbody){
   c4.addEventListener('click', () => {return delete_row(label.id); });
 }
 
-function draw_table(LABELS){
+function draw_table(labels){
   const old_tbody = document.querySelector('tbody');
   const tbody = document.createElement('tbody');
-  LABELS.map((label) => {
+  labels.map((label) => {
     return insert_row(label, tbody);
   });
   old_tbody.parentNode.replaceChild(tbody, old_tbody);
@@ -287,8 +192,8 @@ function edit_name(e) {
         const id = e.target.closest('tr').id;
         const label = _.find_id(id);
         label.title = val.toString();
-        draw_canvas(LABELS);
-        draw_table(LABELS);
+        globals.CVS.draw_canvas();
+        draw_table(globals.LABELS);
       }
     }
   });
@@ -296,8 +201,8 @@ function edit_name(e) {
 
 function delete_row(id) {
   _.remove_id(parseInt(id));
-  draw_canvas(LABELS);
-  draw_table(LABELS);
+  globals.CVS.draw_canvas();
+  draw_table(globals.LABELS);
 }
 
 
@@ -312,13 +217,13 @@ function handle_mousedown(evt) {
   */
 
   // These 6 lines take up 500Kb.... ridiculous
-  let t = TRANSFORM;
+  let t = globals.CVS.transform;
   t = math.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
   t = math.reshape(t.concat(0,0,1), [3,3]);
   const inv = math.inv(t);
 
-  CLICKED_X = evt.offsetX * inv[0][0] + evt.offsetY * inv[0][1] + inv[0][2];
-  CLICKED_Y = evt.offsetX * inv[1][0] + evt.offsetY * inv[1][1] + inv[1][2];
+  let clicked_x = evt.offsetX * inv[0][0] + evt.offsetY * inv[0][1] + inv[0][2];
+  let clicked_y = evt.offsetX * inv[1][0] + evt.offsetY * inv[1][1] + inv[1][2];
 
   // If right click, go to tag editing mode
   if (evt.button === 2 || evt.shiftKey) {
@@ -327,9 +232,9 @@ function handle_mousedown(evt) {
       callback: (value) => {
         let label = _.find_id(parseInt(value));
         if (label !== undefined) {
-          label.x = CLICKED_X;
-          label.y = CLICKED_Y;
-          draw_canvas(LABELS);
+          label.x = clicked_x;
+          label.y = clicked_y;
+          globals.CVS.draw_canvas();
         }
       }
     })
@@ -338,11 +243,11 @@ function handle_mousedown(evt) {
   // If the left mouse button was clicked, find the first label that has yet to
   // be tagged on the floor plan
   else if (evt.button === 0) {
-    let label = LABELS.find( (label) => {return label.x === null});
+    let label = globals.LABELS.find( (label) => {return label.x === null});
     if (label !== undefined) {
-      label.x = CLICKED_X;
-      label.y = CLICKED_Y;
-      draw_canvas(LABELS);
+      label.x = clicked_x;
+      label.y = clicked_y;
+      globals.CVS.draw_canvas();
     }
   }
   
@@ -351,11 +256,10 @@ function handle_mousedown(evt) {
   }
 }
 
-function get_plan(file_list) {
+function upload_plan(file_list) {
   const plan_img = file_list[0];
   let img = new Image();
   img.onload = () => {
-    IMAGE = img;
     vex.dialog.open({
       message: 'Enter building letter and floor',
       input: [
@@ -364,11 +268,12 @@ function get_plan(file_list) {
       ].join(''),
       callback: (data) => {
         console.log(data);
-        BUILDING = data.letter;
-        FLOOR = data.floor;
-        update_labels(LABELS);
-        draw_canvas(LABELS);
-        draw_table(LABELS);
+        globals.CVS.image = img
+        globals.BUILDING = data.letter;
+        globals.FLOOR = data.floor;
+        update_labels(globals.LABELS);
+        globals.CVS.draw_canvas();
+        draw_table(globals.LABELS);
         }
     })
   };
@@ -385,8 +290,8 @@ function export_image(e) {
   // Rescale image such that the largest dimension of the image fits nicely
   const working_height = export_canvas.height - 200;
   const working_width = export_canvas.width - 200;
-  const max_x = IMAGE.width;
-  const max_y = IMAGE.height;
+  const max_x = globals.CVS.image.width;
+  const max_y = globals.CVS.image.height;
   let ratio = 1;
 
   let xratio = working_width / max_x;
@@ -397,17 +302,22 @@ function export_image(e) {
   const y_offset = (export_canvas.height - max_y * ratio) / 2;
 
   // make a deep copy of LABELS so as not to mutate it
-  let temp_labels = JSON.parse(JSON.stringify(LABELS));
+  let temp_labels = JSON.parse(JSON.stringify(globals.LABELS));
   temp_labels.map( (label) => { 
     label.x = label.x * ratio + x_offset;
     label.y = label.y * ratio + y_offset;
   });
-  ctx.drawImage(IMAGE, 0, 0, IMAGE.width, IMAGE.height,
-                       x_offset, y_offset, IMAGE.width * ratio,
-                       IMAGE.height * ratio);
-  
-  temp_labels.map( (label) => { draw_label(ctx, label); });
-  // as a buffer
+  ctx.drawImage(globals.CVS.image, 0, 0, globals.CVS.image.width, globals.CVS.image.height,
+                       x_offset, y_offset, globals.CVS.image.width * ratio,
+                       globals.CVS.image.height * ratio);
+
+  // These ratios are how much to scale the labels and overlay to the enlarged
+  // canvas
+  let x_ratio = working_height / globals.CVS.image.height;
+  let y_ratio = working_width / globals.CVS.image.width;
+
+  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, x_ratio, y_ratio); });
+  globals.CVS.draw_overlay(export_canvas, ctx, x_ratio, y_ratio);
   let buffer = canvasBuffer(export_canvas, 'image/png');
   electron.remote.getGlobal('data').exportedImage = buffer;
   electron.ipcRenderer.send('export_image', buffer);

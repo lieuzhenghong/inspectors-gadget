@@ -18,6 +18,7 @@ canvas {
     margin: 0;
     border: 1px solid black;
     display: block;
+    background-color: rgba(220, 220, 220, 1);
 }
 
 nav {
@@ -50,16 +51,18 @@ nav li {
 }
 
 .col1 {
+  width:100%;
 }
 
 .col2 {
+  width: 400px;
  }
 
 .table-wrapper {
 }
 
 table, tr, td {
-  width: 300px;
+  width: 400px;
   font-family: monospace;
   text-align: center;
   border-collapse: collapse;
