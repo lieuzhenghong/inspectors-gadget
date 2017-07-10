@@ -72,6 +72,6 @@ ipcMain.on('export_image', (e, arg) => {
   console.log(arg);
   fs.writeFile('floor_plan.png', arg, (err) => {
     if (err) throw err
-    console.log('File saved.')
+    e.sender.send('export_image', 'File exported at floor_plan.png.');
   });
 })

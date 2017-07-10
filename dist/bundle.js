@@ -7307,6 +7307,10 @@ function init() {
     ct.zoom_out(TRANSFORM, 1.1);
     draw_canvas(LABELS);
     });
+  // Handling the reply when we send the exported floor plan
+  electron.ipcRenderer.on('export_image', (e, args) => {
+    __WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.dialog.alert(args);
+  })
 }
 
 function handle_scroll(e) {
@@ -7586,37 +7590,8 @@ function export_image(e) {
   electron.remote.getGlobal('data').exportedImage = buffer;
   electron.ipcRenderer.send('export_image', buffer);
 
-  /*
-  e.href = export_canvas.toDataURL("image/png");
-  e.download = 'exported_plan.png';
-  */
   export_canvas.remove();
 }
-
-
-function generate_table() {
-}
-
-/*
-function export_table() {
-  const table_win = window.open('', 'table_window');
-  let table = table_win.document.createElement("table"); 
-  LABELS.map( (label) => {
-    let tr = table_win.document.createElement('tr');
-    table.appendChild(tr);
-    let td = table_win.document.createElement('td');
-    tr.appendChild(td);
-    td.innerHTML1 = label.title;
-    td = table_win.document.createElement('td');
-    tr.appendChild(td);
-    td.innerHTML1 = label.defect;
-    td = table_win.document.createElement('td');
-    tr.appendChild(td);
-    td.innerHTML1 = label.image.name;
-  });
-  table_win.document.body.insertBefore(table, null);
-}
-*/
 
 function preview_image(id) {
   // I purposely declared load_placeholder as a separate rather than a
@@ -7633,7 +7608,6 @@ function preview_image(id) {
 }
 
 init();
-
 
 
 /***/ }),
