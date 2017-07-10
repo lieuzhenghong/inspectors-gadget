@@ -7566,16 +7566,15 @@ function export_image(e) {
   const max_y = IMAGE.height;
   let ratio = 1;
 
-  if (max_x > working_width || max_y > working_height) {
-    let xratio = working_width / max_x;
-    let yratio = working_height / max_y; 
-    ratio = Math.min(xratio, yratio);
-  }
+  let xratio = working_width / max_x;
+  let yratio = working_height / max_y; 
+  ratio = Math.min(xratio, yratio);
 
   const x_offset = (export_canvas.width - max_x * ratio) / 2;
   const y_offset = (export_canvas.height - max_y * ratio) / 2;
 
-  let temp_labels = LABELS;
+  // make a deep copy of LABELS so as not to mutate it
+  let temp_labels = JSON.parse(JSON.stringify(LABELS));
   temp_labels.map( (label) => { 
     label.x = label.x * ratio + x_offset;
     label.y = label.y * ratio + y_offset;
