@@ -103,7 +103,8 @@ class Canvas {
   }
 
   handle_scroll(e) {
-    e.deltaY > 0 ? this.zoom_in(1.01) : this.zoom_out(1.01);
+    console.log(deltaY);
+    e.deltaY < 0 ? this.zoom_in(1.03) : this.zoom_out(1.03);
     this.draw_canvas(); 
   }
 }

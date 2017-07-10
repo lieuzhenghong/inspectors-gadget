@@ -7492,9 +7492,6 @@ function export_image(e) {
   // canvas
   let x_ratio = working_height / globals.CVS.image.height;
   let y_ratio = working_width / globals.CVS.image.width;
-  
-  x_ratio = 1;
-  y_ratio = 1;
 
   temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, x_ratio, y_ratio); });
   globals.CVS.draw_overlay(export_canvas, ctx, x_ratio, y_ratio);
@@ -18698,7 +18695,8 @@ class Canvas {
   }
 
   handle_scroll(e) {
-    e.deltaY > 0 ? this.zoom_in(1.01) : this.zoom_out(1.01);
+    console.log(deltaY);
+    e.deltaY < 0 ? this.zoom_in(1.03) : this.zoom_out(1.03);
     this.draw_canvas(); 
   }
 }
