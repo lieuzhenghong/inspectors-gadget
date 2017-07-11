@@ -41,7 +41,6 @@ nav li {
 .wrapper {
   height: 100%;
   display: flex;
-  justify-content: space-between;
 }
 
 .col1, .col2 {
@@ -125,8 +124,13 @@ table a:hover {
   border: 2px solid black;
 }
 
+.edit-bar {
+}
+
 .nav {
   font-size: 30px;
+  width: 80px;
+  height: 80px;
   display: inline-block;
   border: 2px solid black;
   padding: 10px;
@@ -139,3 +143,4 @@ table a:hover {
 .nav:hover {
   background-color: rgba(240, 220, 200, 1);
 }
+
