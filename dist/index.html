@@ -1,50 +1,103 @@
 <!DOCTYPE html>
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+<script src='https://unpkg.com/vue'></script>
 <body>
 <div class = 'wrapper'>
 
-<nav>
-  <ul>
-    <li>1
-    <li>2
-  <ul>
-</nav>
+  <nav>
+    <ul>
+      <li v-on:click='show'>1
+      <li v-on:click='hide'>2</li>
+    <ul>
+  </nav>
 
-<div class='col1'>
-  <div class = 'canvas-wrapper'>
-    <canvas id = 'c'>
-    </canvas>
-    <div class = 'edit-bar'>
-      <button id='left' class = 'nav' >◀</button>
-      <button id='up' class = 'nav'>▲</button>
-      <button id='down' class = 'nav'>▼</button>
-      <button id='right' class = 'nav'>▶</button>
-      <button id='zoom-in' class = 'nav'>+</button>
-      <button id='zoom-out' class = 'nav'>−</button>
+  <div class = 'page-1' v-show='seen'>
+    <div class='col1'>
+      <div class = 'canvas-wrapper'>
+        <canvas id = 'c' v-on:mousedown='handle_mousedown($event)' width='800' height='566'>
+        </canvas>
+        <!--
+        <div class = 'edit-bar'>
+          <button id='left' class = 'nav' >◀</button>
+          <button id='up' class = 'nav'>▲</button>
+          <button id='down' class = 'nav'>▼</button>
+          <button id='right' class = 'nav'>▶</button>
+          <button id='zoom-in' class = 'nav'>+</button>
+          <button id='zoom-out' class = 'nav'>−</button>
+        </div>
+        -->
+      </div>
+      <div class = 'button-wrapper'>
+        <input cLass='button' type='file' id='plan-upload' accept='image/*'
+        capture='camera' v-on:change="upload_plan($event.target.files)">
+        <label for='plan-upload'>Upload plan</label>
+        <input class='button' type='file' id='batch-upload' accept='image/*'
+        multiple v-on:change="upload_images($event.target.files)">
+        <label for='batch-upload'>Import images</label>
+        <a download='' v-on:click='export_image($event.target)' id='image-export'
+        class='label'>Export plan</a>
+      </div>
     </div>
-  </div>
-  <div class = 'button-wrapper'>
-    <input cLass='button' type='file' id='plan-upload' accept='image/*'
-     capture='camera'>
-    <label for='plan-upload'>Upload plan</label>
-    <input class='button' type='file' id='batch-upload' accept='image/*'
-    multiple>
-    <label for='batch-upload'>Import images</label>
-    <a download='' id='image-export' class='label'>Export plan</a>
-  </div>
-</div>
-<div class='col2'>
-  <img id='img-preview' src="./assets/placeholder.png" height="300" width="400">
-  <div class = 'table-wrapper'>
-  <table id = 'tag-tables'>
-    <tbody>
-    </tbody>
-  </table>
-  </div>
-</div>
-</div>
 
-<div class = 'hidden'>
+
+    <div class='col2'>
+      <img id='img-preview' 
+        v-bind:src="preview_src"
+        height="300"
+        width="400">
+        <div class = 'table-wrapper'>
+          <table id = 'tag-tables'>
+            <tbody>
+              <template v-for='(label, index) in labels'>
+                <tr v-on:mouseover='handle_mouseover(label, index)'>
+                  <td> {{label.id}} </td>
+                  <td 
+                    v-on:click='edit_label_name($event.target)'
+                    class='editable'>
+                    {{label.title}}
+                  </td> 
+                  <td> {{label.image.name}} </td>
+                  <td v-on:click='toggle_defect(label)'> {{label.defect}} </td>
+                  <td>
+                    <a class='editable' v-on:click='delete_row(label)'> X
+                    </a>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+  </div>
+
+  <div class = 'page-2' v-show='!seen'>
+    <table id = 'export-table'>
+      <thead>
+        <th>Label name</th>
+        <th>Defect level</th>
+        <th>Image</th>
+      </thead>
+      <tbody>
+        <template v-for='(label,index) in labels'>
+          <tr>
+            <td>{{label.title}}</td> 
+            <td class='.editable' v-on:click='toggle_defect(label)'>
+              {{label.defect == 0 ? 'No defect' : label.defect ==
+              1 ? 'Non-structural' : Structural}}
+            </td>
+            <td>
+              <img width='400px' height='300px'
+                v-bind:src='label.image_src'
+              />
+              <br>
+              <input v-model='label.caption' />
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
 </div>
 
 <script src="bundle.js"></script>

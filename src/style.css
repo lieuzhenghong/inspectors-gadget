@@ -35,10 +35,17 @@ nav li {
 }
 
 .hidden {
+  /*
   display: none;
+  */
 }
 
 .wrapper {
+  height: 100%;
+  display: flex;
+}
+
+.page-1 {
   height: 100%;
   display: flex;
 }
@@ -56,43 +63,6 @@ nav li {
 .col2 {
   width: 400px;
  }
-
-.table-wrapper {
-}
-
-table, tr, td {
-  width: 400px;
-  font-family: monospace;
-  text-align: center;
-  border-collapse: collapse;
-  border: 1px solid black;
-}
-
-thead {
-  display: block;
-}
-
-tbody {
-  display: block;
-  height: 468px;
-  max-height: 468px;
-  overflow-y:scroll;
-}
-
-tr:hover {
-  background-color: rgba(200, 200, 200, 1);
-}
-td .editable {
-  text-decoration: underline; 
-}
-table a {
-  text-align: center;
-  color: red;
-  text-decoration: underline;
-}
-table a:hover {
-  cursor: pointer;
-}
 
 
 .button {

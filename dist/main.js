@@ -10,6 +10,7 @@ const fs = require('fs')
 
 //Module for main-renderer communications
 const ipcMain = electron.ipcMain
+const dialog = electron.dialog
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -67,11 +68,17 @@ global.data = {
   exportedImage: null
 }
 
-// How to call this?
 ipcMain.on('export_image', (e, arg) => {
   console.log(arg);
-  fs.writeFile('floor_plan.png', arg, (err) => {
-    if (err) throw err
-    e.sender.send('export_image', 'File exported to floor_plan.png.');
-  });
+  dialog.showSaveDialog({defaultPath: 'floor_plan.png'}, function(filename) {
+    if (filename === undefined) {
+      e.sender.send('export_image', `Could not save file.`)
+    }
+    else {
+      fs.writeFile(`${filename}`, arg, (err) => {
+        if (err) throw err
+        e.sender.send('export_image', `File exported as ${filename}.`)
+      })
+    }
+  })
 })

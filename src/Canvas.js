@@ -11,13 +11,11 @@ class Canvas {
 
   draw_label(label, ctx=this.context, draw_ratio=1) {
     if (label.x !== null && label.y !== null) {
-      console.log(draw_ratio);
       let font_size = 60 / (draw_ratio);
       ctx.textAlign = 'center';
       ctx.font = `${font_size}px sans-serif`;
       const wid = ctx.measureText(label.title).width;
       const ht = font_size;
-      console.log(font_size, wid, ht);
       if (label.defect === 0) { ctx.fillStyle = 'rgba(0, 200, 0, 0.8)'; }
       else if (label.defect === 1) { ctx.fillStyle = 'rgba(255, 200, 0, 0.9)'; }
       else { ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; }
@@ -40,19 +38,19 @@ class Canvas {
     }
   }
 
-  draw_overlay(c=this.canvas, ctx=this.context) {
+  draw_overlay(c=this.canvas, ctx=this.context,
+    text=`Building ${this.globals_.BUILDING} Level ${this.globals_.FLOOR}`) {
     // Clear the transform to draw the overlay
 
-    let ht = c.height/15;
-    let font_size = c.height/30;
+    let ht = c.height/20;
+    let font_size = c.height/35;
     ctx.setTransform.apply(ctx, [1, 0, 0, 1, 0, 0]);
-    ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+    ctx.fillStyle = 'rgba(220, 220, 220, 0.9)';
     ctx.fillRect(0, c.height-ht, c.width, ht);
     ctx.fillStyle = 'rgba(0, 0, 0, 1)';
     ctx.font = `${font_size}px sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    let text = `Building ${this.globals_.BUILDING} ${this.globals_.FLOOR}`;
     let textwidth = this.context.measureText(text).width;
     ctx.fillText(text, c.width/2,
                   c.height-ht/2);

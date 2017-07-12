@@ -6,12 +6,15 @@ import core from 'mathjs/core';
 let math = core.create();
 math.import(require('mathjs/lib/type/matrix'));
 math.import(require('mathjs/lib/function/matrix'));
+
 import './style.css';
+import './tag-tables.css';
+import './export-table.css';
 import './vex.css';
 import './vex-theme-flat-attack.css';
 
-import vex from 'vex-js';
-vex.registerPlugin(require('vex-dialog'));
+
+import vex from 'vex-js'; vex.registerPlugin(require('vex-dialog'));
 vex.defaultOptions.className = 'vex-theme-flat-attack';
 
 const _ = {
@@ -33,18 +36,18 @@ const Canvas_Helper = require('./Canvas');
 
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0,
-  image) {
+  src, image) {
     this.id = id;
     this.x = x;
     this.y = y;
     this.title = title;
     this.caption = caption;
     this.defect = defect;
+    this.image_src = src;
     this.image = image;
   }
 
   toggle_defect() {
-    console.log('hello');
     this.defect = (this.defect + 1) % 3;
     globals.CVS.draw_canvas();
   }
@@ -59,13 +62,53 @@ let globals = {
   CVS : null
 };
 
+let vue = new Vue({
+  el: '.wrapper',
+  data: {
+    seen: true,
+    labels: globals.LABELS,
+    preview_src: './assets/placeholder.png'
+  },
+  methods: {
+    show: function() {
+      this.seen = true;
+    },
+    hide: function() {
+      this.seen = false;
+    },
+    upload_plan: function(files) {
+      console.log(files);
+      upload_plan(files);
+    },
+    upload_images: function(files) {
+      upload_images(files);
+    },
+    export_image: function(file) {
+      export_image(file);
+    },
+
+    // The following functions are for the tables
+    toggle_defect: function(label) {
+      label.toggle_defect();
+    },
+    edit_label_name: function(e_target) {
+      edit_name(e_target)
+    },
+    handle_mousedown: function(e) {
+      handle_mousedown(e);
+    },
+    handle_mouseover: function(label, index) {
+       this.preview_src = label.image_src; 
+    },
+    delete_row: function(label) {
+      delete_row(label.id) 
+    }
+  }
+})
+
 function init() {
   // Set canvas dimensions
   let canvas = document.getElementById('c');
-  canvas.width = 1000;
-  canvas.height = Math.round(1000/Math.sqrt(2));
-  document.getElementById('c').addEventListener('mousedown', handle_mousedown,
-  false); 
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
   let ctx = document.getElementById('c').getContext('2d');
@@ -85,101 +128,12 @@ function init() {
     else if (e.keyCode === 39) { globals.CVS.pan_right(50); }
     else if (e.keyCode === 40) { globals.CVS.pan_down(50); }
   };
-  document.getElementById('plan-upload').addEventListener('change', (e) => {
-    return upload_plan(e.target.files);
-  });
-  document.getElementById('batch-upload').addEventListener('change', (e) => {
-    return upload_images(e.target.files);
-  });
-  document.getElementById('image-export').addEventListener('click', (e) => {
-    return export_image(e.target);
-  });
-  document.getElementById('left').addEventListener('click', () => {
-      globals.CVS.pan_left(50);
-    });
-  document.getElementById('right').addEventListener('click', () => {
-    globals.CVS.pan_right(50);
-    });
-  document.getElementById('up').addEventListener('click', () => {
-    globals.CVS.pan_up(50);
-    });
-  document.getElementById('down').addEventListener('click', () => {
-    globals.CVS.pan_down(50);
-    });
-  document.getElementById('zoom-in').addEventListener('click', () => {
-    globals.CVS.zoom_in(1.1);
-    });
-  document.getElementById('zoom-out').addEventListener('click', () => {
-    globals.CVS.zoom_out(1.1);
-    });
   // Handling the reply when we send the exported floor plan
   electron.ipcRenderer.on('export_image', (e, args) => {
     vex.dialog.alert(args);
   })
 }
 
-
-function upload_images(file_list) {
-  // FileList has no method map nor forEach
-  for (let i = 0; i < file_list.length; i++) {
-    globals.LABELS.push(new Label(
-      globals.ID,
-      null,
-      null, 
-      globals.BUILDING + globals.FLOOR + '-' + (globals.ID).toString(),
-      '',
-      0,
-      file_list[i]
-    ));
-    globals.ID++;
-  }
-  globals.CVS.draw_canvas();
-  draw_table(globals.LABELS);
-}
-
-function update_labels(labels) {
-  labels.map( (label) => {
-    label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
-  })
-}
-
-function insert_row(label, tbody){
-  function display_defect_emoji(img, defect) {
-    if (defect === 0) { img.src = './assets/green_heart.png'; }
-    else if (defect === 1) { img.src = './assets/yellow_diam.png'; }
-    else { img.src = './assets/red_exclam.png'; }
-  }
-  const row = tbody.insertRow();
-  row.id = label.id;
-  row.addEventListener('mouseover', () => { return(preview_image(row.id)); });
-  const c0 = row.insertCell(0);
-  const c1 = row.insertCell(1);
-  const c2 = row.insertCell(2);
-  const c3 = row.insertCell(3);
-  const c4 = row.insertCell(4);
-  c1.addEventListener('click', edit_name);
-  c0.innerHTML = label.id;
-  c1.innerHTML = `<span class='editable'>${label.title}</span>`;
-  c2.innerHTML = label.image.name;
-  c3.innerHTML = `<img src="./assets/green_heart.png" height="32px">`;
-  const img = c3.querySelector('img');
-  display_defect_emoji(img, label.defect);
-  img.addEventListener('click', () => {
-    label.toggle_defect();
-    display_defect_emoji(img, label.defect);
-  });
-  c4.innerHTML = '<a>X</a>';
-  c4.addEventListener('click', () => {return delete_row(label.id); });
-}
-
-function draw_table(labels){
-  const old_tbody = document.querySelector('tbody');
-  const tbody = document.createElement('tbody');
-  labels.map((label) => {
-    return insert_row(label, tbody);
-  });
-  old_tbody.parentNode.replaceChild(tbody, old_tbody);
-}
 
 function edit_name(e) {
   vex.dialog.open({
@@ -193,7 +147,7 @@ function edit_name(e) {
         const label = _.find_id(id);
         label.title = val.toString();
         globals.CVS.draw_canvas();
-        draw_table(globals.LABELS);
+        //draw_table(globals.LABELS);
       }
     }
   });
@@ -202,11 +156,29 @@ function edit_name(e) {
 function delete_row(id) {
   _.remove_id(parseInt(id));
   globals.CVS.draw_canvas();
-  draw_table(globals.LABELS);
+  //draw_table(globals.LABELS);
 }
 
 
 function handle_mousedown(evt) {
+  /*
+  let math = {
+    reshape: (m, dim) => {
+      let n = [];
+      for (let y = 0; y < (dim[0]); y++) {
+        let row = [];
+        for (let x = 0; x < (dim[1]); x++) {
+           row.push(m[y*x]); 
+        }
+        n.push(row)
+      }
+      return n
+    },
+    inv: (m) => {
+      return m
+    }
+  }
+  */
   // Matrix multiplication of affine transformation vector and mouse 
   // vector. Augmentation is required: see
   // https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
@@ -267,19 +239,47 @@ function upload_plan(file_list) {
         "<input name='floor' type='number' placeholder='Floor'/>",
       ].join(''),
       callback: (data) => {
-        console.log(data);
         globals.CVS.image = img
         globals.BUILDING = data.letter;
         globals.FLOOR = data.floor;
         update_labels(globals.LABELS);
         globals.CVS.draw_canvas();
-        draw_table(globals.LABELS);
+        //draw_table(globals.LABELS);
         }
     })
   };
   img.src = URL.createObjectURL(plan_img);
 }
 
+function upload_images(file_list) {
+  // FileList has no method map nor forEach
+  for (let i = 0; i < file_list.length; i++) {
+    const file = file_list[i];
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      globals.LABELS.push(new Label(
+        globals.ID,
+        null,
+        null, 
+        globals.BUILDING + globals.FLOOR + '-' + (globals.ID).toString(),
+        '',
+        0,
+        reader.result,
+        file_list[i]
+      ));
+      globals.ID++;
+      globals.CVS.draw_canvas();
+      //draw_table(globals.LABELS);
+    });
+    reader.readAsDataURL(file);
+  }
+}
+
+function update_labels(labels) {
+  labels.map( (label) => {
+    label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
+  })
+}
 function export_image(e) {
   const export_canvas = document.createElement('canvas');
   export_canvas.height = 3000;
@@ -319,26 +319,22 @@ function export_image(e) {
   draw_ratio = 1;
 
   temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, draw_ratio); });
-  globals.CVS.draw_overlay(export_canvas, ctx);
-  let buffer = canvasBuffer(export_canvas, 'image/png');
-  electron.remote.getGlobal('data').exportedImage = buffer;
-  electron.ipcRenderer.send('export_image', buffer);
-
-  export_canvas.remove();
-}
-
-function preview_image(id) {
-  // I purposely declared load_placeholder as a separate rather than a
-  // anonymous function so that it would be clearer what the code did
-  function load_placeholder(e){
-    e.target.src = './assets/placeholder.png';
-  }
-  const file = _.find_id(parseInt(id)).image;
-  const img = document.getElementById('img-preview');
-  const reader = new FileReader();
-  img.addEventListener('error', load_placeholder);
-  reader.addEventListener("load", () => {  img.src = reader.result; });
-  reader.readAsDataURL(file);
+  vex.dialog.open({
+    message: 'Enter building overlay text',
+    input: "<input name='letter' type='text' placeholder='Building A Level 1'/>",
+    callback: (text) => {
+      if (text === undefined) {
+        globals.CVS.draw_overlay(export_canvas, ctx);
+      }
+      else {
+        globals.CVS.draw_overlay(export_canvas, ctx, text.letter);
+      }
+      let buffer = canvasBuffer(export_canvas, 'image/png');
+      electron.remote.getGlobal('data').exportedImage = buffer;
+      electron.ipcRenderer.send('export_image', buffer);
+      export_canvas.remove(); // Garbage collection
+    }
+  });
 }
 
 init();

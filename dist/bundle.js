@@ -950,7 +950,7 @@ exports.nearlyEqual = function(x, y, epsilon) {
 var number = __webpack_require__(2);
 var string = __webpack_require__(9);
 var object = __webpack_require__(1);
-var types = __webpack_require__(19);
+var types = __webpack_require__(21);
 
 var DimensionError = __webpack_require__(4);
 var IndexError = __webpack_require__(28);
@@ -1501,11 +1501,11 @@ module.exports = DimensionError;
 
 exports.array = __webpack_require__(3);
 exports['boolean'] = __webpack_require__(49);
-exports['function'] = __webpack_require__(11);
+exports['function'] = __webpack_require__(13);
 exports.number = __webpack_require__(2);
 exports.object = __webpack_require__(1);
 exports.string = __webpack_require__(9);
-exports.types = __webpack_require__(19);
+exports.types = __webpack_require__(21);
 exports.emitter = __webpack_require__(26);
 
 
@@ -1628,7 +1628,7 @@ exports.toSymbol = function (name, isUnit) {
 
 
 var nearlyEqual = __webpack_require__(2).nearlyEqual;
-var bigNearlyEqual = __webpack_require__(13);
+var bigNearlyEqual = __webpack_require__(15);
 
 function factory (type, config, load, typed) {
   
@@ -2084,6 +2084,447 @@ exports.factory = factory;
 /* 11 */
 /***/ (function(module, exports) {
 
+/*
+	MIT License http://www.opensource.org/licenses/mit-license.php
+	Author Tobias Koppers @sokra
+*/
+// css base code, injected by the css-loader
+module.exports = function(useSourceMap) {
+	var list = [];
+
+	// return the list of modules as css string
+	list.toString = function toString() {
+		return this.map(function (item) {
+			var content = cssWithMappingToString(item, useSourceMap);
+			if(item[2]) {
+				return "@media " + item[2] + "{" + content + "}";
+			} else {
+				return content;
+			}
+		}).join("");
+	};
+
+	// import a list of modules into the list
+	list.i = function(modules, mediaQuery) {
+		if(typeof modules === "string")
+			modules = [[null, modules, ""]];
+		var alreadyImportedModules = {};
+		for(var i = 0; i < this.length; i++) {
+			var id = this[i][0];
+			if(typeof id === "number")
+				alreadyImportedModules[id] = true;
+		}
+		for(i = 0; i < modules.length; i++) {
+			var item = modules[i];
+			// skip already imported module
+			// this implementation is not 100% perfect for weird media query combinations
+			//  when a module is imported multiple times with different media queries.
+			//  I hope this will never occur (Hey this way we have smaller bundles)
+			if(typeof item[0] !== "number" || !alreadyImportedModules[item[0]]) {
+				if(mediaQuery && !item[2]) {
+					item[2] = mediaQuery;
+				} else if(mediaQuery) {
+					item[2] = "(" + item[2] + ") and (" + mediaQuery + ")";
+				}
+				list.push(item);
+			}
+		}
+	};
+	return list;
+};
+
+function cssWithMappingToString(item, useSourceMap) {
+	var content = item[1] || '';
+	var cssMapping = item[3];
+	if (!cssMapping) {
+		return content;
+	}
+
+	if (useSourceMap && typeof btoa === 'function') {
+		var sourceMapping = toComment(cssMapping);
+		var sourceURLs = cssMapping.sources.map(function (source) {
+			return '/*# sourceURL=' + cssMapping.sourceRoot + source + ' */'
+		});
+
+		return [content].concat(sourceURLs).concat([sourceMapping]).join('\n');
+	}
+
+	return [content].join('\n');
+}
+
+// Adapted from convert-source-map (MIT)
+function toComment(sourceMap) {
+	// eslint-disable-next-line no-undef
+	var base64 = btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap))));
+	var data = 'sourceMappingURL=data:application/json;charset=utf-8;base64,' + base64;
+
+	return '/*# ' + data + ' */';
+}
+
+
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/*
+	MIT License http://www.opensource.org/licenses/mit-license.php
+	Author Tobias Koppers @sokra
+*/
+
+var stylesInDom = {};
+
+var	memoize = function (fn) {
+	var memo;
+
+	return function () {
+		if (typeof memo === "undefined") memo = fn.apply(this, arguments);
+		return memo;
+	};
+};
+
+var isOldIE = memoize(function () {
+	// Test for IE <= 9 as proposed by Browserhacks
+	// @see http://browserhacks.com/#hack-e71d8692f65334173fee715c222cb805
+	// Tests for existence of standard globals is to allow style-loader
+	// to operate correctly into non-standard environments
+	// @see https://github.com/webpack-contrib/style-loader/issues/177
+	return window && document && document.all && !window.atob;
+});
+
+var getElement = (function (fn) {
+	var memo = {};
+
+	return function(selector) {
+		if (typeof memo[selector] === "undefined") {
+			memo[selector] = fn.call(this, selector);
+		}
+
+		return memo[selector]
+	};
+})(function (target) {
+	return document.querySelector(target)
+});
+
+var singleton = null;
+var	singletonCounter = 0;
+var	stylesInsertedAtTop = [];
+
+var	fixUrls = __webpack_require__(91);
+
+module.exports = function(list, options) {
+	if (typeof DEBUG !== "undefined" && DEBUG) {
+		if (typeof document !== "object") throw new Error("The style-loader cannot be used in a non-browser environment");
+	}
+
+	options = options || {};
+
+	options.attrs = typeof options.attrs === "object" ? options.attrs : {};
+
+	// Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
+	// tags it will allow on a page
+	if (!options.singleton) options.singleton = isOldIE();
+
+	// By default, add <style> tags to the <head> element
+	if (!options.insertInto) options.insertInto = "head";
+
+	// By default, add <style> tags to the bottom of the target
+	if (!options.insertAt) options.insertAt = "bottom";
+
+	var styles = listToStyles(list, options);
+
+	addStylesToDom(styles, options);
+
+	return function update (newList) {
+		var mayRemove = [];
+
+		for (var i = 0; i < styles.length; i++) {
+			var item = styles[i];
+			var domStyle = stylesInDom[item.id];
+
+			domStyle.refs--;
+			mayRemove.push(domStyle);
+		}
+
+		if(newList) {
+			var newStyles = listToStyles(newList, options);
+			addStylesToDom(newStyles, options);
+		}
+
+		for (var i = 0; i < mayRemove.length; i++) {
+			var domStyle = mayRemove[i];
+
+			if(domStyle.refs === 0) {
+				for (var j = 0; j < domStyle.parts.length; j++) domStyle.parts[j]();
+
+				delete stylesInDom[domStyle.id];
+			}
+		}
+	};
+};
+
+function addStylesToDom (styles, options) {
+	for (var i = 0; i < styles.length; i++) {
+		var item = styles[i];
+		var domStyle = stylesInDom[item.id];
+
+		if(domStyle) {
+			domStyle.refs++;
+
+			for(var j = 0; j < domStyle.parts.length; j++) {
+				domStyle.parts[j](item.parts[j]);
+			}
+
+			for(; j < item.parts.length; j++) {
+				domStyle.parts.push(addStyle(item.parts[j], options));
+			}
+		} else {
+			var parts = [];
+
+			for(var j = 0; j < item.parts.length; j++) {
+				parts.push(addStyle(item.parts[j], options));
+			}
+
+			stylesInDom[item.id] = {id: item.id, refs: 1, parts: parts};
+		}
+	}
+}
+
+function listToStyles (list, options) {
+	var styles = [];
+	var newStyles = {};
+
+	for (var i = 0; i < list.length; i++) {
+		var item = list[i];
+		var id = options.base ? item[0] + options.base : item[0];
+		var css = item[1];
+		var media = item[2];
+		var sourceMap = item[3];
+		var part = {css: css, media: media, sourceMap: sourceMap};
+
+		if(!newStyles[id]) styles.push(newStyles[id] = {id: id, parts: [part]});
+		else newStyles[id].parts.push(part);
+	}
+
+	return styles;
+}
+
+function insertStyleElement (options, style) {
+	var target = getElement(options.insertInto)
+
+	if (!target) {
+		throw new Error("Couldn't find a style target. This probably means that the value for the 'insertInto' parameter is invalid.");
+	}
+
+	var lastStyleElementInsertedAtTop = stylesInsertedAtTop[stylesInsertedAtTop.length - 1];
+
+	if (options.insertAt === "top") {
+		if (!lastStyleElementInsertedAtTop) {
+			target.insertBefore(style, target.firstChild);
+		} else if (lastStyleElementInsertedAtTop.nextSibling) {
+			target.insertBefore(style, lastStyleElementInsertedAtTop.nextSibling);
+		} else {
+			target.appendChild(style);
+		}
+		stylesInsertedAtTop.push(style);
+	} else if (options.insertAt === "bottom") {
+		target.appendChild(style);
+	} else {
+		throw new Error("Invalid value for parameter 'insertAt'. Must be 'top' or 'bottom'.");
+	}
+}
+
+function removeStyleElement (style) {
+	if (style.parentNode === null) return false;
+	style.parentNode.removeChild(style);
+
+	var idx = stylesInsertedAtTop.indexOf(style);
+	if(idx >= 0) {
+		stylesInsertedAtTop.splice(idx, 1);
+	}
+}
+
+function createStyleElement (options) {
+	var style = document.createElement("style");
+
+	options.attrs.type = "text/css";
+
+	addAttrs(style, options.attrs);
+	insertStyleElement(options, style);
+
+	return style;
+}
+
+function createLinkElement (options) {
+	var link = document.createElement("link");
+
+	options.attrs.type = "text/css";
+	options.attrs.rel = "stylesheet";
+
+	addAttrs(link, options.attrs);
+	insertStyleElement(options, link);
+
+	return link;
+}
+
+function addAttrs (el, attrs) {
+	Object.keys(attrs).forEach(function (key) {
+		el.setAttribute(key, attrs[key]);
+	});
+}
+
+function addStyle (obj, options) {
+	var style, update, remove, result;
+
+	// If a transform function was defined, run it on the css
+	if (options.transform && obj.css) {
+	    result = options.transform(obj.css);
+
+	    if (result) {
+	    	// If transform returns a value, use that instead of the original css.
+	    	// This allows running runtime transformations on the css.
+	    	obj.css = result;
+	    } else {
+	    	// If the transform function returns a falsy value, don't add this css.
+	    	// This allows conditional loading of css
+	    	return function() {
+	    		// noop
+	    	};
+	    }
+	}
+
+	if (options.singleton) {
+		var styleIndex = singletonCounter++;
+
+		style = singleton || (singleton = createStyleElement(options));
+
+		update = applyToSingletonTag.bind(null, style, styleIndex, false);
+		remove = applyToSingletonTag.bind(null, style, styleIndex, true);
+
+	} else if (
+		obj.sourceMap &&
+		typeof URL === "function" &&
+		typeof URL.createObjectURL === "function" &&
+		typeof URL.revokeObjectURL === "function" &&
+		typeof Blob === "function" &&
+		typeof btoa === "function"
+	) {
+		style = createLinkElement(options);
+		update = updateLink.bind(null, style, options);
+		remove = function () {
+			removeStyleElement(style);
+
+			if(style.href) URL.revokeObjectURL(style.href);
+		};
+	} else {
+		style = createStyleElement(options);
+		update = applyToTag.bind(null, style);
+		remove = function () {
+			removeStyleElement(style);
+		};
+	}
+
+	update(obj);
+
+	return function updateStyle (newObj) {
+		if (newObj) {
+			if (
+				newObj.css === obj.css &&
+				newObj.media === obj.media &&
+				newObj.sourceMap === obj.sourceMap
+			) {
+				return;
+			}
+
+			update(obj = newObj);
+		} else {
+			remove();
+		}
+	};
+}
+
+var replaceText = (function () {
+	var textStore = [];
+
+	return function (index, replacement) {
+		textStore[index] = replacement;
+
+		return textStore.filter(Boolean).join('\n');
+	};
+})();
+
+function applyToSingletonTag (style, index, remove, obj) {
+	var css = remove ? "" : obj.css;
+
+	if (style.styleSheet) {
+		style.styleSheet.cssText = replaceText(index, css);
+	} else {
+		var cssNode = document.createTextNode(css);
+		var childNodes = style.childNodes;
+
+		if (childNodes[index]) style.removeChild(childNodes[index]);
+
+		if (childNodes.length) {
+			style.insertBefore(cssNode, childNodes[index]);
+		} else {
+			style.appendChild(cssNode);
+		}
+	}
+}
+
+function applyToTag (style, obj) {
+	var css = obj.css;
+	var media = obj.media;
+
+	if(media) {
+		style.setAttribute("media", media)
+	}
+
+	if(style.styleSheet) {
+		style.styleSheet.cssText = css;
+	} else {
+		while(style.firstChild) {
+			style.removeChild(style.firstChild);
+		}
+
+		style.appendChild(document.createTextNode(css));
+	}
+}
+
+function updateLink (link, options, obj) {
+	var css = obj.css;
+	var sourceMap = obj.sourceMap;
+
+	/*
+		If convertToAbsoluteUrls isn't defined, but sourcemaps are enabled
+		and there is no publicPath defined then lets turn convertToAbsoluteUrls
+		on by default.  Otherwise default to the convertToAbsoluteUrls option
+		directly
+	*/
+	var autoFixUrls = options.convertToAbsoluteUrls === undefined && sourceMap;
+
+	if (options.convertToAbsoluteUrls || autoFixUrls) {
+		css = fixUrls(css);
+	}
+
+	if (sourceMap) {
+		// http://stackoverflow.com/a/26603875
+		css += "\n/*# sourceMappingURL=data:application/json;base64," + btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))) + " */";
+	}
+
+	var blob = new Blob([css], { type: "text/css" });
+
+	var oldSrc = link.href;
+
+	link.href = URL.createObjectURL(blob);
+
+	if(oldSrc) URL.revokeObjectURL(oldSrc);
+}
+
+
+/***/ }),
+/* 13 */
+/***/ (function(module, exports) {
+
 // function utils
 
 /*
@@ -2132,7 +2573,7 @@ exports.maxArgumentCount = function (fn) {
 
 
 /***/ }),
-/* 12 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2270,7 +2711,7 @@ exports.isPlainObject = isPlainObject;
 
 
 /***/ }),
-/* 13 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2322,7 +2763,7 @@ module.exports = function nearlyEqual(x, y, epsilon) {
 
 
 /***/ }),
-/* 14 */
+/* 16 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2333,7 +2774,7 @@ var extend = __webpack_require__(1).extend;
 function factory (type, config, load, typed) {
 
   var matrix = load(__webpack_require__(0));
-  var addScalar = load(__webpack_require__(15));
+  var addScalar = load(__webpack_require__(17));
   var latex = __webpack_require__(6);
   
   var algorithm01 = load(__webpack_require__(30));
@@ -2493,7 +2934,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 15 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2551,7 +2992,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 16 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2683,7 +3124,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 17 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2696,8 +3137,8 @@ function factory (type, config, load, typed) {
   var latex = __webpack_require__(6);
 
   var matrix = load(__webpack_require__(0));
-  var addScalar = load(__webpack_require__(15));
-  var multiplyScalar = load(__webpack_require__(22));
+  var addScalar = load(__webpack_require__(17));
+  var multiplyScalar = load(__webpack_require__(24));
   var equalScalar = load(__webpack_require__(7));
 
   var algorithm11 = load(__webpack_require__(64));
@@ -3660,7 +4101,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 18 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -3933,7 +4374,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 19 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -3984,7 +4425,7 @@ exports.type = function(x) {
 
 
 /***/ }),
-/* 20 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4101,7 +4542,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 21 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4178,7 +4619,7 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 22 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4242,22 +4683,22 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 23 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var nearlyEqual = __webpack_require__(2).nearlyEqual;
-var bigNearlyEqual = __webpack_require__(13);
+var bigNearlyEqual = __webpack_require__(15);
 
 function factory (type, config, load, typed) {
 
   var matrix = load(__webpack_require__(0));
 
-  var algorithm03 = load(__webpack_require__(16));
+  var algorithm03 = load(__webpack_require__(18));
   var algorithm05 = load(__webpack_require__(35));
-  var algorithm12 = load(__webpack_require__(20));
+  var algorithm12 = load(__webpack_require__(22));
   var algorithm13 = load(__webpack_require__(10));
   var algorithm14 = load(__webpack_require__(8));
   
@@ -4431,447 +4872,6 @@ exports.factory = factory;
 
 
 /***/ }),
-/* 24 */
-/***/ (function(module, exports) {
-
-/*
-	MIT License http://www.opensource.org/licenses/mit-license.php
-	Author Tobias Koppers @sokra
-*/
-// css base code, injected by the css-loader
-module.exports = function(useSourceMap) {
-	var list = [];
-
-	// return the list of modules as css string
-	list.toString = function toString() {
-		return this.map(function (item) {
-			var content = cssWithMappingToString(item, useSourceMap);
-			if(item[2]) {
-				return "@media " + item[2] + "{" + content + "}";
-			} else {
-				return content;
-			}
-		}).join("");
-	};
-
-	// import a list of modules into the list
-	list.i = function(modules, mediaQuery) {
-		if(typeof modules === "string")
-			modules = [[null, modules, ""]];
-		var alreadyImportedModules = {};
-		for(var i = 0; i < this.length; i++) {
-			var id = this[i][0];
-			if(typeof id === "number")
-				alreadyImportedModules[id] = true;
-		}
-		for(i = 0; i < modules.length; i++) {
-			var item = modules[i];
-			// skip already imported module
-			// this implementation is not 100% perfect for weird media query combinations
-			//  when a module is imported multiple times with different media queries.
-			//  I hope this will never occur (Hey this way we have smaller bundles)
-			if(typeof item[0] !== "number" || !alreadyImportedModules[item[0]]) {
-				if(mediaQuery && !item[2]) {
-					item[2] = mediaQuery;
-				} else if(mediaQuery) {
-					item[2] = "(" + item[2] + ") and (" + mediaQuery + ")";
-				}
-				list.push(item);
-			}
-		}
-	};
-	return list;
-};
-
-function cssWithMappingToString(item, useSourceMap) {
-	var content = item[1] || '';
-	var cssMapping = item[3];
-	if (!cssMapping) {
-		return content;
-	}
-
-	if (useSourceMap && typeof btoa === 'function') {
-		var sourceMapping = toComment(cssMapping);
-		var sourceURLs = cssMapping.sources.map(function (source) {
-			return '/*# sourceURL=' + cssMapping.sourceRoot + source + ' */'
-		});
-
-		return [content].concat(sourceURLs).concat([sourceMapping]).join('\n');
-	}
-
-	return [content].join('\n');
-}
-
-// Adapted from convert-source-map (MIT)
-function toComment(sourceMap) {
-	// eslint-disable-next-line no-undef
-	var base64 = btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap))));
-	var data = 'sourceMappingURL=data:application/json;charset=utf-8;base64,' + base64;
-
-	return '/*# ' + data + ' */';
-}
-
-
-/***/ }),
-/* 25 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/*
-	MIT License http://www.opensource.org/licenses/mit-license.php
-	Author Tobias Koppers @sokra
-*/
-
-var stylesInDom = {};
-
-var	memoize = function (fn) {
-	var memo;
-
-	return function () {
-		if (typeof memo === "undefined") memo = fn.apply(this, arguments);
-		return memo;
-	};
-};
-
-var isOldIE = memoize(function () {
-	// Test for IE <= 9 as proposed by Browserhacks
-	// @see http://browserhacks.com/#hack-e71d8692f65334173fee715c222cb805
-	// Tests for existence of standard globals is to allow style-loader
-	// to operate correctly into non-standard environments
-	// @see https://github.com/webpack-contrib/style-loader/issues/177
-	return window && document && document.all && !window.atob;
-});
-
-var getElement = (function (fn) {
-	var memo = {};
-
-	return function(selector) {
-		if (typeof memo[selector] === "undefined") {
-			memo[selector] = fn.call(this, selector);
-		}
-
-		return memo[selector]
-	};
-})(function (target) {
-	return document.querySelector(target)
-});
-
-var singleton = null;
-var	singletonCounter = 0;
-var	stylesInsertedAtTop = [];
-
-var	fixUrls = __webpack_require__(91);
-
-module.exports = function(list, options) {
-	if (typeof DEBUG !== "undefined" && DEBUG) {
-		if (typeof document !== "object") throw new Error("The style-loader cannot be used in a non-browser environment");
-	}
-
-	options = options || {};
-
-	options.attrs = typeof options.attrs === "object" ? options.attrs : {};
-
-	// Force single-tag solution on IE6-9, which has a hard limit on the # of <style>
-	// tags it will allow on a page
-	if (!options.singleton) options.singleton = isOldIE();
-
-	// By default, add <style> tags to the <head> element
-	if (!options.insertInto) options.insertInto = "head";
-
-	// By default, add <style> tags to the bottom of the target
-	if (!options.insertAt) options.insertAt = "bottom";
-
-	var styles = listToStyles(list, options);
-
-	addStylesToDom(styles, options);
-
-	return function update (newList) {
-		var mayRemove = [];
-
-		for (var i = 0; i < styles.length; i++) {
-			var item = styles[i];
-			var domStyle = stylesInDom[item.id];
-
-			domStyle.refs--;
-			mayRemove.push(domStyle);
-		}
-
-		if(newList) {
-			var newStyles = listToStyles(newList, options);
-			addStylesToDom(newStyles, options);
-		}
-
-		for (var i = 0; i < mayRemove.length; i++) {
-			var domStyle = mayRemove[i];
-
-			if(domStyle.refs === 0) {
-				for (var j = 0; j < domStyle.parts.length; j++) domStyle.parts[j]();
-
-				delete stylesInDom[domStyle.id];
-			}
-		}
-	};
-};
-
-function addStylesToDom (styles, options) {
-	for (var i = 0; i < styles.length; i++) {
-		var item = styles[i];
-		var domStyle = stylesInDom[item.id];
-
-		if(domStyle) {
-			domStyle.refs++;
-
-			for(var j = 0; j < domStyle.parts.length; j++) {
-				domStyle.parts[j](item.parts[j]);
-			}
-
-			for(; j < item.parts.length; j++) {
-				domStyle.parts.push(addStyle(item.parts[j], options));
-			}
-		} else {
-			var parts = [];
-
-			for(var j = 0; j < item.parts.length; j++) {
-				parts.push(addStyle(item.parts[j], options));
-			}
-
-			stylesInDom[item.id] = {id: item.id, refs: 1, parts: parts};
-		}
-	}
-}
-
-function listToStyles (list, options) {
-	var styles = [];
-	var newStyles = {};
-
-	for (var i = 0; i < list.length; i++) {
-		var item = list[i];
-		var id = options.base ? item[0] + options.base : item[0];
-		var css = item[1];
-		var media = item[2];
-		var sourceMap = item[3];
-		var part = {css: css, media: media, sourceMap: sourceMap};
-
-		if(!newStyles[id]) styles.push(newStyles[id] = {id: id, parts: [part]});
-		else newStyles[id].parts.push(part);
-	}
-
-	return styles;
-}
-
-function insertStyleElement (options, style) {
-	var target = getElement(options.insertInto)
-
-	if (!target) {
-		throw new Error("Couldn't find a style target. This probably means that the value for the 'insertInto' parameter is invalid.");
-	}
-
-	var lastStyleElementInsertedAtTop = stylesInsertedAtTop[stylesInsertedAtTop.length - 1];
-
-	if (options.insertAt === "top") {
-		if (!lastStyleElementInsertedAtTop) {
-			target.insertBefore(style, target.firstChild);
-		} else if (lastStyleElementInsertedAtTop.nextSibling) {
-			target.insertBefore(style, lastStyleElementInsertedAtTop.nextSibling);
-		} else {
-			target.appendChild(style);
-		}
-		stylesInsertedAtTop.push(style);
-	} else if (options.insertAt === "bottom") {
-		target.appendChild(style);
-	} else {
-		throw new Error("Invalid value for parameter 'insertAt'. Must be 'top' or 'bottom'.");
-	}
-}
-
-function removeStyleElement (style) {
-	if (style.parentNode === null) return false;
-	style.parentNode.removeChild(style);
-
-	var idx = stylesInsertedAtTop.indexOf(style);
-	if(idx >= 0) {
-		stylesInsertedAtTop.splice(idx, 1);
-	}
-}
-
-function createStyleElement (options) {
-	var style = document.createElement("style");
-
-	options.attrs.type = "text/css";
-
-	addAttrs(style, options.attrs);
-	insertStyleElement(options, style);
-
-	return style;
-}
-
-function createLinkElement (options) {
-	var link = document.createElement("link");
-
-	options.attrs.type = "text/css";
-	options.attrs.rel = "stylesheet";
-
-	addAttrs(link, options.attrs);
-	insertStyleElement(options, link);
-
-	return link;
-}
-
-function addAttrs (el, attrs) {
-	Object.keys(attrs).forEach(function (key) {
-		el.setAttribute(key, attrs[key]);
-	});
-}
-
-function addStyle (obj, options) {
-	var style, update, remove, result;
-
-	// If a transform function was defined, run it on the css
-	if (options.transform && obj.css) {
-	    result = options.transform(obj.css);
-
-	    if (result) {
-	    	// If transform returns a value, use that instead of the original css.
-	    	// This allows running runtime transformations on the css.
-	    	obj.css = result;
-	    } else {
-	    	// If the transform function returns a falsy value, don't add this css.
-	    	// This allows conditional loading of css
-	    	return function() {
-	    		// noop
-	    	};
-	    }
-	}
-
-	if (options.singleton) {
-		var styleIndex = singletonCounter++;
-
-		style = singleton || (singleton = createStyleElement(options));
-
-		update = applyToSingletonTag.bind(null, style, styleIndex, false);
-		remove = applyToSingletonTag.bind(null, style, styleIndex, true);
-
-	} else if (
-		obj.sourceMap &&
-		typeof URL === "function" &&
-		typeof URL.createObjectURL === "function" &&
-		typeof URL.revokeObjectURL === "function" &&
-		typeof Blob === "function" &&
-		typeof btoa === "function"
-	) {
-		style = createLinkElement(options);
-		update = updateLink.bind(null, style, options);
-		remove = function () {
-			removeStyleElement(style);
-
-			if(style.href) URL.revokeObjectURL(style.href);
-		};
-	} else {
-		style = createStyleElement(options);
-		update = applyToTag.bind(null, style);
-		remove = function () {
-			removeStyleElement(style);
-		};
-	}
-
-	update(obj);
-
-	return function updateStyle (newObj) {
-		if (newObj) {
-			if (
-				newObj.css === obj.css &&
-				newObj.media === obj.media &&
-				newObj.sourceMap === obj.sourceMap
-			) {
-				return;
-			}
-
-			update(obj = newObj);
-		} else {
-			remove();
-		}
-	};
-}
-
-var replaceText = (function () {
-	var textStore = [];
-
-	return function (index, replacement) {
-		textStore[index] = replacement;
-
-		return textStore.filter(Boolean).join('\n');
-	};
-})();
-
-function applyToSingletonTag (style, index, remove, obj) {
-	var css = remove ? "" : obj.css;
-
-	if (style.styleSheet) {
-		style.styleSheet.cssText = replaceText(index, css);
-	} else {
-		var cssNode = document.createTextNode(css);
-		var childNodes = style.childNodes;
-
-		if (childNodes[index]) style.removeChild(childNodes[index]);
-
-		if (childNodes.length) {
-			style.insertBefore(cssNode, childNodes[index]);
-		} else {
-			style.appendChild(cssNode);
-		}
-	}
-}
-
-function applyToTag (style, obj) {
-	var css = obj.css;
-	var media = obj.media;
-
-	if(media) {
-		style.setAttribute("media", media)
-	}
-
-	if(style.styleSheet) {
-		style.styleSheet.cssText = css;
-	} else {
-		while(style.firstChild) {
-			style.removeChild(style.firstChild);
-		}
-
-		style.appendChild(document.createTextNode(css));
-	}
-}
-
-function updateLink (link, options, obj) {
-	var css = obj.css;
-	var sourceMap = obj.sourceMap;
-
-	/*
-		If convertToAbsoluteUrls isn't defined, but sourcemaps are enabled
-		and there is no publicPath defined then lets turn convertToAbsoluteUrls
-		on by default.  Otherwise default to the convertToAbsoluteUrls option
-		directly
-	*/
-	var autoFixUrls = options.convertToAbsoluteUrls === undefined && sourceMap;
-
-	if (options.convertToAbsoluteUrls || autoFixUrls) {
-		css = fixUrls(css);
-	}
-
-	if (sourceMap) {
-		// http://stackoverflow.com/a/26603875
-		css += "\n/*# sourceMappingURL=data:application/json;base64," + btoa(unescape(encodeURIComponent(JSON.stringify(sourceMap)))) + " */";
-	}
-
-	var blob = new Blob([css], { type: "text/css" });
-
-	var oldSrc = link.href;
-
-	link.href = URL.createObjectURL(blob);
-
-	if(oldSrc) URL.revokeObjectURL(oldSrc);
-}
-
-
-/***/ }),
 /* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -4999,8 +4999,8 @@ module.exports = IndexError;
 
 var util = __webpack_require__(5);
 var DimensionError = __webpack_require__(4);
-var getSafeProperty = __webpack_require__(12).getSafeProperty;
-var setSafeProperty = __webpack_require__(12).setSafeProperty;
+var getSafeProperty = __webpack_require__(14).getSafeProperty;
+var setSafeProperty = __webpack_require__(14).setSafeProperty;
 
 var string = util.string;
 var array = util.array;
@@ -5015,7 +5015,7 @@ var isString = string.isString;
 var validateIndex = array.validateIndex;
 
 function factory (type, config, load, typed) {
-  var Matrix = load(__webpack_require__(18)); // force loading Matrix (do not use via type.Matrix)
+  var Matrix = load(__webpack_require__(20)); // force loading Matrix (do not use via type.Matrix)
 
   /**
    * Dense Matrix implementation. A regular, dense matrix, supporting multi-dimensional matrices. This is the default matrix type.
@@ -6127,15 +6127,15 @@ exports.factory = factory;
 
 
 var nearlyEqual = __webpack_require__(2).nearlyEqual;
-var bigNearlyEqual = __webpack_require__(13);
+var bigNearlyEqual = __webpack_require__(15);
 
 function factory (type, config, load, typed) {
 
   var matrix = load(__webpack_require__(0));
 
-  var algorithm03 = load(__webpack_require__(16));
+  var algorithm03 = load(__webpack_require__(18));
   var algorithm07 = load(__webpack_require__(33));
-  var algorithm12 = load(__webpack_require__(20));
+  var algorithm12 = load(__webpack_require__(22));
   var algorithm13 = load(__webpack_require__(10));
   var algorithm14 = load(__webpack_require__(8));
 
@@ -6449,11 +6449,11 @@ function factory (type, config, load, typed) {
   var latex = __webpack_require__(6);
 
   var matrix = load(__webpack_require__(0));
-  var addScalar = load(__webpack_require__(15));
-  var unaryMinus = load(__webpack_require__(21));
+  var addScalar = load(__webpack_require__(17));
+  var unaryMinus = load(__webpack_require__(23));
 
   var algorithm01 = load(__webpack_require__(30));
-  var algorithm03 = load(__webpack_require__(16));
+  var algorithm03 = load(__webpack_require__(18));
   var algorithm05 = load(__webpack_require__(35));
   var algorithm10 = load(__webpack_require__(31));
   var algorithm13 = load(__webpack_require__(10));
@@ -6838,10 +6838,10 @@ var string = util.string;
 
 function factory (type, config, load, typed) {
   var matrix = load(__webpack_require__(0));
-  var add = load(__webpack_require__(14));
+  var add = load(__webpack_require__(16));
   var subtract = load(__webpack_require__(34));
-  var multiply = load(__webpack_require__(17));
-  var unaryMinus = load(__webpack_require__(21));
+  var multiply = load(__webpack_require__(19));
+  var unaryMinus = load(__webpack_require__(23));
 
   /**
    * Calculate the determinant of a matrix.
@@ -7169,12 +7169,16 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_mathjs_core___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_mathjs_core__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__style_css__ = __webpack_require__(89);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__style_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__style_css__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__vex_css__ = __webpack_require__(92);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__vex_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2__vex_css__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__vex_theme_flat_attack_css__ = __webpack_require__(94);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__vex_theme_flat_attack_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3__vex_theme_flat_attack_css__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_vex_js__ = __webpack_require__(96);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_vex_js___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4_vex_js__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__tag_tables_css__ = __webpack_require__(92);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__tag_tables_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2__tag_tables_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__export_table_css__ = __webpack_require__(94);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__export_table_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3__export_table_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__vex_css__ = __webpack_require__(96);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__vex_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4__vex_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__vex_theme_flat_attack_css__ = __webpack_require__(98);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__vex_theme_flat_attack_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_5__vex_theme_flat_attack_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_vex_js__ = __webpack_require__(100);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_vex_js___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_6_vex_js__);
 
 /*jshint esversion: 6 */
 /* jshint node: true */
@@ -7188,8 +7192,11 @@ math.import(__webpack_require__(60));
 
 
 
-__WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.registerPlugin(__webpack_require__(97));
-__WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.defaultOptions.className = 'vex-theme-flat-attack';
+
+
+
+ __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.registerPlugin(__webpack_require__(101));
+__WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.defaultOptions.className = 'vex-theme-flat-attack';
 
 const _ = {
   find_id: function(id) {
@@ -7202,26 +7209,26 @@ const _ = {
   }
 };
 
-const canvasBuffer = __webpack_require__(98);
+const canvasBuffer = __webpack_require__(102);
 const electron = __webpack_require__(38);
 
 // My own imports
-const Canvas_Helper = __webpack_require__(99);
+const Canvas_Helper = __webpack_require__(103);
 
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0,
-  image) {
+  src, image) {
     this.id = id;
     this.x = x;
     this.y = y;
     this.title = title;
     this.caption = caption;
     this.defect = defect;
+    this.image_src = src;
     this.image = image;
   }
 
   toggle_defect() {
-    console.log('hello');
     this.defect = (this.defect + 1) % 3;
     globals.CVS.draw_canvas();
   }
@@ -7236,13 +7243,53 @@ let globals = {
   CVS : null
 };
 
+let vue = new Vue({
+  el: '.wrapper',
+  data: {
+    seen: true,
+    labels: globals.LABELS,
+    preview_src: './assets/placeholder.png'
+  },
+  methods: {
+    show: function() {
+      this.seen = true;
+    },
+    hide: function() {
+      this.seen = false;
+    },
+    upload_plan: function(files) {
+      console.log(files);
+      upload_plan(files);
+    },
+    upload_images: function(files) {
+      upload_images(files);
+    },
+    export_image: function(file) {
+      export_image(file);
+    },
+
+    // The following functions are for the tables
+    toggle_defect: function(label) {
+      label.toggle_defect();
+    },
+    edit_label_name: function(e_target) {
+      edit_name(e_target)
+    },
+    handle_mousedown: function(e) {
+      handle_mousedown(e);
+    },
+    handle_mouseover: function(label, index) {
+       this.preview_src = label.image_src; 
+    },
+    delete_row: function(label) {
+      delete_row(label.id) 
+    }
+  }
+})
+
 function init() {
   // Set canvas dimensions
   let canvas = document.getElementById('c');
-  canvas.width = 1000;
-  canvas.height = Math.round(1000/Math.sqrt(2));
-  document.getElementById('c').addEventListener('mousedown', handle_mousedown,
-  false); 
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
   let ctx = document.getElementById('c').getContext('2d');
@@ -7262,104 +7309,15 @@ function init() {
     else if (e.keyCode === 39) { globals.CVS.pan_right(50); }
     else if (e.keyCode === 40) { globals.CVS.pan_down(50); }
   };
-  document.getElementById('plan-upload').addEventListener('change', (e) => {
-    return upload_plan(e.target.files);
-  });
-  document.getElementById('batch-upload').addEventListener('change', (e) => {
-    return upload_images(e.target.files);
-  });
-  document.getElementById('image-export').addEventListener('click', (e) => {
-    return export_image(e.target);
-  });
-  document.getElementById('left').addEventListener('click', () => {
-      globals.CVS.pan_left(50);
-    });
-  document.getElementById('right').addEventListener('click', () => {
-    globals.CVS.pan_right(50);
-    });
-  document.getElementById('up').addEventListener('click', () => {
-    globals.CVS.pan_up(50);
-    });
-  document.getElementById('down').addEventListener('click', () => {
-    globals.CVS.pan_down(50);
-    });
-  document.getElementById('zoom-in').addEventListener('click', () => {
-    globals.CVS.zoom_in(1.1);
-    });
-  document.getElementById('zoom-out').addEventListener('click', () => {
-    globals.CVS.zoom_out(1.1);
-    });
   // Handling the reply when we send the exported floor plan
   electron.ipcRenderer.on('export_image', (e, args) => {
-    __WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.dialog.alert(args);
+    __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.dialog.alert(args);
   })
 }
 
-
-function upload_images(file_list) {
-  // FileList has no method map nor forEach
-  for (let i = 0; i < file_list.length; i++) {
-    globals.LABELS.push(new Label(
-      globals.ID,
-      null,
-      null, 
-      globals.BUILDING + globals.FLOOR + '-' + (globals.ID).toString(),
-      '',
-      0,
-      file_list[i]
-    ));
-    globals.ID++;
-  }
-  globals.CVS.draw_canvas();
-  draw_table(globals.LABELS);
-}
-
-function update_labels(labels) {
-  labels.map( (label) => {
-    label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
-  })
-}
-
-function insert_row(label, tbody){
-  function display_defect_emoji(img, defect) {
-    if (defect === 0) { img.src = './assets/green_heart.png'; }
-    else if (defect === 1) { img.src = './assets/yellow_diam.png'; }
-    else { img.src = './assets/red_exclam.png'; }
-  }
-  const row = tbody.insertRow();
-  row.id = label.id;
-  row.addEventListener('mouseover', () => { return(preview_image(row.id)); });
-  const c0 = row.insertCell(0);
-  const c1 = row.insertCell(1);
-  const c2 = row.insertCell(2);
-  const c3 = row.insertCell(3);
-  const c4 = row.insertCell(4);
-  c1.addEventListener('click', edit_name);
-  c0.innerHTML = label.id;
-  c1.innerHTML = `<span class='editable'>${label.title}</span>`;
-  c2.innerHTML = label.image.name;
-  c3.innerHTML = `<img src="./assets/green_heart.png" height="32px">`;
-  const img = c3.querySelector('img');
-  display_defect_emoji(img, label.defect);
-  img.addEventListener('click', () => {
-    label.toggle_defect();
-    display_defect_emoji(img, label.defect);
-  });
-  c4.innerHTML = '<a>X</a>';
-  c4.addEventListener('click', () => {return delete_row(label.id); });
-}
-
-function draw_table(labels){
-  const old_tbody = document.querySelector('tbody');
-  const tbody = document.createElement('tbody');
-  labels.map((label) => {
-    return insert_row(label, tbody);
-  });
-  old_tbody.parentNode.replaceChild(tbody, old_tbody);
-}
 
 function edit_name(e) {
-  __WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.dialog.open({
+  __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.dialog.open({
     message: 'Enter new name for label:',
     input: '<input type="text" name="label_name" placeholder="Label name"/>',
     callback: (val) => {
@@ -7370,7 +7328,7 @@ function edit_name(e) {
         const label = _.find_id(id);
         label.title = val.toString();
         globals.CVS.draw_canvas();
-        draw_table(globals.LABELS);
+        //draw_table(globals.LABELS);
       }
     }
   });
@@ -7379,11 +7337,29 @@ function edit_name(e) {
 function delete_row(id) {
   _.remove_id(parseInt(id));
   globals.CVS.draw_canvas();
-  draw_table(globals.LABELS);
+  //draw_table(globals.LABELS);
 }
 
 
 function handle_mousedown(evt) {
+  /*
+  let math = {
+    reshape: (m, dim) => {
+      let n = [];
+      for (let y = 0; y < (dim[0]); y++) {
+        let row = [];
+        for (let x = 0; x < (dim[1]); x++) {
+           row.push(m[y*x]); 
+        }
+        n.push(row)
+      }
+      return n
+    },
+    inv: (m) => {
+      return m
+    }
+  }
+  */
   // Matrix multiplication of affine transformation vector and mouse 
   // vector. Augmentation is required: see
   // https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
@@ -7404,7 +7380,7 @@ function handle_mousedown(evt) {
 
   // If right click, go to tag editing mode
   if (evt.button === 2 || evt.shiftKey) {
-    __WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.dialog.prompt({
+    __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.dialog.prompt({
       message: 'Enter ID of label: ',
       callback: (value) => {
         let label = _.find_id(parseInt(value));
@@ -7437,26 +7413,54 @@ function upload_plan(file_list) {
   const plan_img = file_list[0];
   let img = new Image();
   img.onload = () => {
-    __WEBPACK_IMPORTED_MODULE_4_vex_js___default.a.dialog.open({
+    __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.dialog.open({
       message: 'Enter building letter and floor',
       input: [
         "<input name='letter' type='text' placeholder='Letter'/>",
         "<input name='floor' type='number' placeholder='Floor'/>",
       ].join(''),
       callback: (data) => {
-        console.log(data);
         globals.CVS.image = img
         globals.BUILDING = data.letter;
         globals.FLOOR = data.floor;
         update_labels(globals.LABELS);
         globals.CVS.draw_canvas();
-        draw_table(globals.LABELS);
+        //draw_table(globals.LABELS);
         }
     })
   };
   img.src = URL.createObjectURL(plan_img);
 }
 
+function upload_images(file_list) {
+  // FileList has no method map nor forEach
+  for (let i = 0; i < file_list.length; i++) {
+    const file = file_list[i];
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      globals.LABELS.push(new Label(
+        globals.ID,
+        null,
+        null, 
+        globals.BUILDING + globals.FLOOR + '-' + (globals.ID).toString(),
+        '',
+        0,
+        reader.result,
+        file_list[i]
+      ));
+      globals.ID++;
+      globals.CVS.draw_canvas();
+      //draw_table(globals.LABELS);
+    });
+    reader.readAsDataURL(file);
+  }
+}
+
+function update_labels(labels) {
+  labels.map( (label) => {
+    label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
+  })
+}
 function export_image(e) {
   const export_canvas = document.createElement('canvas');
   export_canvas.height = 3000;
@@ -7496,26 +7500,22 @@ function export_image(e) {
   draw_ratio = 1;
 
   temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, draw_ratio); });
-  globals.CVS.draw_overlay(export_canvas, ctx);
-  let buffer = canvasBuffer(export_canvas, 'image/png');
-  electron.remote.getGlobal('data').exportedImage = buffer;
-  electron.ipcRenderer.send('export_image', buffer);
-
-  export_canvas.remove();
-}
-
-function preview_image(id) {
-  // I purposely declared load_placeholder as a separate rather than a
-  // anonymous function so that it would be clearer what the code did
-  function load_placeholder(e){
-    e.target.src = './assets/placeholder.png';
-  }
-  const file = _.find_id(parseInt(id)).image;
-  const img = document.getElementById('img-preview');
-  const reader = new FileReader();
-  img.addEventListener('error', load_placeholder);
-  reader.addEventListener("load", () => {  img.src = reader.result; });
-  reader.readAsDataURL(file);
+  __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.dialog.open({
+    message: 'Enter building overlay text',
+    input: "<input name='letter' type='text' placeholder='Building A Level 1'/>",
+    callback: (text) => {
+      if (text === undefined) {
+        globals.CVS.draw_overlay(export_canvas, ctx);
+      }
+      else {
+        globals.CVS.draw_overlay(export_canvas, ctx, text.letter);
+      }
+      let buffer = canvasBuffer(export_canvas, 'image/png');
+      electron.remote.getGlobal('data').exportedImage = buffer;
+      electron.ipcRenderer.send('export_image', buffer);
+      export_canvas.remove(); // Garbage collection
+    }
+  });
 }
 
 init();
@@ -9828,7 +9828,7 @@ exports.factory = factory;
 
 module.exports = [
   // types
-  __webpack_require__(18),
+  __webpack_require__(20),
   __webpack_require__(29),
   __webpack_require__(50),
   __webpack_require__(51),
@@ -10073,7 +10073,7 @@ var isString = string.isString;
 var validateIndex = array.validateIndex;
 
 function factory (type, config, load, typed) {
-  var Matrix = load(__webpack_require__(18)); // force loading Matrix (do not use via type.Matrix)
+  var Matrix = load(__webpack_require__(20)); // force loading Matrix (do not use via type.Matrix)
   var equalScalar = load(__webpack_require__(7));
 
   /**
@@ -11500,7 +11500,7 @@ exports.lazy = false;  // no lazy loading, as we alter type.Matrix._storage
 
 function factory (type, config, load) {
   
-  var add = load(__webpack_require__(14));
+  var add = load(__webpack_require__(16));
   var equalScalar = load(__webpack_require__(7));
   
   /**
@@ -12197,15 +12197,15 @@ exports.factory = factory;
 
 
 var nearlyEqual = __webpack_require__(2).nearlyEqual;
-var bigNearlyEqual = __webpack_require__(13);
+var bigNearlyEqual = __webpack_require__(15);
 
 function factory (type, config, load, typed) {
   
   var matrix = load(__webpack_require__(0));
 
-  var algorithm03 = load(__webpack_require__(16));
+  var algorithm03 = load(__webpack_require__(18));
   var algorithm07 = load(__webpack_require__(33));
-  var algorithm12 = load(__webpack_require__(20));
+  var algorithm12 = load(__webpack_require__(22));
   var algorithm13 = load(__webpack_require__(10));
   var algorithm14 = load(__webpack_require__(8));
 
@@ -13562,7 +13562,7 @@ var array = __webpack_require__(3);
 function factory (type, config, load, typed) {
   var matrix   = load(__webpack_require__(0));
   var subtract = load(__webpack_require__(34));
-  var multiply = load(__webpack_require__(17));
+  var multiply = load(__webpack_require__(19));
 
   /**
    * Calculate the cross product for two vectors in three dimensional space.
@@ -13993,8 +13993,8 @@ exports.factory = factory;
 var size = __webpack_require__(3).size;
 
 function factory (type, config, load, typed) {
-  var add      = load(__webpack_require__(14));
-  var multiply = load(__webpack_require__(17));
+  var add      = load(__webpack_require__(16));
+  var multiply = load(__webpack_require__(19));
 
   /**
    * Calculate the dot product of two vectors. The dot product of
@@ -14077,7 +14077,7 @@ exports.factory = factory;
 
 
 var size = __webpack_require__(3).size;
-var maxArgumentCount = __webpack_require__(11).maxArgumentCount;
+var maxArgumentCount = __webpack_require__(13).maxArgumentCount;
 
 function factory (type, config, load, typed) {
   var matrix = load(__webpack_require__(0));
@@ -14239,7 +14239,7 @@ exports.factory = factory;
 "use strict";
 
 
-var maxArgumentCount = __webpack_require__(11).maxArgumentCount;
+var maxArgumentCount = __webpack_require__(13).maxArgumentCount;
 
 function factory (type, config, load, typed) {
   /**
@@ -14327,9 +14327,9 @@ var util = __webpack_require__(5);
 function factory (type, config, load, typed) {
   var matrix       = load(__webpack_require__(0));
   var divideScalar = load(__webpack_require__(71));
-  var addScalar    = load(__webpack_require__(15));
-  var multiply     = load(__webpack_require__(17));
-  var unaryMinus   = load(__webpack_require__(21));
+  var addScalar    = load(__webpack_require__(17));
+  var multiply     = load(__webpack_require__(19));
+  var unaryMinus   = load(__webpack_require__(23));
   var det          = load(__webpack_require__(36));
   var eye          = load(__webpack_require__(37));
 
@@ -14537,7 +14537,7 @@ exports.factory = factory;
 
 
 function factory(type, config, load, typed) {
-  var multiplyScalar = load(__webpack_require__(22));
+  var multiplyScalar = load(__webpack_require__(24));
 
   /**
    * Divide two scalar values, `x / y`.
@@ -14606,7 +14606,7 @@ var size = __webpack_require__(3).size;
 
 function factory(type, config, load, typed) {
   var matrix = load(__webpack_require__(0));
-  var multiplyScalar = load(__webpack_require__(22))
+  var multiplyScalar = load(__webpack_require__(24))
     /**
      * Calculates the kronecker product of 2 matrices or vectors.
      *
@@ -14699,7 +14699,7 @@ exports.factory = factory;
 "use strict";
 
 
-var maxArgumentCount = __webpack_require__(11).maxArgumentCount;
+var maxArgumentCount = __webpack_require__(13).maxArgumentCount;
 
 function factory (type, config, load, typed) {
   /**
@@ -14929,7 +14929,7 @@ exports.factory = factory;
 var isInteger = __webpack_require__(2).isInteger;
 
 function factory (type, config, load, typed) {
-  var asc = load(__webpack_require__(23));
+  var asc = load(__webpack_require__(25));
   function desc(a, b) {
     return -asc(a, b);
   }
@@ -15647,7 +15647,7 @@ var size = __webpack_require__(3).size;
 
 function factory (type, config, load, typed) {
   var matrix = load(__webpack_require__(0));
-  var compareAsc = load(__webpack_require__(23));
+  var compareAsc = load(__webpack_require__(25));
   var compareDesc = function (a, b) {
     return -compareAsc(a, b);
   };
@@ -15779,7 +15779,7 @@ var naturalSort = __webpack_require__(82);
 function factory (type, config, load, typed) {
   var getTypeOf = load(__webpack_require__(83));
   var matrix = load(__webpack_require__(0));
-  var compare = load(__webpack_require__(23));
+  var compare = load(__webpack_require__(25));
 
   var compareBooleans = compare.signatures['boolean,boolean']
 
@@ -16098,7 +16098,7 @@ module.exports = function naturalSort (a, b) {
 "use strict";
 
 
-var types = __webpack_require__(19);
+var types = __webpack_require__(21);
 
 function factory (type, config, load, typed) {
   /**
@@ -16252,8 +16252,8 @@ exports.factory = factory;
 
 var clone = __webpack_require__(1).clone;
 var validateIndex = __webpack_require__(3).validateIndex;
-var getSafeProperty = __webpack_require__(12).getSafeProperty;
-var setSafeProperty = __webpack_require__(12).setSafeProperty;
+var getSafeProperty = __webpack_require__(14).getSafeProperty;
+var setSafeProperty = __webpack_require__(14).setSafeProperty;
 var DimensionError = __webpack_require__(4);
 
 function factory (type, config, load, typed) {
@@ -16496,7 +16496,7 @@ var format = __webpack_require__(9).format;
 function factory (type, config, load, typed) {
   
   var matrix = load(__webpack_require__(0));
-  var add = load(__webpack_require__(14));
+  var add = load(__webpack_require__(16));
 
   /**
    * Calculate the trace of a matrix: the sum of the elements on the main
@@ -16978,7 +16978,7 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(25)(content, options);
+var update = __webpack_require__(12)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
@@ -16998,12 +16998,12 @@ if(false) {
 /* 90 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(24)(undefined);
+exports = module.exports = __webpack_require__(11)(undefined);
 // imports
 
 
 // module
-exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black;\n    display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 80px;\n  background-color: rgba(200, 200, 200, 1);\n}\n\nnav li {\n  text-align: center;\n  font-size: 2rem;\n  border: 4px solid black;\n  border-radius: 0.5rem;\n  padding: 1rem;\n}\n\n.hidden {\n  display: none;\n}\n\n.wrapper {\n  height: 100%;\n  display: flex;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n.table-wrapper {\n}\n\ntable, tr, td {\n  width: 400px;\n  font-family: monospace;\n  text-align: center;\n  border-collapse: collapse;\n  border: 1px solid black;\n}\n\nthead {\n  display: block;\n}\n\ntbody {\n  display: block;\n  height: 468px;\n  max-height: 468px;\n  overflow-y:scroll;\n}\n\ntr:hover {\n  background-color: rgba(200, 200, 200, 1);\n}\ntd .editable {\n  text-decoration: underline; \n}\ntable a {\n  text-align: center;\n  color: red;\n  text-decoration: underline;\n}\ntable a:hover {\n  cursor: pointer;\n}\n\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n", ""]);
+exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black;\n    display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 80px;\n  background-color: rgba(200, 200, 200, 1);\n}\n\nnav li {\n  text-align: center;\n  font-size: 2rem;\n  border: 4px solid black;\n  border-radius: 0.5rem;\n  padding: 1rem;\n}\n\n.hidden {\n  /*\n  display: none;\n  */\n}\n\n.wrapper {\n  height: 100%;\n  display: flex;\n}\n\n.page-1 {\n  height: 100%;\n  display: flex;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n", ""]);
 
 // exports
 
@@ -17118,14 +17118,14 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(25)(content, options);
+var update = __webpack_require__(12)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
 	// When the styles change, update the <style> tags
 	if(!content.locals) {
-		module.hot.accept("!!../node_modules/css-loader/index.js!./vex.css", function() {
-			var newContent = require("!!../node_modules/css-loader/index.js!./vex.css");
+		module.hot.accept("!!../node_modules/css-loader/index.js!./tag-tables.css", function() {
+			var newContent = require("!!../node_modules/css-loader/index.js!./tag-tables.css");
 			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
 			update(newContent);
 		});
@@ -17138,12 +17138,12 @@ if(false) {
 /* 93 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(24)(undefined);
+exports = module.exports = __webpack_require__(11)(undefined);
 // imports
 
 
 // module
-exports.push([module.i, "@keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-webkit-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-moz-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-ms-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-o-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-webkit-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-moz-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-ms-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-o-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-webkit-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-moz-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-ms-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-o-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n.vex, .vex *, .vex *:before, .vex *:after {\n  -moz-box-sizing: border-box;\n  -webkit-box-sizing: border-box;\n  box-sizing: border-box; }\n\n.vex {\n  position: fixed;\n  overflow: auto;\n  -webkit-overflow-scrolling: touch;\n  z-index: 1111;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n\n.vex-scrollbar-measure {\n  position: absolute;\n  top: -9999px;\n  width: 50px;\n  height: 50px;\n  overflow: scroll; }\n\n.vex-overlay {\n  background: #000;\n  filter: alpha(opacity=40);\n  -ms-filter: \"progid:DXImageTransform.Microsoft.Alpha(Opacity=40)\"; }\n\n.vex-overlay {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  position: fixed;\n  background: rgba(0, 0, 0, 0.4);\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n  .vex.vex-closing .vex-overlay {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-content {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  background: #fff; }\n  .vex.vex-closing .vex-content {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-close:before {\n  font-family: Arial, sans-serif;\n  content: \"\\D7\"; }\n\n.vex-dialog-form {\n  margin: 0; }\n\n.vex-dialog-button {\n  text-rendering: optimizeLegibility;\n  -moz-appearance: none;\n  -webkit-appearance: none;\n  cursor: pointer;\n  -webkit-tap-highlight-color: transparent; }\n\n.vex-loading-spinner {\n  animation: vex-rotation 0.7s linear infinite;\n  -webkit-animation: vex-rotation 0.7s linear infinite;\n  -moz-animation: vex-rotation 0.7s linear infinite;\n  -ms-animation: vex-rotation 0.7s linear infinite;\n  -o-animation: vex-rotation 0.7s linear infinite;\n  -webkit-backface-visibility: hidden;\n  -moz-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  -webkit-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  position: fixed;\n  z-index: 1112;\n  margin: auto;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0;\n  height: 2em;\n  width: 2em;\n  background: #fff; }\n\nbody.vex-open {\n  overflow: hidden; }\n", ""]);
+exports.push([module.i, "#tag-tables,  #tag-tables tr, #tag-tables td {\n  width: 400px;\n  font-family: monospace;\n  text-align: center;\n  border-collapse: collapse;\n  border: 1px solid black;\n}\n\n#tag-tables thead {\n  display: block;\n}\n\n#tag-tables tbody {\n  display: block;\n  height: 468px;\n  max-height: 468px;\n  overflow-y:scroll;\n}\n\n#tag-tables tr:hover {\n  background-color: rgba(200, 200, 200, 1);\n}\n#tag-tables td .editable {\n  text-decoration: underline; \n}\n#tag-tables table a {\n  text-align: center;\n  color: red;\n  text-decoration: underline;\n}\n#tag-tables table a:hover {\n  cursor: pointer;\n}\n", ""]);
 
 // exports
 
@@ -17163,7 +17163,97 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(25)(content, options);
+var update = __webpack_require__(12)(content, options);
+if(content.locals) module.exports = content.locals;
+// Hot Module Replacement
+if(false) {
+	// When the styles change, update the <style> tags
+	if(!content.locals) {
+		module.hot.accept("!!../node_modules/css-loader/index.js!./export-table.css", function() {
+			var newContent = require("!!../node_modules/css-loader/index.js!./export-table.css");
+			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+			update(newContent);
+		});
+	}
+	// When the module is disposed, remove the <style> tags
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 95 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(11)(undefined);
+// imports
+
+
+// module
+exports.push([module.i, "#export-table, #export-table tr, #export-table td{\n  border: 1px solid black;\n  border-collapse: collapse;\n  text-align:center;\n}\n\n#export-table td input[type=\"text\"] {\n  width: 400px;\n}\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 96 */
+/***/ (function(module, exports, __webpack_require__) {
+
+// style-loader: Adds some css to the DOM by adding a <style> tag
+
+// load the styles
+var content = __webpack_require__(97);
+if(typeof content === 'string') content = [[module.i, content, '']];
+// Prepare cssTransformation
+var transform;
+
+var options = {}
+options.transform = transform
+// add the styles to the DOM
+var update = __webpack_require__(12)(content, options);
+if(content.locals) module.exports = content.locals;
+// Hot Module Replacement
+if(false) {
+	// When the styles change, update the <style> tags
+	if(!content.locals) {
+		module.hot.accept("!!../node_modules/css-loader/index.js!./vex.css", function() {
+			var newContent = require("!!../node_modules/css-loader/index.js!./vex.css");
+			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+			update(newContent);
+		});
+	}
+	// When the module is disposed, remove the <style> tags
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 97 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(11)(undefined);
+// imports
+
+
+// module
+exports.push([module.i, "@keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-webkit-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-moz-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-ms-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-o-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-webkit-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-moz-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-ms-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-o-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-webkit-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-moz-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-ms-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-o-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n.vex, .vex *, .vex *:before, .vex *:after {\n  -moz-box-sizing: border-box;\n  -webkit-box-sizing: border-box;\n  box-sizing: border-box; }\n\n.vex {\n  position: fixed;\n  overflow: auto;\n  -webkit-overflow-scrolling: touch;\n  z-index: 1111;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n\n.vex-scrollbar-measure {\n  position: absolute;\n  top: -9999px;\n  width: 50px;\n  height: 50px;\n  overflow: scroll; }\n\n.vex-overlay {\n  background: #000;\n  filter: alpha(opacity=40);\n  -ms-filter: \"progid:DXImageTransform.Microsoft.Alpha(Opacity=40)\"; }\n\n.vex-overlay {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  position: fixed;\n  background: rgba(0, 0, 0, 0.4);\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n  .vex.vex-closing .vex-overlay {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-content {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  background: #fff; }\n  .vex.vex-closing .vex-content {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-close:before {\n  font-family: Arial, sans-serif;\n  content: \"\\D7\"; }\n\n.vex-dialog-form {\n  margin: 0; }\n\n.vex-dialog-button {\n  text-rendering: optimizeLegibility;\n  -moz-appearance: none;\n  -webkit-appearance: none;\n  cursor: pointer;\n  -webkit-tap-highlight-color: transparent; }\n\n.vex-loading-spinner {\n  animation: vex-rotation 0.7s linear infinite;\n  -webkit-animation: vex-rotation 0.7s linear infinite;\n  -moz-animation: vex-rotation 0.7s linear infinite;\n  -ms-animation: vex-rotation 0.7s linear infinite;\n  -o-animation: vex-rotation 0.7s linear infinite;\n  -webkit-backface-visibility: hidden;\n  -moz-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  -webkit-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  position: fixed;\n  z-index: 1112;\n  margin: auto;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0;\n  height: 2em;\n  width: 2em;\n  background: #fff; }\n\nbody.vex-open {\n  overflow: hidden; }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 98 */
+/***/ (function(module, exports, __webpack_require__) {
+
+// style-loader: Adds some css to the DOM by adding a <style> tag
+
+// load the styles
+var content = __webpack_require__(99);
+if(typeof content === 'string') content = [[module.i, content, '']];
+// Prepare cssTransformation
+var transform;
+
+var options = {}
+options.transform = transform
+// add the styles to the DOM
+var update = __webpack_require__(12)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
@@ -17180,10 +17270,10 @@ if(false) {
 }
 
 /***/ }),
-/* 95 */
+/* 99 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(24)(undefined);
+exports = module.exports = __webpack_require__(11)(undefined);
 // imports
 
 
@@ -17194,7 +17284,7 @@ exports.push([module.i, "@keyframes vex-flipin-horizontal {\n  0% {\n    opacity
 
 
 /***/ }),
-/* 96 */
+/* 100 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var require;var require;(function(f){if(true){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.vex = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return require(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
@@ -17953,7 +18043,7 @@ module.exports = vex
 });
 
 /***/ }),
-/* 97 */
+/* 101 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var require;var require;(function(f){if(true){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.vexDialog = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return require(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
@@ -18563,7 +18653,7 @@ module.exports = plugin
 });
 
 /***/ }),
-/* 98 */
+/* 102 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var nativeImage = __webpack_require__(38).nativeImage
@@ -18589,7 +18679,7 @@ module.exports = function canvasBuffer (canvas, type, quality) {
 
 
 /***/ }),
-/* 99 */
+/* 103 */
 /***/ (function(module, exports) {
 
 class Canvas {
@@ -18605,13 +18695,11 @@ class Canvas {
 
   draw_label(label, ctx=this.context, draw_ratio=1) {
     if (label.x !== null && label.y !== null) {
-      console.log(draw_ratio);
       let font_size = 60 / (draw_ratio);
       ctx.textAlign = 'center';
       ctx.font = `${font_size}px sans-serif`;
       const wid = ctx.measureText(label.title).width;
       const ht = font_size;
-      console.log(font_size, wid, ht);
       if (label.defect === 0) { ctx.fillStyle = 'rgba(0, 200, 0, 0.8)'; }
       else if (label.defect === 1) { ctx.fillStyle = 'rgba(255, 200, 0, 0.9)'; }
       else { ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; }
@@ -18634,19 +18722,19 @@ class Canvas {
     }
   }
 
-  draw_overlay(c=this.canvas, ctx=this.context) {
+  draw_overlay(c=this.canvas, ctx=this.context,
+    text=`Building ${this.globals_.BUILDING} Level ${this.globals_.FLOOR}`) {
     // Clear the transform to draw the overlay
 
-    let ht = c.height/15;
-    let font_size = c.height/30;
+    let ht = c.height/20;
+    let font_size = c.height/35;
     ctx.setTransform.apply(ctx, [1, 0, 0, 1, 0, 0]);
-    ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+    ctx.fillStyle = 'rgba(220, 220, 220, 0.9)';
     ctx.fillRect(0, c.height-ht, c.width, ht);
     ctx.fillStyle = 'rgba(0, 0, 0, 1)';
     ctx.font = `${font_size}px sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    let text = `Building ${this.globals_.BUILDING} ${this.globals_.FLOOR}`;
     let textwidth = this.context.measureText(text).width;
     ctx.fillText(text, c.width/2,
                   c.height-ht/2);
