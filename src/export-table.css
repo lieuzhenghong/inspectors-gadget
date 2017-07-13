@@ -1,9 +1,34 @@
-#export-table, #export-table tr, #export-table td{
-  border: 1px solid black;
-  border-collapse: collapse;
-  text-align:center;
+.page-2 {
+  text-align: center;
+  width: 100%;
 }
 
-#export-table td input[type="text"] {
-  width: 400px;
+.export-table {
+  margin: 0 auto;
+  width: 1000px;
+  border: 1px solid black;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.export-table .component {
+  max-width: 450px;
+  width: 450px;
+  border: 2px solid black;
+  border-collapse: collapse;
+  display: flex;
+}
+
+.export-table .component .col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: 5px;
+}
+
+.page-break {
+  height: 50px;
+  width: 100%;
+  break-after: always;
 }

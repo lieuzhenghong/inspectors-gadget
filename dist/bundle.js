@@ -7251,6 +7251,10 @@ let vue = new Vue({
     preview_src: './assets/placeholder.png'
   },
   methods: {
+    defect_src: function (label) {
+      return (label.defect == 0 ? './assets/green_heart.png' : label.defect ===
+      1 ? './assets/yellow_diam.png' : './assets/red_exclam.png')
+    },
     show: function() {
       this.seen = true;
     },
@@ -7290,6 +7294,22 @@ let vue = new Vue({
 function init() {
   // Set canvas dimensions
   let canvas = document.getElementById('c');
+  console.log(window.innerWidth);
+  window.addEventListener('resize', () => {
+    console.log('called');
+    if (window.innerWidth === 1920) {
+      canvas.width = 1400;
+      canvas.height = 900;
+    }
+    else if (window.innerWidth > 1400) {
+      canvas.width = 1000;
+      canvas.height = 707;
+    }
+    else {
+      canvas.width = 800;
+      canvas.height = 566;
+    }
+  })
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
   let ctx = document.getElementById('c').getContext('2d');
@@ -17003,7 +17023,7 @@ exports = module.exports = __webpack_require__(11)(undefined);
 
 
 // module
-exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black;\n    display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 80px;\n  background-color: rgba(200, 200, 200, 1);\n}\n\nnav li {\n  text-align: center;\n  font-size: 2rem;\n  border: 4px solid black;\n  border-radius: 0.5rem;\n  padding: 1rem;\n}\n\n.hidden {\n  /*\n  display: none;\n  */\n}\n\n.wrapper {\n  height: 100%;\n  display: flex;\n}\n\n.page-1 {\n  height: 100%;\n  display: flex;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n", ""]);
+exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black;\n    display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 80px;\n  background-color: rgba(200, 200, 200, 1);\n}\n\nnav li {\n  text-align: center;\n  font-size: 2rem;\n  border: 4px solid black;\n  border-radius: 0.5rem;\n  padding: 1rem;\n}\n\n.hidden {\n  /*\n  display: none;\n  */\n}\n\n.wrapper {\n  height: 100%;\n  display: flex;\n}\n\n.page-1 {\n  width: 100%;\n  height: 100%;\n  display: flex;\n  justify-content: space-between;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n", ""]);
 
 // exports
 
@@ -17143,7 +17163,7 @@ exports = module.exports = __webpack_require__(11)(undefined);
 
 
 // module
-exports.push([module.i, "#tag-tables,  #tag-tables tr, #tag-tables td {\n  width: 400px;\n  font-family: monospace;\n  text-align: center;\n  border-collapse: collapse;\n  border: 1px solid black;\n}\n\n#tag-tables thead {\n  display: block;\n}\n\n#tag-tables tbody {\n  display: block;\n  height: 468px;\n  max-height: 468px;\n  overflow-y:scroll;\n}\n\n#tag-tables tr:hover {\n  background-color: rgba(200, 200, 200, 1);\n}\n#tag-tables td .editable {\n  text-decoration: underline; \n}\n#tag-tables table a {\n  text-align: center;\n  color: red;\n  text-decoration: underline;\n}\n#tag-tables table a:hover {\n  cursor: pointer;\n}\n", ""]);
+exports.push([module.i, "#tag-tables,  #tag-tables tr, #tag-tables td {\n  width: 400px;\n  font-family: monospace;\n  text-align: center;\n  border-collapse: collapse;\n  border: 1px solid black;\n}\n\n#tag-tables thead {\n  display: block;\n}\n\n#tag-tables tbody {\n  display: block;\n  height: 465px;\n  max-height: 465px;\n  overflow-y:scroll;\n}\n\n#tag-tables tr:hover {\n  background-color: rgba(200, 200, 200, 1);\n}\n#tag-tables td .editable {\n  text-decoration: underline; \n}\n#tag-tables table a {\n  text-align: center;\n  color: red;\n  text-decoration: underline;\n}\n#tag-tables table a:hover {\n  cursor: pointer;\n}\n", ""]);
 
 // exports
 
@@ -17188,7 +17208,7 @@ exports = module.exports = __webpack_require__(11)(undefined);
 
 
 // module
-exports.push([module.i, "#export-table, #export-table tr, #export-table td{\n  border: 1px solid black;\n  border-collapse: collapse;\n  text-align:center;\n}\n\n#export-table td input[type=\"text\"] {\n  width: 400px;\n}\n", ""]);
+exports.push([module.i, ".page-2 {\n  text-align: center;\n  width: 100%;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 1000px;\n  border: 1px solid black;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .component {\n  max-width: 450px;\n  width: 450px;\n  border: 2px solid black;\n  border-collapse: collapse;\n  display: flex;\n}\n\n.export-table .component .col {\n  display: flex;\n  flex-direction: column;\n  justify-content: space-around;\n  padding: 5px;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
 
 // exports
 

@@ -70,6 +70,10 @@ let vue = new Vue({
     preview_src: './assets/placeholder.png'
   },
   methods: {
+    defect_src: function (label) {
+      return (label.defect == 0 ? './assets/green_heart.png' : label.defect ===
+      1 ? './assets/yellow_diam.png' : './assets/red_exclam.png')
+    },
     show: function() {
       this.seen = true;
     },
@@ -109,6 +113,22 @@ let vue = new Vue({
 function init() {
   // Set canvas dimensions
   let canvas = document.getElementById('c');
+  console.log(window.innerWidth);
+  window.addEventListener('resize', () => {
+    console.log('called');
+    if (window.innerWidth === 1920) {
+      canvas.width = 1400;
+      canvas.height = 900;
+    }
+    else if (window.innerWidth > 1400) {
+      canvas.width = 1000;
+      canvas.height = 707;
+    }
+    else {
+      canvas.width = 800;
+      canvas.height = 566;
+    }
+  })
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
   let ctx = document.getElementById('c').getContext('2d');
