@@ -7422,6 +7422,7 @@ function handle_mousedown(evt) {
     const draw_ratio = globals.CVS.draw_ratio;
     // WARNING //
     const font_size = 60 / draw_ratio; 
+    // We must do that so that ctx.measureText can work
     globals.CVS.context.font = `${font_size}px sans-serif`;
     // Watch out: every time I tweak font size in Canvas.js, I need to change
     // this
@@ -7435,13 +7436,13 @@ function handle_mousedown(evt) {
       const uy = label.y - l_h/2;
       const rx = label.x + l_w + l_w/2;
       const ly = label.y + l_h/2;
-      console.log(lx, clicked_x, rx);
-      console.log(uy, clicked_y, ly);
+      //console.log(lx, clicked_x, rx);
+      //console.log(uy, clicked_y, ly);
       
       if (clicked_x > lx && clicked_x < rx && 
           clicked_y > uy && clicked_y < ly)
       {
-        console.log('Label found', label);
+        //console.log('Label found', label);
         vue._data.preview_src = label.image_src;
         new_label = false;
         break;
