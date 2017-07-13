@@ -11,6 +11,7 @@ class Canvas {
 
   draw_label(label, ctx=this.context, draw_ratio=1) {
     if (label.x !== null && label.y !== null) {
+      this.draw_ratio = draw_ratio;
       let font_size = 60 / (draw_ratio);
       ctx.textAlign = 'center';
       ctx.font = `${font_size}px sans-serif`;
