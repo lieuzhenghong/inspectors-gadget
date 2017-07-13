@@ -266,7 +266,6 @@ function handle_mousedown(evt) {
         new_label = false;
         break;
       }
-      console.log('No label found');
     }
   
     if (label !== undefined && new_label === true) {
