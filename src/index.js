@@ -13,7 +13,6 @@ import './export-table.css';
 import './vex.css';
 import './vex-theme-flat-attack.css';
 
-
 import vex from 'vex-js'; vex.registerPlugin(require('vex-dialog'));
 vex.defaultOptions.className = 'vex-theme-flat-attack';
 
@@ -37,6 +36,7 @@ const jsPDF = require('./jspdf.min');
 const html2canvas = require('./html2canvas.min');
 const html2pdf = require('./html2pdf');
 const htmlpdf = html2pdf(html2canvas, jsPDF);
+//const Vue = require('vue');
 
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0,
@@ -414,7 +414,7 @@ function export_image(e) {
 function export_table() {
   var element = document.getElementById('export-table');
   htmlpdf(element, {
-      margin:       1,
+      margin:       0,
       filename:     'export.pdf',
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { dpi: 192, letterRendering: true },

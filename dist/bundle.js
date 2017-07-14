@@ -7194,7 +7194,6 @@ math.import(__webpack_require__(60));
 
 
 
-
  __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.registerPlugin(__webpack_require__(101));
 __WEBPACK_IMPORTED_MODULE_6_vex_js___default.a.defaultOptions.className = 'vex-theme-flat-attack';
 
@@ -7218,6 +7217,7 @@ const jsPDF = __webpack_require__(104);
 const html2canvas = __webpack_require__(107);
 const html2pdf = __webpack_require__(108);
 const htmlpdf = html2pdf(html2canvas, jsPDF);
+//const Vue = require('vue');
 
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0,
@@ -7595,7 +7595,7 @@ function export_image(e) {
 function export_table() {
   var element = document.getElementById('export-table');
   htmlpdf(element, {
-      margin:       1,
+      margin:       0,
       filename:     'export.pdf',
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { dpi: 192, letterRendering: true },
@@ -17273,7 +17273,7 @@ exports = module.exports = __webpack_require__(11)(undefined);
 
 
 // module
-exports.push([module.i, ".page-2 {\n  text-align: center;\n  width: 100%;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 1000px;\n  border: 1px solid black;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .component {\n  max-width: 450px;\n  width: 450px;\n  border: 2px solid black;\n  border-collapse: collapse;\n  display: flex;\n}\n\n.export-table .component .col {\n  display: flex;\n  flex-direction: column;\n  justify-content: space-around;\n  padding: 5px;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
+exports.push([module.i, ".page-2 {\n  text-align: center;\n  width: 100%;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 16cm;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .export-title header{\n  display: block;\n  width: 16cm;\n  text-align: left;\n  font-size: 1.5rem;\n  font-weight: 700;\n  padding: 10px;\n}\n\n.export-table .component {\n  max-width: 7.9cm;\n  max-height: 6cm;\n  display: flex;\n  flex-wrap: wrap;\n  border: 1px solid black;\n  border-collapse: collapse;\n  box-sizing: border-box;\n  justify-content: space-around;\n}\n\n.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {\n  max-height: 6.5cm;\n}\n \n\n.export-table.component .title-bar {\n  width: 100%; \n}\n\n.export-table .component .col {\n  display: flex;\n  flex-direction: column;\n  min-width: 1.5cm;\n}\n\n\n.export-table .component .export-text {\n  max-width: 1.5cm;\n  text-align: center;\n  justify-content: space-around;\n}\n\n.component:nth-of-type(10n+2) .export-text, .component:nth-of-type(10n+3) .export-text {\n  justify-content: space-between;\n}\n\n\n.export-table .component .export-img {\n  justify-content: space-between;\n  max-width: 6.5cm;\n}\n\n.export-table .component .export-textarea {\n  width: 100%;\n  text-align: center;\n}\n\n.export-table .component textarea {\n  width: 7.5cm;\n  max-height: 1.5cm;\n  resize: none;\n  border: none;\n  font-size: 12px;\n}\n\n.export-table .component textarea:hover {\n  background-color: rgba(240, 240, 240, 1);\n  border: 1px solid black;\n}\n\n.export-table .component .col img {\n  max-width: 6.0cm;\n  max-height: 4.5cm;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
 
 // exports
 

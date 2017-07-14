@@ -5,26 +5,85 @@
 
 .export-table {
   margin: 0 auto;
-  width: 1000px;
-  border: 1px solid black;
+  width: 16cm;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
 }
 
+.export-table .export-title header{
+  display: block;
+  width: 16cm;
+  text-align: left;
+  font-size: 1.5rem;
+  font-weight: 700;
+  padding: 10px;
+}
+
 .export-table .component {
-  max-width: 450px;
-  width: 450px;
-  border: 2px solid black;
-  border-collapse: collapse;
+  max-width: 7.9cm;
+  max-height: 6cm;
   display: flex;
+  flex-wrap: wrap;
+  border: 1px solid black;
+  border-collapse: collapse;
+  box-sizing: border-box;
+  justify-content: space-around;
+}
+
+.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {
+  max-height: 6.5cm;
+}
+ 
+
+.export-table.component .title-bar {
+  width: 100%; 
 }
 
 .export-table .component .col {
   display: flex;
   flex-direction: column;
+  min-width: 1.5cm;
+}
+
+
+.export-table .component .export-text {
+  max-width: 1.5cm;
+  text-align: center;
   justify-content: space-around;
-  padding: 5px;
+}
+
+.component:nth-of-type(10n+2) .export-text, .component:nth-of-type(10n+3) .export-text {
+  justify-content: space-between;
+}
+
+
+.export-table .component .export-img {
+  justify-content: space-between;
+  max-width: 6.5cm;
+}
+
+.export-table .component .export-textarea {
+  width: 100%;
+  text-align: center;
+}
+
+.export-table .component textarea {
+  width: 7.5cm;
+  max-height: 1.5cm;
+  resize: none;
+  border: none;
+  font-size: 12px;
+}
+
+.export-table .component textarea:hover {
+  background-color: rgba(240, 240, 240, 1);
+  border: 1px solid black;
+}
+
+.export-table .component .col img {
+  max-width: 6.0cm;
+  max-height: 4.5cm;
 }
 
 .page-break {
