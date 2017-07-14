@@ -33,6 +33,10 @@ const electron = require('electron');
 
 // My own imports
 const Canvas_Helper = require('./Canvas');
+const jsPDF = require('./jspdf.min');
+const html2canvas = require('./html2canvas.min');
+const html2pdf = require('./html2pdf');
+const htmlpdf = html2pdf(html2canvas, jsPDF);
 
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0,
@@ -67,7 +71,7 @@ let vue = new Vue({
   data: {
     seen: true,
     labels: globals.LABELS,
-    preview_src: './assets/placeholder.png'
+    preview_src: './assets/placeholder.png',
   },
   methods: {
     defect_src: function (label) {
@@ -81,7 +85,7 @@ let vue = new Vue({
       this.seen = false;
     },
     upload_plan: function(files) {
-      console.log(files);
+      //console.log(files);
       upload_plan(files);
     },
     upload_images: function(files) {
@@ -89,6 +93,9 @@ let vue = new Vue({
     },
     export_image: function(file) {
       export_image(file);
+    },
+    export_table: function() {
+      export_table();
     },
 
     // The following functions are for the tables
@@ -113,9 +120,9 @@ let vue = new Vue({
 function init() {
   // Set canvas dimensions
   let canvas = document.getElementById('c');
-  console.log(window.innerWidth);
+  //console.log(window.innerWidth);
   window.addEventListener('resize', () => {
-    console.log('called');
+    //console.log('called');
     if (window.innerWidth === 1920) {
       canvas.width = 1400;
       canvas.height = 900;
@@ -300,8 +307,14 @@ function upload_plan(file_list) {
       ].join(''),
       callback: (data) => {
         globals.CVS.image = img
-        globals.BUILDING = data.letter;
-        globals.FLOOR = data.floor;
+        if (data === undefined) {
+          globals.BUILDING = A;
+          globals.FLOOR = 1;
+        }
+        else {
+          globals.BUILDING = data.letter;
+          globals.FLOOR = data.floor;
+        }
         update_labels(globals.LABELS);
         globals.CVS.draw_canvas();
         //draw_table(globals.LABELS);
@@ -395,6 +408,18 @@ function export_image(e) {
       export_canvas.remove(); // Garbage collection
     }
   });
+}
+
+
+function export_table() {
+  var element = document.getElementById('export-table');
+  htmlpdf(element, {
+      margin:       1,
+      filename:     'export.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { dpi: 192, letterRendering: true },
+      jsPDF:        { unit: 'in', format: 'A4', orientation: 'portrait' }
+    });
 }
 
 init();

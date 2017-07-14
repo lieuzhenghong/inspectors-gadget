@@ -82,3 +82,19 @@ ipcMain.on('export_image', (e, arg) => {
     }
   })
 })
+
+
+ipcMain.on('export_table', (e, arg) => {
+  console.log(arg);
+  dialog.showSaveDialog({defaultPath: 'table.html'}, function(filename) {
+    if (filename === undefined) {
+      e.sender.send('export_image', `Could not save file.`)
+    }
+    else {
+      fs.writeFile(`${filename}`, arg, (err) => {
+        if (err) throw err
+        e.sender.send('export_image', `File exported as ${filename}.`)
+      })
+    }
+  })
+})

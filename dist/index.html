@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+
 <script src='https://unpkg.com/vue'></script>
 <body>
 <div class = 'wrapper'>
@@ -36,6 +37,8 @@
         <label for='batch-upload'>Import images</label>
         <a download='' v-on:click='export_image($event.target)' id='image-export'
         class='label'>Export plan</a>
+        <a v-on:click='export_table()'  id='table-export'
+        class='label'>Export table</a>
       </div>
     </div>
 
@@ -72,37 +75,39 @@
             </tbody>
           </table>
         </div>
-      </div>
+    </div>
   </div>
 
   <div class = 'page-2' v-show='!seen'>
-    <div class = 'export-table'>
+    <div class = 'export-table' id='export-table'>
+      <template  v-for='(label, index) in labels'>
+        <div class = 'component'>
+          <div class = 'col'>
+            {{label.title}}
+            <br/>
+            <span class='.editable' v-on:click='toggle_defect(label)'>
+              <img v-bind:src='defect_src(label)' width='32px'>
+              {{ label.defect == 0 ? 'ND' : label.defect === 1 ?
+                'NS' : 'S'
+              }}
+            </span>
+          </div>
 
-    <template  v-for='(label, index) in labels'>
-      <div class = 'component'>
-        <div class = 'col'>
-          {{label.title}}
-          <br/>
-          <span class='.editable' v-on:click='toggle_defect(label)'>
-            <img v-bind:src='defect_src(label)' width='32px'>
-            {{ label.defect == 0 ? 'ND' : label.defect === 1 ?
-               'NS' : 'S'
-            }}
-          </span>
-        </div>
+          <div class = 'col'> 
+            <img width='400px' height='300px'
+              v-bind:src='label.image_src'
+            />
+            <br>
+            <textarea rows='3' v-model='label.caption'></textarea>
+          </div>
 
-        <div class = 'col'> 
-          <img width='400px' height='300px'
-            v-bind:src='label.image_src'
-          />
-          <br>
-          <textarea rows='3' v-model='label.caption'></textarea>
         </div>
+        <div v-if='(index+1) % 8 === 0' class="page-break"><hr></div>
+      </template>
     </div>
-    <div v-if='(index+1) % 8 === 0' class="page-break"><hr></div>
-    </template>
-
   </div>
+
 </div>
+</body>
 
 <script src="bundle.js"></script>
