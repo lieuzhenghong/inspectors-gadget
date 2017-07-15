@@ -1,6 +1,12 @@
 .page-2 {
   text-align: center;
-  width: 100%;
+}
+
+.A4-wrapper {
+  margin: 0 auto;
+  border: 1px solid black;
+  text-align: center;
+  width: 21cm;
 }
 
 .export-table {

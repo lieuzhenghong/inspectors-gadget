@@ -79,9 +79,13 @@ let vue = new Vue({
       1 ? './assets/non-structural.png' : './assets/structural.png')
     },
     show: function() {
+      document.getElementById('nav_page_1').className = 'active';
+      document.getElementById('nav_page_2').className = '';
       this.seen = true;
     },
     hide: function() {
+      document.getElementById('nav_page_1').className = '';
+      document.getElementById('nav_page_2').className = 'active';
       this.seen = false;
     },
     upload_plan: function(files) {

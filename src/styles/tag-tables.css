@@ -12,8 +12,8 @@
 
 #tag-tables tbody {
   display: block;
-  height: 465px;
-  max-height: 465px;
+  height: 425px;
+  max-height: 425px;
   overflow-y:scroll;
 }
 
@@ -23,11 +23,22 @@
 #tag-tables td .editable {
   text-decoration: underline; 
 }
-#tag-tables table a {
+
+#tag-tables td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#tag-tables a {
   text-align: center;
   color: red;
   text-decoration: underline;
 }
-#tag-tables table a:hover {
+
+#tag-tables a:hover {
+  cursor: pointer;
+}
+
+#tag-tables td img:hover {
   cursor: pointer;
 }

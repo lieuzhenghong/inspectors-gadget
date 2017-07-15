@@ -7,8 +7,8 @@
 
   <nav>
     <ul>
-      <li v-on:click='show'>1
-      <li v-on:click='hide'>2</li>
+      <li id='nav_page_1' class='active' v-on:click='show'>Tag floor plan</li>
+      <li id='nav_page_2' v-on:click='hide'>Generate report</li>
     <ul>
   </nav>
 
@@ -65,7 +65,7 @@
                     {{label.image.name}}
                   </td>
                   <td v-on:click='toggle_defect(label)'>
-                    <img v-bind:src='defect_src(label)' width='32px'>
+                    <img v-bind:src='defect_src(label)' width='30'>
                   </td>
                   <td>
                     <a class='editable' v-on:click='delete_row(label)'> X
@@ -79,38 +79,40 @@
   </div>
 
   <div class = 'page-2' v-show='!seen'>
-    <div class = 'export-table' id='export-table'>
-      <template v-for='(label, index) in labels'>
-      <div class='export-title' v-if='(index+1) % 8 === 1'>
-        <header>Site Surveyed Photos</header>
-      </div>
-        <div class = 'component'>
-          <div class = 'col export-text'>
-            <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>No.</div>
-            {{label.title}}
-            <br/>
-            <span class='.editable' v-on:click='toggle_defect(label)'>
-              <img v-bind:src='defect_src(label)' width='32px'>
-            </span>
-          </div>
-
-          <div class = 'col export-img'> 
-            <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>Photo description</div>
-            <img width='400px' height='300px'
-              v-bind:src='label.image_src'
-            />
-            <br>
-          </div>
-
-          <div class = 'export-textarea'>
-            <textarea rows='2' v-model='label.caption'></textarea>
-          </div>
-
+    <div class = 'A4-wrapper'>
+      <div class = 'export-table' id='export-table'>
+        <template v-for='(label, index) in labels'>
+        <div class='export-title' v-if='(index+1) % 8 === 1'>
+          <header>Site Surveyed Photos</header>
         </div>
-        <div v-if='(index+1) % 8 === 0' class="html2pdf__page-break"></div>      
-      </template>
+          <div class = 'component'>
+            <div class = 'col export-text'>
+              <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>No.</div>
+              {{label.title}}
+              <br/>
+              <span class='.editable' v-on:click='toggle_defect(label)'>
+                <img v-bind:src='defect_src(label)' width='32px'>
+              </span>
+            </div>
+
+            <div class = 'col export-img'> 
+              <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>Photo description</div>
+              <img width='400px' height='300px'
+                v-bind:src='label.image_src'
+              />
+              <br>
+            </div>
+
+            <div class = 'export-textarea'>
+              <textarea rows='2' v-model='label.caption'></textarea>
+            </div>
+
+          </div>
+          <div v-if='(index+1) % 8 === 0' class="html2pdf__page-break"></div>      
+        </template>
+      </div>
     </div>
-  </div>
+  <div>
 
 </div>
 </body>
