@@ -7,11 +7,11 @@ let math = core.create();
 math.import(require('mathjs/lib/type/matrix'));
 math.import(require('mathjs/lib/function/matrix'));
 
-import './style.css';
-import './tag-tables.css';
-import './export-table.css';
-import './vex.css';
-import './vex-theme-flat-attack.css';
+import './styles/style.css';
+import './styles/tag-tables.css';
+import './styles/export-table.css';
+import './styles/vex.css';
+import './styles/vex-theme-flat-attack.css';
 
 import vex from 'vex-js'; vex.registerPlugin(require('vex-dialog'));
 vex.defaultOptions.className = 'vex-theme-flat-attack';
@@ -29,14 +29,14 @@ const _ = {
 
 const canvasBuffer = require('electron-canvas-to-buffer');
 const electron = require('electron');
+import Vue from 'vue';
 
 // My own imports
-const Canvas_Helper = require('./Canvas');
-const jsPDF = require('./jspdf.min');
-const html2canvas = require('./html2canvas.min');
-const html2pdf = require('./html2pdf');
+const Canvas_Helper = require('./lib/Canvas');
+const jsPDF = require('./lib/jspdf.min');
+const html2canvas = require('./lib/html2canvas.min');
+const html2pdf = require('./lib/html2pdf');
 const htmlpdf = html2pdf(html2canvas, jsPDF);
-//const Vue = require('vue');
 
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0,
@@ -75,8 +75,8 @@ let vue = new Vue({
   },
   methods: {
     defect_src: function (label) {
-      return (label.defect == 0 ? './assets/green_heart.png' : label.defect ===
-      1 ? './assets/yellow_diam.png' : './assets/red_exclam.png')
+      return (label.defect == 0 ? './assets/no_defect.png' : label.defect ===
+      1 ? './assets/non-structural.png' : './assets/structural.png')
     },
     show: function() {
       this.seen = true;
