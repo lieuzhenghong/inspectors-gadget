@@ -7270,6 +7270,14 @@ let vue = new __WEBPACK_IMPORTED_MODULE_7_vue__["a" /* default */]({
       document.getElementById('nav_page_2').classList.add('active');
       this.seen = false;
     },
+    toggle: function() {
+      if (document.getElementById('nav_page_1').classList.contains('active')) {
+        this.hide();
+      }
+      else {
+        this.show();
+      }
+    },
     upload_plan: function(files) {
       //console.log(files);
       upload_plan(files);
@@ -7340,6 +7348,9 @@ function init() {
     else if (e.keyCode === 38) { globals.CVS.pan_up(50); }
     else if (e.keyCode === 39) { globals.CVS.pan_right(50); }
     else if (e.keyCode === 40) { globals.CVS.pan_down(50); }
+    else if (e.keyCode === 9 && globals.KEYS[17]) { //Control-Tab
+      vue.toggle();      
+    }
   };
   // Handling the reply when we send the exported floor plan
   electron.ipcRenderer.on('export_image', (e, args) => {
