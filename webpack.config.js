@@ -4,7 +4,7 @@ var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlug
 module.exports = {
   entry: './src/index.js',
   output: {
-    filename: 'bundle.js',
+    filename: 'renderer.js',
     path: path.resolve(__dirname, 'dist')
   },
   //plugins: [new BundleAnalyzerPlugin()],
