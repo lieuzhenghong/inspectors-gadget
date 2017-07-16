@@ -79,13 +79,13 @@ let vue = new Vue({
       1 ? './assets/non-structural.png' : './assets/structural.png')
     },
     show: function() {
-      document.getElementById('nav_page_1').className = 'active';
-      document.getElementById('nav_page_2').className = '';
+      document.getElementById('nav_page_1').classList.add('active');
+      document.getElementById('nav_page_2').classList.remove('active');
       this.seen = true;
     },
     hide: function() {
-      document.getElementById('nav_page_1').className = '';
-      document.getElementById('nav_page_2').className = 'active';
+      document.getElementById('nav_page_1').classList.remove('active');
+      document.getElementById('nav_page_2').classList.add('active');
       this.seen = false;
     },
     upload_plan: function(files) {
