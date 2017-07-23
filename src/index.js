@@ -74,6 +74,24 @@ let vue = new Vue({
     preview_src: './assets/placeholder.png',
   },
   methods: {
+    sort_data: function(sort_by) {
+      this.labels = this.labels.sort( (a,b) => {
+        if (typeof a[sort_by] === 'number') {
+          return (a[sort_by] - b[sort_by]);
+        }
+        else {
+          if (a[sort_by] > b[sort_by]) {
+            return 1;
+          }
+          else if (a[sort_by] < b[sort_by]) {
+            return -1;
+          }
+          else {
+            return 0
+          }
+        }
+       });
+    },
     defect_src: function (label) {
       return (label.defect == 0 ? './assets/no_defect.png' : label.defect ===
       1 ? './assets/non-structural.png' : './assets/structural.png')
@@ -341,6 +359,7 @@ function upload_plan(file_list) {
 
 function upload_images(file_list) {
   // FileList has no method map nor forEach
+  
   for (let i = 0; i < file_list.length; i++) {
     const file = file_list[i];
     const reader = new FileReader();
@@ -358,6 +377,28 @@ function upload_images(file_list) {
       globals.ID++;
       globals.CVS.draw_canvas();
       //draw_table(globals.LABELS);
+      
+      console.log(i);
+      if (i === file_list.length-1) { // All images have uploaded
+        // Sort all images in name order
+        globals.LABELS = globals.LABELS.sort( (a,b) => {
+          if (a.image.name > b.image.name) {
+            return 1;
+          }
+          else if (a.image.name < b.image.name) {
+            return -1;
+          }
+          else {
+            return 0;
+          }
+        });
+        // Reassign labels to match sort order
+        for (let j = 0; j < globals.LABELS.length; j++) {
+          globals.LABELS[j].id = j+1;
+        }
+        update_labels(globals.LABELS);
+      }
+
     });
     reader.readAsDataURL(file);
   }

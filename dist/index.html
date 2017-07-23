@@ -51,6 +51,13 @@
         <div class = 'table-wrapper'>
           <table id = 'tag-tables'>
             <tbody>
+              <tr>
+                <td v-on:click='sort_data("id")'>ID ⇕
+                <td>Title
+                <td>Filename
+                <td v-on:click='sort_data("defect")'>Defect ⇕
+                <td>X
+              </tr>
                 <tr
                   v-for='(label, index) in labels' 
                   v-on:mouseover='handle_mouseover(label, index)'>

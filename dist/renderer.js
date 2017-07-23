@@ -7256,6 +7256,25 @@ let vue = new __WEBPACK_IMPORTED_MODULE_7_vue__["a" /* default */]({
     preview_src: './assets/placeholder.png',
   },
   methods: {
+    sort_data: function(sort_by) {
+      this.labels = this.labels.sort( (a,b) => {
+        console.log('hi');
+        if (typeof a[sort_by] === 'number') {
+          return (a[sort_by] - b[sort_by]);
+        }
+        else {
+          if (a[sort_by] > b[sort_by]) {
+            return 1;
+          }
+          else if (a[sort_by] < b[sort_by]) {
+            return -1;
+          }
+          else {
+            return 0
+          }
+        }
+       });
+    },
     defect_src: function (label) {
       return (label.defect == 0 ? './assets/no_defect.png' : label.defect ===
       1 ? './assets/non-structural.png' : './assets/structural.png')
@@ -7523,6 +7542,7 @@ function upload_plan(file_list) {
 
 function upload_images(file_list) {
   // FileList has no method map nor forEach
+  
   for (let i = 0; i < file_list.length; i++) {
     const file = file_list[i];
     const reader = new FileReader();
@@ -7540,6 +7560,28 @@ function upload_images(file_list) {
       globals.ID++;
       globals.CVS.draw_canvas();
       //draw_table(globals.LABELS);
+      
+      console.log(i);
+      if (i === file_list.length-1) { // All images have uploaded
+        // Sort all images in name order
+        globals.LABELS = globals.LABELS.sort( (a,b) => {
+          if (a.image.name > b.image.name) {
+            return 1;
+          }
+          else if (a.image.name < b.image.name) {
+            return -1;
+          }
+          else {
+            return 0;
+          }
+        });
+        // Reassign labels to match sort order
+        for (let j = 0; j < globals.LABELS.length; j++) {
+          globals.LABELS[j].id = j+1;
+        }
+        update_labels(globals.LABELS);
+      }
+
     });
     reader.readAsDataURL(file);
   }
@@ -17289,7 +17331,7 @@ exports = module.exports = __webpack_require__(11)(undefined);
 
 
 // module
-exports.push([module.i, ".page-2 {\n  text-align: center;\n}\n\n.A4-wrapper {\n  margin: 0 auto;\n  border: 1px solid black;\n  text-align: center;\n  width: 21cm;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 16cm;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .export-title header{\n  display: block;\n  width: 16cm;\n  text-align: left;\n  font-size: 1.5rem;\n  font-weight: 700;\n  padding: 10px;\n}\n\n.export-table .component {\n  max-width: 7.9cm;\n  max-height: 6cm;\n  display: flex;\n  flex-wrap: wrap;\n  border: 1px solid black;\n  border-collapse: collapse;\n  box-sizing: border-box;\n  justify-content: space-around;\n}\n\n.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {\n  max-height: 6.5cm;\n}\n \n\n.export-table.component .title-bar {\n  width: 100%; \n}\n\n.export-table .component .col {\n  display: flex;\n  flex-direction: column;\n  min-width: 1.5cm;\n}\n\n\n.export-table .component .export-text {\n  max-width: 1.5cm;\n  text-align: center;\n  justify-content: space-around;\n}\n\n.component:nth-of-type(10n+2) .export-text, .component:nth-of-type(10n+3) .export-text {\n  justify-content: space-between;\n}\n\n\n.export-table .component .export-img {\n  justify-content: space-between;\n  max-width: 6.5cm;\n}\n\n.export-table .component .export-textarea {\n  width: 100%;\n  text-align: center;\n}\n\n.export-table .component textarea {\n  width: 7.5cm;\n  max-height: 1.5cm;\n  resize: none;\n  border: none;\n  font-size: 12px;\n}\n\n.export-table .component textarea:hover {\n  background-color: rgba(240, 240, 240, 1);\n  border: 1px solid black;\n}\n\n.export-table .component .col img {\n  max-width: 6.0cm;\n  max-height: 4.5cm;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
+exports.push([module.i, ".page-2 {\n  text-align: center;\n}\n\n.A4-wrapper {\n  margin: 0 auto;\n  border: 1px solid black;\n  text-align: center;\n  width: 21cm;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 16cm;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .export-title header{\n  display: block;\n  width: 16cm;\n  text-align: left;\n  font-size: 1.5rem;\n  font-weight: 700;\n  padding: 10px;\n}\n\n.export-table .component {\n  max-width: 7.9cm;\n  max-height: 6cm;\n  display: flex;\n  flex-wrap: wrap;\n  border: 1px solid black;\n  border-collapse: collapse;\n  box-sizing: border-box;\n  justify-content: space-around;\n}\n\n.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {\n  max-height: 6.5cm;\n}\n \n\n.export-table.component .title-bar {\n  width: 100%; \n}\n\n.export-table .component .col {\n  min-width: 1.5cm;\n}\n\n\n.export-table .component .export-text {\n  max-width: 1.5cm;\n  text-align: center;\n}\n\n.component:nth-of-type(10n+2) .export-text, .component:nth-of-type(10n+3) .export-text {\n}\n\n\n.export-table .component .export-img {\n  justify-content: space-between;\n  max-width: 6.5cm;\n}\n\n.export-table .component .export-textarea {\n  width: 100%;\n  text-align: center;\n}\n\n.export-table .component textarea {\n  width: 7.5cm;\n  max-height: 1.5cm;\n  resize: none;\n  border: none;\n  font-size: 12px;\n}\n\n.export-table .component textarea:hover {\n  background-color: rgba(240, 240, 240, 1);\n  border: 1px solid black;\n}\n\n.export-table .component .col img {\n  max-width: 6.0cm;\n  max-height: 4.5cm;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
 
 // exports
 
