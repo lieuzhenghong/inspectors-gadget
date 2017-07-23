@@ -339,10 +339,11 @@ function upload_plan(file_list) {
         "<input name='floor' type='number' placeholder='Floor'/>",
       ].join(''),
       callback: (data) => {
+        console.log(data);
         globals.CVS.image = img
-        if (data === undefined) {
-          globals.BUILDING = A;
-          globals.FLOOR = 1;
+        if (data === undefined || data === false) {
+          globals.BUILDING = 'A';
+          globals.FLOOR = '1';
         }
         else {
           globals.BUILDING = data.letter;

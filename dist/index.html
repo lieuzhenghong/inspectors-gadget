@@ -94,16 +94,21 @@
         </div>
           <div class = 'component'>
             <div class = 'col export-text'>
-              <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>No.</div>
-              {{label.title}}
-              <br/>
-              <span class='.editable' v-on:click='toggle_defect(label)'>
+              <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>
+                No.
+                <hr/>
+              </div>
+              <div class='label-title'> {{label.title}} </div>
+              <div class='editable defect-icon' v-on:click='toggle_defect(label)'>
                 <img v-bind:src='defect_src(label)' width='32px'>
-              </span>
+              </div>
             </div>
 
             <div class = 'col export-img'> 
-              <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>Photo description</div>
+              <div v-if='(index+1) % 8 == 2 || (index+1) % 8 == 1'>
+                Photo description
+                <hr/>
+              </div>
               <img width='400px' height='300px'
                 v-bind:src='label.image_src'
               />

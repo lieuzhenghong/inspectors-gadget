@@ -11,7 +11,7 @@
 
 .export-table {
   margin: 0 auto;
-  width: 16cm;
+  width: 20cm;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -19,7 +19,7 @@
 
 .export-table .export-title header{
   display: block;
-  width: 16cm;
+  width: 20cm;
   text-align: left;
   font-size: 1.5rem;
   font-weight: 700;
@@ -27,18 +27,18 @@
 }
 
 .export-table .component {
-  max-width: 7.9cm;
-  max-height: 6cm;
+  max-width: 10cm;
+  max-height: 7cm;
   display: flex;
   flex-wrap: wrap;
   border: 1px solid black;
   border-collapse: collapse;
   box-sizing: border-box;
-  justify-content: space-around;
+  justify-content: space-between;
 }
 
 .component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {
-  max-height: 6.5cm;
+  max-height: 7.5cm;
 }
  
 
@@ -47,8 +47,6 @@
 }
 
 .export-table .component .col {
-  display: flex;
-  flex-direction: column;
   min-width: 1.5cm;
 }
 
@@ -56,17 +54,25 @@
 .export-table .component .export-text {
   max-width: 1.5cm;
   text-align: center;
-  justify-content: space-around;
+  border-right: 1px solid black;
+  border-bottom: 1px solid black;
+  position: relative;
 }
 
-.component:nth-of-type(10n+2) .export-text, .component:nth-of-type(10n+3) .export-text {
-  justify-content: space-between;
+.export-table .component .export-text .label-title {
+  position: relative;
+  top: 20%;
 }
 
+.export-table .component .export-text .defect-icon {
+  position: relative;
+  top: 60%;
+}
 
 .export-table .component .export-img {
   justify-content: space-between;
-  max-width: 6.5cm;
+  max-width: 8.3cm;
+  width: 8.3cm;
 }
 
 .export-table .component .export-textarea {
@@ -75,11 +81,12 @@
 }
 
 .export-table .component textarea {
-  width: 7.5cm;
+  width: 90%;
   max-height: 1.5cm;
   resize: none;
   border: none;
   font-size: 12px;
+  font-family: sans-serif;
 }
 
 .export-table .component textarea:hover {
@@ -88,8 +95,8 @@
 }
 
 .export-table .component .col img {
-  max-width: 6.0cm;
-  max-height: 4.5cm;
+  max-width: 7.5cm;
+  max-height: 5.6cm;
 }
 
 .page-break {

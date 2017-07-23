@@ -7258,7 +7258,6 @@ let vue = new __WEBPACK_IMPORTED_MODULE_7_vue__["a" /* default */]({
   methods: {
     sort_data: function(sort_by) {
       this.labels = this.labels.sort( (a,b) => {
-        console.log('hi');
         if (typeof a[sort_by] === 'number') {
           return (a[sort_by] - b[sort_by]);
         }
@@ -7522,10 +7521,11 @@ function upload_plan(file_list) {
         "<input name='floor' type='number' placeholder='Floor'/>",
       ].join(''),
       callback: (data) => {
+        console.log(data);
         globals.CVS.image = img
-        if (data === undefined) {
-          globals.BUILDING = A;
-          globals.FLOOR = 1;
+        if (data === undefined || data === false) {
+          globals.BUILDING = 'A';
+          globals.FLOOR = '1';
         }
         else {
           globals.BUILDING = data.letter;
@@ -17331,7 +17331,7 @@ exports = module.exports = __webpack_require__(11)(undefined);
 
 
 // module
-exports.push([module.i, ".page-2 {\n  text-align: center;\n}\n\n.A4-wrapper {\n  margin: 0 auto;\n  border: 1px solid black;\n  text-align: center;\n  width: 21cm;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 16cm;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .export-title header{\n  display: block;\n  width: 16cm;\n  text-align: left;\n  font-size: 1.5rem;\n  font-weight: 700;\n  padding: 10px;\n}\n\n.export-table .component {\n  max-width: 7.9cm;\n  max-height: 6cm;\n  display: flex;\n  flex-wrap: wrap;\n  border: 1px solid black;\n  border-collapse: collapse;\n  box-sizing: border-box;\n  justify-content: space-around;\n}\n\n.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {\n  max-height: 6.5cm;\n}\n \n\n.export-table.component .title-bar {\n  width: 100%; \n}\n\n.export-table .component .col {\n  min-width: 1.5cm;\n}\n\n\n.export-table .component .export-text {\n  max-width: 1.5cm;\n  text-align: center;\n}\n\n.component:nth-of-type(10n+2) .export-text, .component:nth-of-type(10n+3) .export-text {\n}\n\n\n.export-table .component .export-img {\n  justify-content: space-between;\n  max-width: 6.5cm;\n}\n\n.export-table .component .export-textarea {\n  width: 100%;\n  text-align: center;\n}\n\n.export-table .component textarea {\n  width: 7.5cm;\n  max-height: 1.5cm;\n  resize: none;\n  border: none;\n  font-size: 12px;\n}\n\n.export-table .component textarea:hover {\n  background-color: rgba(240, 240, 240, 1);\n  border: 1px solid black;\n}\n\n.export-table .component .col img {\n  max-width: 6.0cm;\n  max-height: 4.5cm;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
+exports.push([module.i, ".page-2 {\n  text-align: center;\n}\n\n.A4-wrapper {\n  margin: 0 auto;\n  border: 1px solid black;\n  text-align: center;\n  width: 21cm;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 20cm;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .export-title header{\n  display: block;\n  width: 16cm;\n  text-align: left;\n  font-size: 1.5rem;\n  font-weight: 700;\n  padding: 10px;\n}\n\n.export-table .component {\n  max-width: 10cm;\n  max-height: 7cm;\n  display: flex;\n  flex-wrap: wrap;\n  border: 1px solid black;\n  border-collapse: collapse;\n  box-sizing: border-box;\n  justify-content: space-between;\n}\n\n.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {\n  max-height: 7.5cm;\n}\n \n\n.export-table.component .title-bar {\n  width: 100%; \n}\n\n.export-table .component .col {\n  min-width: 1.5cm;\n}\n\n\n.export-table .component .export-text {\n  max-width: 1.5cm;\n  text-align: center;\n  border-right: 1px solid black;\n  border-bottom: 1px solid black;\n  position: relative;\n}\n\n.export-table .component .export-text .label-title {\n  position: relative;\n  top: 20%;\n}\n\n.export-table .component .export-text .defect-icon {\n  position: relative;\n  top: 60%;\n}\n\n.export-table .component .export-img {\n  justify-content: space-between;\n  max-width: 8.3cm;\n  width: 8.3cm;\n}\n\n.export-table .component .export-textarea {\n  width: 100%;\n  text-align: center;\n}\n\n.export-table .component textarea {\n  width: 90%;\n  max-height: 1.5cm;\n  resize: none;\n  border: none;\n  font-size: 12px;\n  font-family: sans-serif;\n}\n\n.export-table .component textarea:hover {\n  background-color: rgba(240, 240, 240, 1);\n  border: 1px solid black;\n}\n\n.export-table .component .col img {\n  max-width: 7.5cm;\n  max-height: 5.6cm;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
 
 // exports
 
