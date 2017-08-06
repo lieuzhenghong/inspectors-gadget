@@ -27,12 +27,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lieuzhenghong/surveyor.git"
+    "url": "git+https://github.com/lieuzhenghong/inspectors-gadget.git"
   },
   "author": "lieu",
   "license": "BY-NC-SA",
   "bugs": {
-    "url": "https://github.com/lieuzhenghong/surveyor/issues"
+    "url": "https://github.com/lieuzhenghong/inspectors-gadget/issues"
   },
-  "homepage": "https://github.com/lieuzhenghong/surveyor#readme"
+  "homepage": "https://github.com/lieuzhenghong/inspectors-gadget#readme"
 }
