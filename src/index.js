@@ -2,6 +2,7 @@
 /*jshint esversion: 6 */
 /* jshint node: true */
 
+import localforage from 'localforage';
 import core from 'mathjs/core';
 let math = core.create();
 math.import(require('mathjs/lib/type/matrix'));
@@ -60,6 +61,7 @@ class Label {
 let globals = {
   BUILDING : '',  
   FLOOR : '',                   
+  PLAN: '',
   KEYS : [],
   LABELS : [],
   ID : 1,
@@ -115,7 +117,6 @@ let vue = new Vue({
       }
     },
     upload_plan: function(files) {
-      //console.log(files);
       upload_plan(files);
     },
     upload_images: function(files) {
@@ -150,9 +151,7 @@ let vue = new Vue({
 function init() {
   // Set canvas dimensions
   let canvas = document.getElementById('c');
-  //console.log(window.innerWidth);
   window.addEventListener('resize', () => {
-    //console.log('called');
     if (window.innerWidth === 1920) {
       canvas.width = 1400;
       canvas.height = 900;
@@ -165,6 +164,8 @@ function init() {
       canvas.width = 800;
       canvas.height = 566;
     }
+    //redraw the canvas
+    globals.CVS.draw_canvas();
   })
   let img = new Image();
   img.src = './assets/canvas_placeholder.png';
@@ -186,6 +187,12 @@ function init() {
     else if (e.keyCode === 40) { globals.CVS.pan_down(50); }
     else if (e.keyCode === 9 && globals.KEYS[17]) { //Control-Tab
       vue.toggle();      
+    }
+    else if (e.keyCode === 83 && globals.KEYS[17]) {
+      save_data();
+    }
+    else if (e.keyCode === 76 && globals.KEYS[17]) {
+      load_data();
     }
   };
   // Handling the reply when we send the exported floor plan
@@ -329,9 +336,10 @@ function handle_mousedown(evt) {
 }
 
 function upload_plan(file_list) {
-  const plan_img = file_list[0];
+  const plan = file_list[0];
+  const reader = new FileReader();
   let img = new Image();
-  img.onload = () => {
+  reader.addEventListener('load', () => {
     vex.dialog.open({
       message: 'Enter building letter and floor',
       input: [
@@ -339,23 +347,24 @@ function upload_plan(file_list) {
         "<input name='floor' type='number' placeholder='Floor'/>",
       ].join(''),
       callback: (data) => {
-        console.log(data);
-        globals.CVS.image = img
-        if (data === undefined || data === false) {
-          globals.BUILDING = 'A';
+        if (data.letter === undefined) {
+          globals.BUILDING ='A';
+        }
+        if (data.floor === undefined) {
           globals.FLOOR = '1';
         }
         else {
           globals.BUILDING = data.letter;
           globals.FLOOR = data.floor;
         }
-        update_labels(globals.LABELS);
+        img.src = reader.result;
+        globals.CVS.image = img;
+        globals.PLAN = reader.result;
         globals.CVS.draw_canvas();
-        //draw_table(globals.LABELS);
-        }
-    })
-  };
-  img.src = URL.createObjectURL(plan_img);
+      }
+    });
+  });
+  reader.readAsDataURL(plan);
 }
 
 function upload_images(file_list) {
@@ -377,9 +386,9 @@ function upload_images(file_list) {
       ));
       globals.ID++;
       globals.CVS.draw_canvas();
-      //draw_table(globals.LABELS);
-      
-      console.log(i);
+
+      // Sort labels
+
       if (i === file_list.length-1) { // All images have uploaded
         // Sort all images in name order
         globals.LABELS = globals.LABELS.sort( (a,b) => {
@@ -467,6 +476,48 @@ function export_image(e) {
   });
 }
 
+function save_data() {
+  const reader = new FileReader();
+  localforage.setItem('building', globals.BUILDING)
+  localforage.setItem('floor', globals.FLOOR);
+  localforage.setItem('labels', globals.LABELS);
+  localforage.setItem('id', globals.ID);
+  localforage.setItem('plan', globals.PLAN);
+}
+
+function load_data() {
+  localforage.iterate((value, key, iterNo) => {console.log([key, value])});
+  localforage.getItem('building').then((value) => {
+    globals.BUILDING = value;
+  });
+  localforage.getItem('floor').then((value) => {
+    globals.FLOOR = value;
+  });
+  localforage.getItem('plan').then((value) => {
+    globals.PLAN = value;
+    // globals.PLAN is a dataURL. we have to convert dataURL to
+    // a HTMLImageElement so that canvas can draw it
+    let img = new Image();
+    img.src = globals.PLAN;
+    globals.CVS.image = img;
+    globals.CVS.draw_canvas();
+  });
+  localforage.getItem('labels').then( (labels) => {
+    globals.LABELS = []; // clear labels
+    labels.forEach((l) => { 
+      globals.LABELS.push(new Label(l.id, l.x, l.y,
+                                    l.title, l.caption, l.defect,
+                                    l.image_src, l.image
+                                    )
+      )
+      }
+    )
+    vue._data.labels = globals.LABELS;
+  });
+  localforage.getItem('id').then( (value) => {
+    globals['ID'] = value;
+  });
+}
 
 function export_table() {
   var element = document.getElementById('export-table');
