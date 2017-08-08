@@ -1,5 +1,6 @@
 var path = require('path');
 var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+var webpack = require('webpack')
 
 module.exports = {
   entry: './src/index.js',
@@ -7,7 +8,14 @@ module.exports = {
     filename: 'renderer.js',
     path: path.resolve(__dirname, 'dist')
   },
-  //plugins: [new BundleAnalyzerPlugin()],
+  plugins: [
+    new BundleAnalyzerPlugin(),
+    new webpack.DefinePlugin({
+      'process.env': {
+        NODE_ENV: '"production"'
+      }
+    })
+  ],
   module: {
     rules: [
       {
