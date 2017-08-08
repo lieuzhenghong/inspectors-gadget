@@ -419,11 +419,12 @@ function update_labels(labels) {
     label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
   })
 }
+
 function export_image(e) {
   const export_canvas = document.createElement('canvas');
+  const ctx = export_canvas.getContext('2d');
   export_canvas.height = 3000;
   export_canvas.width = Math.round(export_canvas.height * Math.sqrt(2));
-  const ctx = export_canvas.getContext('2d');
   ctx.clearRect(0, 0, export_canvas.height, export_canvas.width); 
 
   // Rescale image such that the largest dimension of the image fits nicely
@@ -431,12 +432,9 @@ function export_image(e) {
   const working_width = export_canvas.width - 200;
   const max_x = globals.CVS.image.width;
   const max_y = globals.CVS.image.height;
-  let ratio = 1;
-
-  let xratio = working_width / max_x;
-  let yratio = working_height / max_y; 
-  ratio = Math.min(xratio, yratio);
-
+  const xratio = working_width / max_x;
+  const yratio = working_height / max_y; 
+  const ratio = Math.min(xratio, yratio);
   const x_offset = (export_canvas.width - max_x * ratio) / 2;
   const y_offset = (export_canvas.height - max_y * ratio) / 2;
 
@@ -450,14 +448,7 @@ function export_image(e) {
                        x_offset, y_offset, globals.CVS.image.width * ratio,
                        globals.CVS.image.height * ratio);
 
-  // These ratios are how much to scale the labels and overlay to the enlarged
-  // canvas
-  let x_ratio = working_height / globals.CVS.image.height;
-  let y_ratio = working_width / globals.CVS.image.width;
-  let draw_ratio = Math.min(x_ratio, y_ratio);
-  draw_ratio = 1;
-
-  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, draw_ratio); });
+  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, 1); });
   vex.dialog.open({
     message: 'Enter building overlay text',
     input: "<input name='letter' type='text' placeholder='Building A Level 1'/>",

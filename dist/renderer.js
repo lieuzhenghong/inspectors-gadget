@@ -7301,7 +7301,6 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
       }
     },
     upload_plan: function(files) {
-      //console.log(files);
       upload_plan(files);
     },
     upload_images: function(files) {
@@ -7336,9 +7335,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
 function init() {
   // Set canvas dimensions
   let canvas = document.getElementById('c');
-  //console.log(window.innerWidth);
   window.addEventListener('resize', () => {
-    //console.log('called');
     if (window.innerWidth === 1920) {
       canvas.width = 1400;
       canvas.height = 900;
@@ -7376,7 +7373,6 @@ function init() {
       vue.toggle();      
     }
     else if (e.keyCode === 83 && globals.KEYS[17]) {
-      console.log('calling');
       save_data();
     }
     else if (e.keyCode === 76 && globals.KEYS[17]) {
@@ -7526,39 +7522,6 @@ function handle_mousedown(evt) {
 function upload_plan(file_list) {
   const plan = file_list[0];
   const reader = new FileReader();
- /* 
-  let img = new Image();
-  img.onload = () => {
-    vex.dialog.open({
-      message: 'Enter building letter and floor',
-      input: [
-        "<input name='letter' type='text' placeholder='Letter'/>",
-        "<input name='floor' type='number' placeholder='Floor'/>",
-      ].join(''),
-      callback: (data) => {
-        globals.CVS.image = img;
-        console.log(data, data.letter, data.floor);
-        if (data.letter === undefined) {
-          globals.BUILDING ='A';
-        }
-        if (data.floor === undefined) {
-          globals.FLOOR = '1';
-        }
-        else {
-          globals.BUILDING = data.letter;
-          globals.FLOOR = data.floor;
-        }
-        globals.PLAN = img;
-        console.log(globals.PLAN);
-        console.log(globals.CVS.image);
-        update_labels(globals.LABELS);
-        globals.CVS.draw_canvas();
-        //draw_table(globals.LABELS);
-        }
-    })
-  };
-  img.src = URL.createObjectURL(plan_img);
-  */
   let img = new Image();
   reader.addEventListener('load', () => {
     __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.dialog.open({
@@ -7568,7 +7531,6 @@ function upload_plan(file_list) {
         "<input name='floor' type='number' placeholder='Floor'/>",
       ].join(''),
       callback: (data) => {
-        console.log(data, data.letter, data.floor);
         if (data.letter === undefined) {
           globals.BUILDING ='A';
         }
@@ -7582,7 +7544,6 @@ function upload_plan(file_list) {
         img.src = reader.result;
         globals.CVS.image = img;
         globals.PLAN = reader.result;
-        console.log(typeof(reader.result));
         globals.CVS.draw_canvas();
       }
     });
@@ -7609,6 +7570,9 @@ function upload_images(file_list) {
       ));
       globals.ID++;
       globals.CVS.draw_canvas();
+
+      // Sort labels
+
       if (i === file_list.length-1) { // All images have uploaded
         // Sort all images in name order
         globals.LABELS = globals.LABELS.sort( (a,b) => {
@@ -7639,11 +7603,12 @@ function update_labels(labels) {
     label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
   })
 }
+
 function export_image(e) {
   const export_canvas = document.createElement('canvas');
+  const ctx = export_canvas.getContext('2d');
   export_canvas.height = 3000;
   export_canvas.width = Math.round(export_canvas.height * Math.sqrt(2));
-  const ctx = export_canvas.getContext('2d');
   ctx.clearRect(0, 0, export_canvas.height, export_canvas.width); 
 
   // Rescale image such that the largest dimension of the image fits nicely
@@ -7651,12 +7616,9 @@ function export_image(e) {
   const working_width = export_canvas.width - 200;
   const max_x = globals.CVS.image.width;
   const max_y = globals.CVS.image.height;
-  let ratio = 1;
-
-  let xratio = working_width / max_x;
-  let yratio = working_height / max_y; 
-  ratio = Math.min(xratio, yratio);
-
+  const xratio = working_width / max_x;
+  const yratio = working_height / max_y; 
+  const ratio = Math.min(xratio, yratio);
   const x_offset = (export_canvas.width - max_x * ratio) / 2;
   const y_offset = (export_canvas.height - max_y * ratio) / 2;
 
@@ -7670,14 +7632,7 @@ function export_image(e) {
                        x_offset, y_offset, globals.CVS.image.width * ratio,
                        globals.CVS.image.height * ratio);
 
-  // These ratios are how much to scale the labels and overlay to the enlarged
-  // canvas
-  let x_ratio = working_height / globals.CVS.image.height;
-  let y_ratio = working_width / globals.CVS.image.width;
-  let draw_ratio = Math.min(x_ratio, y_ratio);
-  draw_ratio = 1;
-
-  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, draw_ratio); });
+  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, 1); });
   __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.dialog.open({
     message: 'Enter building overlay text',
     input: "<input name='letter' type='text' placeholder='Building A Level 1'/>",
@@ -7698,7 +7653,6 @@ function export_image(e) {
 
 function save_data() {
   const reader = new FileReader();
-  electron.ipcRenderer.send('save_data', globals);
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.setItem('building', globals.BUILDING)
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.setItem('floor', globals.FLOOR);
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.setItem('labels', globals.LABELS);
@@ -7707,21 +7661,21 @@ function save_data() {
 }
 
 function load_data() {
-  console.log('loading');
-  electron.ipcRenderer.send('load_data', globals);
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.iterate((value, key, iterNo) => {console.log([key, value])});
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.getItem('building').then((value) => {
-    globals['BUILDING'] = value;
+    globals.BUILDING = value;
   });
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.getItem('floor').then((value) => {
-    globals['FLOOR'] = value;
+    globals.FLOOR = value;
   });
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.getItem('plan').then((value) => {
-    globals['PLAN'] = value;
-    // convert dataURL to HTMLImageElement so that canvas can draw it
+    globals.PLAN = value;
+    // globals.PLAN is a dataURL. we have to convert dataURL to
+    // a HTMLImageElement so that canvas can draw it
     let img = new Image();
     img.src = globals.PLAN;
     globals.CVS.image = img;
+    globals.CVS.draw_canvas();
   });
   __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.getItem('labels').then( (labels) => {
     globals.LABELS = []; // clear labels
