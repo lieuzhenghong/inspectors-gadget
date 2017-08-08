@@ -1,5 +1,5 @@
 {
-  "name": "inspector's gadget",
+  "name": "inspectors-gadget",
   "version": "0.2.0",
   "description": "A report generation tool for civil engineers",
   "main": "main.js",
