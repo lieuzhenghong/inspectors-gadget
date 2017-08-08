@@ -228,6 +228,28 @@ function delete_row(id) {
 
 
 function handle_mousedown(evt) {
+
+  function label_clicked(clicked_x, clicked_y, font_size, draw_ratio) {
+    let return_label = null;
+    for (let label of globals.LABELS) {
+      const wid = globals.CVS.context.measureText(label.title).width;
+      const ht = font_size;
+      const l_w = (wid + 10/draw_ratio)
+      const l_h = (ht + 10/draw_ratio)
+      const lx = label.x - l_w/2;
+      const uy = label.y - l_h/2;
+      const rx = label.x + l_w + l_w/2;
+      const ly = label.y + l_h/2;
+      
+      if (clicked_x > lx && clicked_x < rx && 
+          clicked_y > uy && clicked_y < ly)
+      {
+        return_label = label; 
+        break;
+      }
+    }
+      return return_label;
+  }
   /*
   let math = {
     reshape: (m, dim) => {
@@ -279,12 +301,11 @@ function handle_mousedown(evt) {
     })
   }
 
+
   // If the left mouse button was clicked, find the first label that has yet to
   // be tagged on the floor plan
   else if (evt.button === 0) {
     let label = globals.LABELS.find( (label) => {return label.x === null});
-    let new_label = true;
-
     const draw_ratio = globals.CVS.draw_ratio;
     // WARNING //
     const font_size = 60 / draw_ratio; 
@@ -292,41 +313,24 @@ function handle_mousedown(evt) {
     globals.CVS.context.font = `${font_size}px sans-serif`;
     // Watch out: every time I tweak font size in Canvas.js, I need to change
     // this
-
-    for (let label of globals.LABELS) {
-      const wid = globals.CVS.context.measureText(label.title).width;
-      const ht = font_size;
-      const l_w = (wid + 10/draw_ratio)
-      const l_h = (ht + 10/draw_ratio)
-      const lx = label.x - l_w/2;
-      const uy = label.y - l_h/2;
-      const rx = label.x + l_w + l_w/2;
-      const ly = label.y + l_h/2;
-      //console.log(lx, clicked_x, rx);
-      //console.log(uy, clicked_y, ly);
-      
-      if (clicked_x > lx && clicked_x < rx && 
-          clicked_y > uy && clicked_y < ly)
-      {
-        //console.log('Label found', label);
-        vue._data.preview_src = label.image_src;
-        new_label = false;
-        break;
-      }
-    }
-  
-    if (label !== undefined && new_label === true) {
+    let clicked_label = label_clicked(clicked_x, clicked_y, font_size,
+    draw_ratio);
+    console.log(clicked_label);
+    
+    if (label !== undefined && clicked_label === null) { // No label clicked
       label.x = clicked_x;
       label.y = clicked_y;
       globals.CVS.draw_canvas();
 
-      // Show the next image in preview
+      // Show the next image in preview, if one exists
       let next_label = _.find_id(parseInt(label.id + 1));
       if (next_label !== undefined) {
-        console.log(vue._data);
-        console.log(next_label.id);
         vue._data.preview_src = next_label.image_src;
       }
+    }
+
+    else {
+      vue._data.preview_src = clicked_label.image_src;
     }
   }
 
@@ -356,6 +360,7 @@ function upload_plan(file_list) {
         else {
           globals.BUILDING = data.letter;
           globals.FLOOR = data.floor;
+          update_labels();
         }
         img.src = reader.result;
         globals.CVS.image = img;
