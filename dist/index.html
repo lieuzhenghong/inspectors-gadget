@@ -60,7 +60,7 @@
               </tr>
                 <tr
                   v-for='(label, index) in labels' 
-                  v-on:mouseover='handle_mouseover(label, index)'>
+                  v-on:mouseover='handle_mouseover(label)'>
                   <td> {{label.id}} </td>
                   <td 
                     v-on:click='edit_label_name($event.target)'
