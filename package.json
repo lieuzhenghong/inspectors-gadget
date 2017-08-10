@@ -13,6 +13,7 @@
     "style-loader": "^0.18.2",
     "vex-js": "^4.0.0",
     "vue": "^2.4.1",
+    "vue-async-computed": "^3.2.1",
     "webpack": "^3.1.0"
   },
   "devDependencies": {

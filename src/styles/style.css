@@ -65,7 +65,7 @@ nav .active {
   display: flex;
 }
 
-.page-1, .page-2 {
+.page-1, .page-2, .page-3 {
   margin-top: 40px; 
   height: calc(100%-40px);
   width: 100%;

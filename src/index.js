@@ -31,6 +31,8 @@ const _ = {
 const canvasBuffer = require('electron-canvas-to-buffer');
 const electron = require('electron');
 import Vue from 'vue';
+import AsyncComputed from 'vue-async-computed'
+Vue.use(AsyncComputed)
 
 // My own imports
 const Canvas_Helper = require('./lib/Canvas');
@@ -40,8 +42,7 @@ const html2pdf = require('./lib/html2pdf');
 const htmlpdf = html2pdf(html2canvas, jsPDF);
 
 class Label {
-    constructor(id, x=null, y=null, title, caption='', defect=0,
-        src, image) {
+    constructor(id, x=null, y=null, title, caption='', defect=0, src, image) {
         this.id = id;
         this.x = x;
         this.y = y;
@@ -71,81 +72,171 @@ let globals = {
 let vue = new Vue({
     el: '.wrapper',
     data: {
-        seen: true,
+        seen: 0,
         labels: globals.LABELS,
         preview_src: './assets/placeholder.png',
+        building: globals.BUILDING,
+        floor: globals.FLOOR,
+        save_preview_src: './assets/placeholder.png',
+        saves: ''
+    },
+    created: function() {
+      this.saves = this.update_saves();
     },
     methods: {
-        sort_data: function(sort_by) {
-            this.labels = this.labels.sort( (a,b) => {
-                if (typeof a[sort_by] === 'number') {
-                    return (a[sort_by] - b[sort_by]);
-                }
-                else {
-                    if (a[sort_by] > b[sort_by]) {
-                        return 1;
-                    }
-                    else if (a[sort_by] < b[sort_by]) {
-                        return -1;
-                    }
-                    else {
-                        return 0;
-                    }
-                }
-            });
-        },
-        defect_src: function (label) {
-            return (label.defect == 0 ? './assets/no_defect.png' : label.defect ===
-      1 ? './assets/non-structural.png' : './assets/structural.png');
-        },
-        show: function() {
-            document.getElementById('nav_page_1').classList.add('active');
-            document.getElementById('nav_page_2').classList.remove('active');
-            this.seen = true;
-        },
-        hide: function() {
-            document.getElementById('nav_page_1').classList.remove('active');
-            document.getElementById('nav_page_2').classList.add('active');
-            this.seen = false;
-        },
-        toggle: function() {
-            if (document.getElementById('nav_page_1').classList.contains('active')) {
-                this.hide();
-            }
-            else {
-                this.show();
-            }
-        },
-        upload_plan: function(files) {
-            upload_plan(files);
-        },
-        upload_images: function(files) {
-            upload_images(files);
-        },
-        export_image: function() {
-            export_image();
-        },
-        export_table: function() {
-            export_table();
-        },
-
-        // The following functions are for the tables
-        toggle_defect: function(label) {
-            label.toggle_defect();
-        },
-        edit_label_name: function(e_target) {
-            edit_name(e_target);
-        },
-        handle_mousedown: function(e) {
-            handle_mousedown(e);
-        },
-        handle_mouseover: function(label) {
-            this.preview_src = label.image_src; 
-        },
-        delete_row: function(label) {
-            delete_row(label.id); 
+      update_saves: function() {
+        return get_instance_names().then(instance_names => this.saves =
+        instance_names);
+      },
+      handle_save_click: function(save) {
+        get_instance(save).getItem('plan').then((value) => {
+          this.save_preview_src = value;
+        });
+      },
+      sort_data: function(sort_by) {
+          this.labels = this.labels.sort( (a,b) => {
+              if (typeof a[sort_by] === 'number') {
+                  return (a[sort_by] - b[sort_by]);
+              }
+              else {
+                  if (a[sort_by] > b[sort_by]) {
+                      return 1;
+                  }
+                  else if (a[sort_by] < b[sort_by]) {
+                      return -1;
+                  }
+                  else {
+                      return 0;
+                  }
+              }
+          });
+      },
+      defect_src: function (label) {
+          return (label.defect == 0 ?
+          './assets/no_defect.png' : label.defect === 1 ?
+          './assets/non-structural.png' : './assets/structural.png');
+      },
+      show: function(element) {
+        const elements = ['nav_page_1', 'nav_page_2', 'nav_page_3'];
+        for (let i = 0; i < elements.length; i++) {
+          if (i === element) {
+            document.getElementById(elements[i]).classList.add('active');
+          }
+          else {
+            document.getElementById(elements[i]).classList.remove('active');
+          }
         }
-    }
+        this.seen = element;
+      },
+      toggle: function() {
+        this.seen = (this.seen + 1) % 3;
+        this.show(this.seen); 
+      },
+      upload_plan: function(files) {
+          upload_plan(files);
+      },
+      upload_images: function(files) {
+          upload_images(files);
+      },
+      export_image: function() {
+          export_image();
+      },
+      export_table: function() {
+          export_table();
+      },
+
+      // The following functions are for the tables
+      toggle_defect: function(label) {
+          label.toggle_defect();
+      },
+      edit_label_name: function(e_target) {
+          edit_name(e_target);
+      },
+      handle_mousedown: function(e) {
+          handle_mousedown(e);
+      },
+      handle_mouseover: function(label) {
+          this.preview_src = label.image_src; 
+      },
+      delete_row: function(label) {
+          delete_row(label.id); 
+      },
+      clear_dbs: function() {
+        const instances_db = localforage.createInstance({
+          name: 'instances'
+        });
+        instances_db.getItem('instances').then((instances) => {
+          if (instances !== null) {
+            for (let instance_name in instances) {
+              get_instance(instance_name).clear(); 
+            }
+          }
+        });
+        instances_db.clear(); 
+        update_saves();
+      },
+      save_data: function(db_name = new Date().toISOString()) {
+        const db = create_instance(db_name);
+        console.log(db);
+        db.setItem('building', globals.BUILDING);
+        db.setItem('floor', globals.FLOOR);
+        db.setItem('labels', globals.LABELS);
+        db.setItem('id', globals.ID);
+        db.setItem('plan', globals.PLAN);
+        //get_instance_names().then((instance_names) => console.log(instance_names));
+        update_saves();
+      },
+      load_data: function (db_name) {
+        let db = get_instance(db_name);
+        //db.iterate((value, key) => {console.log([key, value])});
+
+        db.getItem('building').then((value) => {
+            this.building = value;
+            // I have watchers on both building and floor so I don't have to
+            // update globals.BUILDING manually
+        });
+        db.getItem('floor').then((value) => {
+            this.floor = value;
+        });
+        db.getItem('plan').then((value) => {
+            globals.PLAN = value;
+            // globals.PLAN is a dataURL. we have to convert dataURL to
+            // a HTMLImageElement so that canvas can draw it
+            let img = new Image();
+            img.src = globals.PLAN;
+            globals.CVS.image = img;
+            globals.CVS.draw_canvas();
+        });
+        db.getItem('labels').then( (labels) => {
+            globals.LABELS = []; // clear labels
+            labels.forEach((l) => { 
+                globals.LABELS.push(new Label(l.id, l.x, l.y,
+                    l.title, l.caption, l.defect,
+                    l.image_src, l.image
+                )
+                );
+            }
+            );
+            vue._data.labels = globals.LABELS;
+        });
+        db.getItem('id').then( (value) => {
+            globals['ID'] = value;
+        });
+        globals.CVS.draw_canvas();
+      },
+    },
+    watch: {
+      building: function(building) {
+        this.building = building;
+        globals.BUILDING = this.building;
+        globals.CVS.draw_canvas();
+      },
+      floor: function(floor) {
+        this.floor = floor;
+        globals.FLOOR = this.floor;
+        globals.CVS.draw_canvas();
+      }
+   }
 });
 
 function init() {
@@ -191,7 +282,11 @@ function init() {
             save_data();
         }
         else if (e.keyCode === 76 && globals.KEYS[17]) {
-            load_data();
+            let instance_name = null;
+            get_instance_names().then((instances) => {
+              instance_name = instances[instances.length-1];
+              vue.load_data(instance_name);
+            });
         }
     };
     // Handling the reply when we send the exported floor plan
@@ -206,10 +301,14 @@ function edit_name(e) {
         message: 'Enter new name for label:',
         input: '<input type="text" name="label_name" placeholder="Label name"/>',
         callback: (val) => {
+            console.log(e);
             val = val.label_name;
             if (val !== '' && val !== undefined) {
-                e.target.value = val;
+                e.innerHTML = val;
+                const id = e.closest('tr').id;
+                /*
                 const id = e.target.closest('tr').id;
+                */
                 const label = _.find_id(id);
                 label.title = val.toString();
                 globals.CVS.draw_canvas();
@@ -240,8 +339,8 @@ function handle_mousedown(evt) {
             const rx = label.x + l_w + l_w/2;
             const ly = label.y + l_h/2;
       
-            if (clicked_x > lx && clicked_x < rx && 
-          clicked_y > uy && clicked_y < ly)
+            if (clicked_x > lx && clicked_x < rx && clicked_y > uy &&
+                clicked_y < ly)
             {
                 return_label = label; 
                 break;
@@ -264,6 +363,9 @@ function handle_mousedown(evt) {
     },
     inv: (m) => {
       return m
+    },
+    concat: (m, dim) => {
+      
     }
   }
   */
@@ -327,6 +429,11 @@ function handle_mousedown(evt) {
             }
         }
 
+        // No label present and no clicked label
+        else if (clicked_label === null) {
+          
+        }
+
         else {
             vue._data.preview_src = clicked_label.image_src;
         }
@@ -358,7 +465,9 @@ function upload_plan(file_list) {
                 else {
                     globals.BUILDING = data.letter;
                     globals.FLOOR = data.floor;
-                    update_labels();
+                    vue._data.building = globals.BUILDING;
+                    vue._data.floor = globals.FLOOR;
+                    update_labels(globals.LABELS);
                 }
                 img.src = reader.result;
                 globals.CVS.image = img;
@@ -470,46 +579,45 @@ function export_image() {
     });
 }
 
-function save_data() {
-    localforage.setItem('building', globals.BUILDING);
-    localforage.setItem('floor', globals.FLOOR);
-    localforage.setItem('labels', globals.LABELS);
-    localforage.setItem('id', globals.ID);
-    localforage.setItem('plan', globals.PLAN);
+// create_instance :: String -> Instance
+// Creates a new instance, logs it in a instances database and returns the
+// created instance.
+//
+function create_instance(instance_name) {
+  const instances_db = localforage.createInstance({
+    name: 'instances'
+  });
+  
+  instances_db.getItem('instances').then((instances) => {
+    if (instances === null) {
+      instances_db.setItem('instances', [instance_name]);
+    }
+    else {
+      const new_instances = instances.concat([instance_name]);
+      instances_db.setItem('instances', new_instances);
+    }
+  })
+
+  instances_db.iterate((value, key) => {console.log([key, value])});
+  return localforage.createInstance({name: instance_name});
 }
 
-function load_data() {
-    //localforage.iterate((value, key, iterNo) => {console.log([key, value]);});
-    localforage.getItem('building').then((value) => {
-        globals.BUILDING = value;
-    });
-    localforage.getItem('floor').then((value) => {
-        globals.FLOOR = value;
-    });
-    localforage.getItem('plan').then((value) => {
-        globals.PLAN = value;
-        // globals.PLAN is a dataURL. we have to convert dataURL to
-        // a HTMLImageElement so that canvas can draw it
-        let img = new Image();
-        img.src = globals.PLAN;
-        globals.CVS.image = img;
-        globals.CVS.draw_canvas();
-    });
-    localforage.getItem('labels').then( (labels) => {
-        globals.LABELS = []; // clear labels
-        labels.forEach((l) => { 
-            globals.LABELS.push(new Label(l.id, l.x, l.y,
-                l.title, l.caption, l.defect,
-                l.image_src, l.image
-            )
-            );
-        }
-        );
-        vue._data.labels = globals.LABELS;
-    });
-    localforage.getItem('id').then( (value) => {
-        globals['ID'] = value;
-    });
+// get_instance :: String -> Instance
+function get_instance(instance_name) {
+  const instance = localforage.createInstance({
+    name: instance_name
+  })
+  
+  return instance;
+}
+
+// get_instance_names :: None -> Promise -> [String]
+function get_instance_names() {
+  const instances_db = localforage.createInstance({
+    name: 'instances'
+  });
+
+  return instances_db.getItem('instances');
 }
 
 function export_table() {

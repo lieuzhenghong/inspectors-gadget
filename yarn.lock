@@ -3646,6 +3646,10 @@ vm-browserify@0.0.4:
   dependencies:
     indexof "0.0.1"
 
+vue-async-computed@^3.2.1:
+  version "3.2.1"
+  resolved "https://registry.yarnpkg.com/vue-async-computed/-/vue-async-computed-3.2.1.tgz#930dc4f906dfc86d8ef8b3ad18b9af25b3097d76"
+
 vue@^2.4.1:
   version "2.4.1"
   resolved "https://registry.yarnpkg.com/vue/-/vue-2.4.1.tgz#76e0b8eee614613532216b7bfe784e0b5695b160"

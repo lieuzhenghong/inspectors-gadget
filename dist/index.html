@@ -7,12 +7,13 @@
 
   <nav>
     <ul>
-      <li id='nav_page_1' class='active' v-on:click='show'>Tag floor plan</li>
-      <li id='nav_page_2' v-on:click='hide'>Generate report</li>
+      <li id='nav_page_1' class='active' v-on:click='show(0)'>Tag floor plan</li>
+      <li id='nav_page_2' v-on:click='show(1)'>Generate report</li>
+      <li id='nav_page_3' v-on:click='show(2)'>Edit and save data</li>
     <ul>
   </nav>
 
-  <div class = 'page-1' v-show='seen'>
+  <div class = 'page-1' v-show='seen === 0'>
     <div class='col1'>
       <div class = 'canvas-wrapper'>
         <canvas id = 'c' v-on:mousedown='handle_mousedown($event)' width='800' height='566'>
@@ -60,7 +61,9 @@
               </tr>
                 <tr
                   v-for='(label, index) in labels' 
-                  v-on:mouseover='handle_mouseover(label)'>
+                  v-on:mouseover='handle_mouseover(label)'
+                  v-bind:id='index+1'   
+                >
                   <td> {{label.id}} </td>
                   <td 
                     v-on:click='edit_label_name($event.target)'
@@ -85,7 +88,7 @@
     </div>
   </div>
 
-  <div class = 'page-2' v-show='!seen'>
+  <div class = 'page-2' v-show='seen === 1'>
     <div class = 'A4-wrapper'>
       <div class = 'export-table' id='export-table'>
         <template v-for='(label, index) in labels'>
@@ -124,6 +127,36 @@
         </template>
       </div>
     </div>
+  </div>
+
+  <div class = 'page-3' v-show='seen === 2'>
+    <img width='400px' height='300px'
+      v-bind:src='save_preview_src'
+    >
+      <ul>
+        <li>
+          Building: {{building}}
+          <input v-model='building'>
+        </li>
+        <li>
+          Floor: {{floor}}
+          <input v-model='floor'>
+        </li>
+      </ul>
+      <table>
+        <th> Save name </th>
+        <th> Save </th>
+        <th> Load save </th>
+        <tr v-for='(save, index) in saves'>
+          <td v-on:click='handle_save_click(save)'> {{save}}
+          <td> <button v-on:click='save_data(save)'>Save</button>
+          <td> <button v-on:click='load_data(save)'>Load</button>
+        </tr>
+      </table>
+
+      <button v-on:click='update_saves()'> Refresh </button>
+      <button v-on:click='save_data()'> Save </button>
+      <button v-on:click='clear_dbs()'> Delete all saves </button>
   </div>
 
 </div>
