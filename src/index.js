@@ -11,6 +11,7 @@ math.import(require('mathjs/lib/function/matrix'));
 import './styles/style.css';
 import './styles/tag-tables.css';
 import './styles/export-table.css';
+import './styles/data-and-saves-page.css';
 import './styles/vex.css';
 import './styles/vex-theme-flat-attack.css';
 
@@ -85,6 +86,7 @@ let vue = new Vue({
     },
     methods: {
       update_saves: function() {
+        // returns a promise, doesn't work
         return get_instance_names().then(instance_names => this.saves =
         instance_names);
       },
@@ -162,6 +164,8 @@ let vue = new Vue({
           delete_row(label.id); 
       },
       clear_dbs: function() {
+        localforage.clear();
+        /*
         const instances_db = localforage.createInstance({
           name: 'instances'
         });
@@ -173,7 +177,10 @@ let vue = new Vue({
           }
         });
         instances_db.clear(); 
-        update_saves();
+        */
+        this.update_saves();
+      },
+      delete_instance: function(db_name) {
       },
       save_data: function(db_name = new Date().toISOString()) {
         const db = create_instance(db_name);
@@ -184,7 +191,7 @@ let vue = new Vue({
         db.setItem('id', globals.ID);
         db.setItem('plan', globals.PLAN);
         //get_instance_names().then((instance_names) => console.log(instance_names));
-        update_saves();
+        this.update_saves();
       },
       load_data: function (db_name) {
         let db = get_instance(db_name);
@@ -218,6 +225,7 @@ let vue = new Vue({
             }
             );
             vue._data.labels = globals.LABELS;
+            globals.CVS.draw_canvas();
         });
         db.getItem('id').then( (value) => {
             globals['ID'] = value;
@@ -235,7 +243,7 @@ let vue = new Vue({
         this.floor = floor;
         globals.FLOOR = this.floor;
         globals.CVS.draw_canvas();
-      }
+      },
    }
 });
 

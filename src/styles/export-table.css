@@ -1,3 +1,14 @@
+/*
+ * Dimensions of the page are 21cm x 29.7cm
+ * We leave a 0.5cm margin in the left and right directions
+ * And hopefully a minimum margin of 0.3cm at each end
+ * That means our working area is 20cm x 29cm
+ * Vertical height: 
+ * Header: 1cm
+ * 4 rows of 'components': 7cm each -> 28cm
+ * Legend
+ */
+ 
 .page-2 {
   text-align: center;
 }
@@ -20,10 +31,12 @@
 .export-table .export-title header{
   display: block;
   width: 20cm;
+  height: 1.2cm;
   text-align: left;
   font-size: 1.5rem;
   font-weight: 700;
-  padding: 10px;
+  vertical-align: bottom;
+  display: table-cell;
 }
 
 .export-table .component {
@@ -37,11 +50,10 @@
   justify-content: space-between;
 }
 
-.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {
+.component:nth-of-type(11n+2), .component:nth-of-type(11n+3) {
   max-height: 7.5cm;
 }
  
-
 .export-table.component .title-bar {
   width: 100%; 
 }
@@ -49,7 +61,6 @@
 .export-table .component .col {
   min-width: 1.5cm;
 }
-
 
 .export-table .component .export-text {
   max-width: 1.5cm;
@@ -73,6 +84,7 @@
   justify-content: space-between;
   max-width: 8.3cm;
   width: 8.3cm;
+  border-bottom: 1px solid black;
 }
 
 .export-table .component .export-textarea {
@@ -81,10 +93,11 @@
 }
 
 .export-table .component textarea {
-  width: 90%;
+  width: 98%;
   max-height: 1.5cm;
   resize: none;
   border: none;
+  margin: 0;
   font-size: 12px;
   font-family: sans-serif;
 }
@@ -97,6 +110,17 @@
 .export-table .component .col img {
   max-width: 7.5cm;
   max-height: 5.6cm;
+}
+
+.defect-legend {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.defect-legend img {
+  vertical-align: middle;
 }
 
 .page-break {

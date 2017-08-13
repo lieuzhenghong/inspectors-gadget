@@ -3,14 +3,13 @@ convert -background 'rgba(240, 240, 240, 1.0)' -fill 'rgba(150, 150, 150, 0.8)' 
 convert -background 'rgba(240, 240, 240, 1.0)' -fill 'rgba(150, 150, 150, 0.8)' -size 800x600 -pointsize 36 -gravity center label:'Upload floor plan' canvas_placeholder.png
 
 convert -size 100x100 xc:none \
--fill red -stroke red -draw "circle 50,50 50,0" -fill 'rgba(250, 150, 0, 1)' \
--draw "circle 50,50 40,10" structural.png
+-stroke green -strokewidth 10 -fill 'rgba(0, 200, 150, 1)' \
+-draw "circle 50,50 20,20" no_defect.png
 
 convert -size 100x100 xc:none \
--fill green -stroke green -draw "circle 50,50 50,0" -fill 'rgba(0, 200, 150, 1)' \
--draw "circle 50,50 40,10" no_defect.png
+-stroke orange -strokewidth 10 -fill 'rgba(250, 250, 50, 1)' \
+-draw "circle 50,50 20,20" non-structural.png
 
 convert -size 100x100 xc:none \
--fill orange -stroke orange -draw "circle 50,50 50,0" -fill 'yellow' \
--draw "circle 50,50 40,10" non-structural.png
-
+-stroke red -strokewidth 10 -fill 'rgba(250, 150, 0, 1)' \
+-draw "circle 50,50 20,20" structural.png

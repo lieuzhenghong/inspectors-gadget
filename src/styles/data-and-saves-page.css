@@ -1,0 +1,24 @@
+.page-3-wrapper {
+  margin: 0 auto;
+  width: 800px;
+  background-color: rgb(220, 220, 220); 
+  height: 100%;
+}
+
+.page-3-wrapper {
+  display: flex;
+  justify-content: space-between; 
+  flex-direction: column;
+  padding-bottom: 10px;
+}
+
+.page-3-wrapper li {
+  list-style: none;
+}
+
+.page-3-wrapper table {
+}
+
+.page-3-wrapper table th {
+  text-align: left; 
+}

@@ -123,6 +123,11 @@
             </div>
 
           </div>
+          <div v-if='(index+1) % 8 === 0' class='defect-legend'>
+            <span><img src='./assets/no_defect.png' width='32px'> No defect</span>
+            <span><img src='./assets/non-structural.png' width='32px'> Non-structural defect</span>
+            <span><img src='./assets/structural.png' width='32px'> Structural defect</span>
+          </div>      
           <div v-if='(index+1) % 8 === 0' class="html2pdf__page-break"></div>      
         </template>
       </div>
@@ -130,33 +135,36 @@
   </div>
 
   <div class = 'page-3' v-show='seen === 2'>
-    <img width='400px' height='300px'
-      v-bind:src='save_preview_src'
-    >
-      <ul>
-        <li>
-          Building: {{building}}
-          <input v-model='building'>
-        </li>
-        <li>
-          Floor: {{floor}}
-          <input v-model='floor'>
-        </li>
-      </ul>
-      <table>
-        <th> Save name </th>
-        <th> Save </th>
-        <th> Load save </th>
-        <tr v-for='(save, index) in saves'>
-          <td v-on:click='handle_save_click(save)'> {{save}}
-          <td> <button v-on:click='save_data(save)'>Save</button>
-          <td> <button v-on:click='load_data(save)'>Load</button>
-        </tr>
-      </table>
-
-      <button v-on:click='update_saves()'> Refresh </button>
-      <button v-on:click='save_data()'> Save </button>
-      <button v-on:click='clear_dbs()'> Delete all saves </button>
+    <div class = 'page-3-wrapper'>  
+      <img width='400px' height='300px'
+        v-bind:src='save_preview_src'
+      >
+        <ul>
+          <li>
+            Building:
+            <input v-model='building'>
+          </li>
+          <li>
+            Floor:
+            <input v-model='floor'>
+          </li>
+        </ul>
+        <table>
+          <th> Save name </th>
+          <th> Save </th>
+          <th> Load</th>
+          <tr v-for='(save, index) in saves'>
+            <td v-on:click='handle_save_click(save)'> {{save}}
+            <td> <button v-on:click='save_data(save)'>Save</button>
+            <td> <button v-on:click='load_data(save)'>Load</button>
+          </tr>
+        </table>
+        <div class = 'button-wrapper'>
+          <button class='label' v-on:click='update_saves()'> Refresh </button>
+          <button class='label' v-on:click='save_data()'> Save </button>
+          <button class='label' v-on:click='clear_dbs()'> Delete all saves </button>
+        </div>
+      </div>
   </div>
 
 </div>

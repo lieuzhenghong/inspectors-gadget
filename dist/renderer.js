@@ -948,7 +948,7 @@ exports.nearlyEqual = function(x, y, epsilon) {
 
 
 var number = __webpack_require__(2);
-var string = __webpack_require__(9);
+var string = __webpack_require__(11);
 var object = __webpack_require__(1);
 var types = __webpack_require__(21);
 
@@ -1504,7 +1504,7 @@ exports['boolean'] = __webpack_require__(50);
 exports['function'] = __webpack_require__(13);
 exports.number = __webpack_require__(2);
 exports.object = __webpack_require__(1);
-exports.string = __webpack_require__(9);
+exports.string = __webpack_require__(11);
 exports.types = __webpack_require__(21);
 exports.emitter = __webpack_require__(26);
 
@@ -1771,317 +1771,6 @@ exports.factory = factory;
 
 /***/ }),
 /* 9 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var formatNumber = __webpack_require__(2).format;
-var formatBigNumber = __webpack_require__(49).format;
-
-/**
- * Test whether value is a string
- * @param {*} value
- * @return {boolean} isString
- */
-exports.isString = function(value) {
-  return typeof value === 'string';
-};
-
-/**
- * Check if a text ends with a certain string.
- * @param {string} text
- * @param {string} search
- */
-exports.endsWith = function(text, search) {
-  var start = text.length - search.length;
-  var end = text.length;
-  return (text.substring(start, end) === search);
-};
-
-/**
- * Format a value of any type into a string.
- *
- * Usage:
- *     math.format(value)
- *     math.format(value, precision)
- *
- * When value is a function:
- *
- * - When the function has a property `syntax`, it returns this
- *   syntax description.
- * - In other cases, a string `'function'` is returned.
- *
- * When `value` is an Object:
- *
- * - When the object contains a property `format` being a function, this
- *   function is invoked as `value.format(options)` and the result is returned.
- * - When the object has its own `toString` method, this method is invoked
- *   and the result is returned.
- * - In other cases the function will loop over all object properties and
- *   return JSON object notation like '{"a": 2, "b": 3}'.
- *
- * Example usage:
- *     math.format(2/7);                // '0.2857142857142857'
- *     math.format(math.pi, 3);         // '3.14'
- *     math.format(new Complex(2, 3));  // '2 + 3i'
- *     math.format('hello');            // '"hello"'
- *
- * @param {*} value             Value to be stringified
- * @param {Object | number | Function} [options]  Formatting options. See
- *                                                lib/utils/number:format for a
- *                                                description of the available
- *                                                options.
- * @return {string} str
- */
-exports.format = function(value, options) {
-  if (typeof value === 'number') {
-    return formatNumber(value, options);
-  }
-
-  if (value && value.isBigNumber === true) {
-    return formatBigNumber(value, options);
-  }
-
-  if (value && value.isFraction === true) {
-    if (!options || options.fraction !== 'decimal') {
-      // output as ratio, like '1/3'
-      return (value.s * value.n) + '/' + value.d;
-    }
-    else {
-      // output as decimal, like '0.(3)'
-      return value.toString();
-    }
-  }
-
-  if (Array.isArray(value)) {
-    return formatArray(value, options);
-  }
-
-  if (exports.isString(value)) {
-    return '"' + value + '"';
-  }
-
-  if (typeof value === 'function') {
-    return value.syntax ? String(value.syntax) : 'function';
-  }
-
-  if (value && typeof value === 'object') {
-    if (typeof value.format === 'function') {
-      return value.format(options);
-    }
-    else if (value && value.toString() !== {}.toString()) {
-      // this object has a non-native toString method, use that one
-      return value.toString();
-    }
-    else {
-      var entries = [];
-
-      for (var key in value) {
-        if (value.hasOwnProperty(key)) {
-          entries.push('"' + key + '": ' + exports.format(value[key], options));
-        }
-      }
-
-      return '{' + entries.join(', ') + '}';
-    }
-  }
-
-  return String(value);
-};
-
-/**
- * Stringify a value into a string enclosed in double quotes.
- * Unescaped double quotes and backslashes inside the value are escaped.
- * @param {*} value
- * @return {string}
- */
-exports.stringify = function (value) {
-  var text = String(value);
-  var escaped = '';
-  var i = 0;
-  while (i < text.length) {
-    var c = text.charAt(i);
-
-    if (c === '\\') {
-      escaped += c;
-      i++;
-
-      c = text.charAt(i);
-      if (c === '' || '"\\/bfnrtu'.indexOf(c) === -1) {
-        escaped += '\\';  // no valid escape character -> escape it
-      }
-      escaped += c;
-    }
-    else if (c === '"') {
-      escaped += '\\"';
-    }
-    else {
-      escaped += c;
-    }
-    i++;
-  }
-
-  return '"' + escaped + '"';
-}
-
-/**
- * Escape special HTML characters
- * @param {*} value
- * @return {string}
- */
-exports.escape = function (value) {
-  var text = String(value);
-  text = text.replace(/&/g, '&amp;')
-			 .replace(/"/g, '&quot;')
-			 .replace(/'/g, '&#39;')
-			 .replace(/</g, '&lt;')
-			 .replace(/>/g, '&gt;');
-  
-  return text;
-}
-
-/**
- * Recursively format an n-dimensional matrix
- * Example output: "[[1, 2], [3, 4]]"
- * @param {Array} array
- * @param {Object | number | Function} [options]  Formatting options. See
- *                                                lib/utils/number:format for a
- *                                                description of the available
- *                                                options.
- * @returns {string} str
- */
-function formatArray (array, options) {
-  if (Array.isArray(array)) {
-    var str = '[';
-    var len = array.length;
-    for (var i = 0; i < len; i++) {
-      if (i != 0) {
-        str += ', ';
-      }
-      str += formatArray(array[i], options);
-    }
-    str += ']';
-    return str;
-  }
-  else {
-    return exports.format(array, options);
-  }
-}
-
-/***/ }),
-/* 10 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var util = __webpack_require__(5);
-var DimensionError = __webpack_require__(4);
-
-var string = util.string,
-    isString = string.isString;
-
-function factory (type, config, load, typed) {
-
-  var DenseMatrix = type.DenseMatrix;
-
-  /**
-   * Iterates over DenseMatrix items and invokes the callback function f(Aij..z, Bij..z). 
-   * Callback function invoked MxN times.
-   *
-   * C(i,j,...z) = f(Aij..z, Bij..z)
-   *
-   * @param {Matrix}   a                 The DenseMatrix instance (A)
-   * @param {Matrix}   b                 The DenseMatrix instance (B)
-   * @param {Function} callback          The f(Aij..z,Bij..z) operation to invoke
-   *
-   * @return {Matrix}                    DenseMatrix (C)
-   *
-   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97658658
-   */
-  var algorithm13 = function (a, b, callback) {
-    // a arrays
-    var adata = a._data;
-    var asize = a._size;
-    var adt = a._datatype;
-    // b arrays
-    var bdata = b._data;
-    var bsize = b._size;
-    var bdt = b._datatype;
-    // c arrays
-    var csize = [];
-
-    // validate dimensions
-    if (asize.length !== bsize.length)
-      throw new DimensionError(asize.length, bsize.length);
-
-    // validate each one of the dimension sizes
-    for (var s = 0; s < asize.length; s++) {
-      // must match
-      if (asize[s] !== bsize[s])
-        throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
-      // update dimension in c
-      csize[s] = asize[s];
-    }
-
-    // datatype
-    var dt;
-    // callback signature to use
-    var cf = callback;
-
-    // process data types
-    if (typeof adt === 'string' && adt === bdt) {
-      // datatype
-      dt = adt;
-      // convert b to the same datatype
-      b = typed.convert(b, dt);
-      // callback
-      cf = typed.find(callback, [dt, dt]);
-    }
-
-    // populate cdata, iterate through dimensions
-    var cdata = csize.length > 0 ? _iterate(cf, 0, csize, csize[0], adata, bdata) : [];
-    
-    // c matrix
-    return new DenseMatrix({
-      data: cdata,
-      size: csize,
-      datatype: dt
-    });
-  };
-  
-  // recursive function
-  var _iterate = function (f, level, s, n, av, bv) {
-    // initialize array for this level
-    var cv = [];
-    // check we reach the last level
-    if (level === s.length - 1) {
-      // loop arrays in last level
-      for (var i = 0; i < n; i++) {
-        // invoke callback and store value
-        cv[i] = f(av[i], bv[i]);
-      }
-    }
-    else {
-      // iterate current level
-      for (var j = 0; j < n; j++) {
-        // iterate next level
-        cv[j] = _iterate(f, level + 1, s, s[level + 1], av[j], bv[j]);
-      }
-    }
-    return cv;
-  };
-  
-  return algorithm13;
-}
-
-exports.name = 'algorithm13';
-exports.factory = factory;
-
-
-/***/ }),
-/* 11 */
 /***/ (function(module, exports) {
 
 /*
@@ -2163,7 +1852,7 @@ function toComment(sourceMap) {
 
 
 /***/ }),
-/* 12 */
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /*
@@ -2522,6 +2211,317 @@ function updateLink (link, options, obj) {
 
 
 /***/ }),
+/* 11 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var formatNumber = __webpack_require__(2).format;
+var formatBigNumber = __webpack_require__(49).format;
+
+/**
+ * Test whether value is a string
+ * @param {*} value
+ * @return {boolean} isString
+ */
+exports.isString = function(value) {
+  return typeof value === 'string';
+};
+
+/**
+ * Check if a text ends with a certain string.
+ * @param {string} text
+ * @param {string} search
+ */
+exports.endsWith = function(text, search) {
+  var start = text.length - search.length;
+  var end = text.length;
+  return (text.substring(start, end) === search);
+};
+
+/**
+ * Format a value of any type into a string.
+ *
+ * Usage:
+ *     math.format(value)
+ *     math.format(value, precision)
+ *
+ * When value is a function:
+ *
+ * - When the function has a property `syntax`, it returns this
+ *   syntax description.
+ * - In other cases, a string `'function'` is returned.
+ *
+ * When `value` is an Object:
+ *
+ * - When the object contains a property `format` being a function, this
+ *   function is invoked as `value.format(options)` and the result is returned.
+ * - When the object has its own `toString` method, this method is invoked
+ *   and the result is returned.
+ * - In other cases the function will loop over all object properties and
+ *   return JSON object notation like '{"a": 2, "b": 3}'.
+ *
+ * Example usage:
+ *     math.format(2/7);                // '0.2857142857142857'
+ *     math.format(math.pi, 3);         // '3.14'
+ *     math.format(new Complex(2, 3));  // '2 + 3i'
+ *     math.format('hello');            // '"hello"'
+ *
+ * @param {*} value             Value to be stringified
+ * @param {Object | number | Function} [options]  Formatting options. See
+ *                                                lib/utils/number:format for a
+ *                                                description of the available
+ *                                                options.
+ * @return {string} str
+ */
+exports.format = function(value, options) {
+  if (typeof value === 'number') {
+    return formatNumber(value, options);
+  }
+
+  if (value && value.isBigNumber === true) {
+    return formatBigNumber(value, options);
+  }
+
+  if (value && value.isFraction === true) {
+    if (!options || options.fraction !== 'decimal') {
+      // output as ratio, like '1/3'
+      return (value.s * value.n) + '/' + value.d;
+    }
+    else {
+      // output as decimal, like '0.(3)'
+      return value.toString();
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return formatArray(value, options);
+  }
+
+  if (exports.isString(value)) {
+    return '"' + value + '"';
+  }
+
+  if (typeof value === 'function') {
+    return value.syntax ? String(value.syntax) : 'function';
+  }
+
+  if (value && typeof value === 'object') {
+    if (typeof value.format === 'function') {
+      return value.format(options);
+    }
+    else if (value && value.toString() !== {}.toString()) {
+      // this object has a non-native toString method, use that one
+      return value.toString();
+    }
+    else {
+      var entries = [];
+
+      for (var key in value) {
+        if (value.hasOwnProperty(key)) {
+          entries.push('"' + key + '": ' + exports.format(value[key], options));
+        }
+      }
+
+      return '{' + entries.join(', ') + '}';
+    }
+  }
+
+  return String(value);
+};
+
+/**
+ * Stringify a value into a string enclosed in double quotes.
+ * Unescaped double quotes and backslashes inside the value are escaped.
+ * @param {*} value
+ * @return {string}
+ */
+exports.stringify = function (value) {
+  var text = String(value);
+  var escaped = '';
+  var i = 0;
+  while (i < text.length) {
+    var c = text.charAt(i);
+
+    if (c === '\\') {
+      escaped += c;
+      i++;
+
+      c = text.charAt(i);
+      if (c === '' || '"\\/bfnrtu'.indexOf(c) === -1) {
+        escaped += '\\';  // no valid escape character -> escape it
+      }
+      escaped += c;
+    }
+    else if (c === '"') {
+      escaped += '\\"';
+    }
+    else {
+      escaped += c;
+    }
+    i++;
+  }
+
+  return '"' + escaped + '"';
+}
+
+/**
+ * Escape special HTML characters
+ * @param {*} value
+ * @return {string}
+ */
+exports.escape = function (value) {
+  var text = String(value);
+  text = text.replace(/&/g, '&amp;')
+			 .replace(/"/g, '&quot;')
+			 .replace(/'/g, '&#39;')
+			 .replace(/</g, '&lt;')
+			 .replace(/>/g, '&gt;');
+  
+  return text;
+}
+
+/**
+ * Recursively format an n-dimensional matrix
+ * Example output: "[[1, 2], [3, 4]]"
+ * @param {Array} array
+ * @param {Object | number | Function} [options]  Formatting options. See
+ *                                                lib/utils/number:format for a
+ *                                                description of the available
+ *                                                options.
+ * @returns {string} str
+ */
+function formatArray (array, options) {
+  if (Array.isArray(array)) {
+    var str = '[';
+    var len = array.length;
+    for (var i = 0; i < len; i++) {
+      if (i != 0) {
+        str += ', ';
+      }
+      str += formatArray(array[i], options);
+    }
+    str += ']';
+    return str;
+  }
+  else {
+    return exports.format(array, options);
+  }
+}
+
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var util = __webpack_require__(5);
+var DimensionError = __webpack_require__(4);
+
+var string = util.string,
+    isString = string.isString;
+
+function factory (type, config, load, typed) {
+
+  var DenseMatrix = type.DenseMatrix;
+
+  /**
+   * Iterates over DenseMatrix items and invokes the callback function f(Aij..z, Bij..z). 
+   * Callback function invoked MxN times.
+   *
+   * C(i,j,...z) = f(Aij..z, Bij..z)
+   *
+   * @param {Matrix}   a                 The DenseMatrix instance (A)
+   * @param {Matrix}   b                 The DenseMatrix instance (B)
+   * @param {Function} callback          The f(Aij..z,Bij..z) operation to invoke
+   *
+   * @return {Matrix}                    DenseMatrix (C)
+   *
+   * https://github.com/josdejong/mathjs/pull/346#issuecomment-97658658
+   */
+  var algorithm13 = function (a, b, callback) {
+    // a arrays
+    var adata = a._data;
+    var asize = a._size;
+    var adt = a._datatype;
+    // b arrays
+    var bdata = b._data;
+    var bsize = b._size;
+    var bdt = b._datatype;
+    // c arrays
+    var csize = [];
+
+    // validate dimensions
+    if (asize.length !== bsize.length)
+      throw new DimensionError(asize.length, bsize.length);
+
+    // validate each one of the dimension sizes
+    for (var s = 0; s < asize.length; s++) {
+      // must match
+      if (asize[s] !== bsize[s])
+        throw new RangeError('Dimension mismatch. Matrix A (' + asize + ') must match Matrix B (' + bsize + ')');
+      // update dimension in c
+      csize[s] = asize[s];
+    }
+
+    // datatype
+    var dt;
+    // callback signature to use
+    var cf = callback;
+
+    // process data types
+    if (typeof adt === 'string' && adt === bdt) {
+      // datatype
+      dt = adt;
+      // convert b to the same datatype
+      b = typed.convert(b, dt);
+      // callback
+      cf = typed.find(callback, [dt, dt]);
+    }
+
+    // populate cdata, iterate through dimensions
+    var cdata = csize.length > 0 ? _iterate(cf, 0, csize, csize[0], adata, bdata) : [];
+    
+    // c matrix
+    return new DenseMatrix({
+      data: cdata,
+      size: csize,
+      datatype: dt
+    });
+  };
+  
+  // recursive function
+  var _iterate = function (f, level, s, n, av, bv) {
+    // initialize array for this level
+    var cv = [];
+    // check we reach the last level
+    if (level === s.length - 1) {
+      // loop arrays in last level
+      for (var i = 0; i < n; i++) {
+        // invoke callback and store value
+        cv[i] = f(av[i], bv[i]);
+      }
+    }
+    else {
+      // iterate current level
+      for (var j = 0; j < n; j++) {
+        // iterate next level
+        cv[j] = _iterate(f, level + 1, s, s[level + 1], av[j], bv[j]);
+      }
+    }
+    return cv;
+  };
+  
+  return algorithm13;
+}
+
+exports.name = 'algorithm13';
+exports.factory = factory;
+
+
+/***/ }),
 /* 13 */
 /***/ (function(module, exports) {
 
@@ -2780,7 +2780,7 @@ function factory (type, config, load, typed) {
   var algorithm01 = load(__webpack_require__(30));
   var algorithm04 = load(__webpack_require__(53));
   var algorithm10 = load(__webpack_require__(31));
-  var algorithm13 = load(__webpack_require__(10));
+  var algorithm13 = load(__webpack_require__(12));
   var algorithm14 = load(__webpack_require__(8));
 
   /**
@@ -4699,7 +4699,7 @@ function factory (type, config, load, typed) {
   var algorithm03 = load(__webpack_require__(18));
   var algorithm05 = load(__webpack_require__(35));
   var algorithm12 = load(__webpack_require__(22));
-  var algorithm13 = load(__webpack_require__(10));
+  var algorithm13 = load(__webpack_require__(12));
   var algorithm14 = load(__webpack_require__(8));
   
   /**
@@ -6136,7 +6136,7 @@ function factory (type, config, load, typed) {
   var algorithm03 = load(__webpack_require__(18));
   var algorithm07 = load(__webpack_require__(33));
   var algorithm12 = load(__webpack_require__(22));
-  var algorithm13 = load(__webpack_require__(10));
+  var algorithm13 = load(__webpack_require__(12));
   var algorithm14 = load(__webpack_require__(8));
 
   var latex = __webpack_require__(6);
@@ -6456,7 +6456,7 @@ function factory (type, config, load, typed) {
   var algorithm03 = load(__webpack_require__(18));
   var algorithm05 = load(__webpack_require__(35));
   var algorithm10 = load(__webpack_require__(31));
-  var algorithm13 = load(__webpack_require__(10));
+  var algorithm13 = load(__webpack_require__(12));
   var algorithm14 = load(__webpack_require__(8));
 
   // TODO: split function subtract in two: subtract and subtractScalar
@@ -7175,15 +7175,17 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__styles_tag_tables_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3__styles_tag_tables_css__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__styles_export_table_css__ = __webpack_require__(95);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__styles_export_table_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4__styles_export_table_css__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__styles_vex_css__ = __webpack_require__(97);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__styles_vex_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_5__styles_vex_css__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__styles_vex_theme_flat_attack_css__ = __webpack_require__(99);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__styles_vex_theme_flat_attack_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_6__styles_vex_theme_flat_attack_css__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7_vex_js__ = __webpack_require__(101);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7_vex_js___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_7_vex_js__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_8_vue__ = __webpack_require__(104);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_9_vue_async_computed__ = __webpack_require__(105);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_9_vue_async_computed___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_9_vue_async_computed__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__styles_data_and_saves_page_css__ = __webpack_require__(97);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__styles_data_and_saves_page_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_5__styles_data_and_saves_page_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__styles_vex_css__ = __webpack_require__(99);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__styles_vex_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_6__styles_vex_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7__styles_vex_theme_flat_attack_css__ = __webpack_require__(101);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7__styles_vex_theme_flat_attack_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_7__styles_vex_theme_flat_attack_css__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_8_vex_js__ = __webpack_require__(103);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_8_vex_js___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_8_vex_js__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_9_vue__ = __webpack_require__(106);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_10_vue_async_computed__ = __webpack_require__(107);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_10_vue_async_computed___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_10_vue_async_computed__);
 
 /*jshint esversion: 6 */
 /* jshint node: true */
@@ -7200,8 +7202,9 @@ math.import(__webpack_require__(61));
 
 
 
- __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.registerPlugin(__webpack_require__(102));
-__WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.defaultOptions.className = 'vex-theme-flat-attack';
+
+ __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.registerPlugin(__webpack_require__(104));
+__WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.defaultOptions.className = 'vex-theme-flat-attack';
 
 const _ = {
     find_id: function(id) {
@@ -7214,17 +7217,17 @@ const _ = {
     }
 };
 
-const canvasBuffer = __webpack_require__(103);
+const canvasBuffer = __webpack_require__(105);
 const electron = __webpack_require__(38);
 
 
-__WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */].use(__WEBPACK_IMPORTED_MODULE_9_vue_async_computed___default.a)
+__WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */].use(__WEBPACK_IMPORTED_MODULE_10_vue_async_computed___default.a)
 
 // My own imports
-const Canvas_Helper = __webpack_require__(106);
-const jsPDF = __webpack_require__(107);
-const html2canvas = __webpack_require__(110);
-const html2pdf = __webpack_require__(111);
+const Canvas_Helper = __webpack_require__(108);
+const jsPDF = __webpack_require__(109);
+const html2canvas = __webpack_require__(112);
+const html2pdf = __webpack_require__(113);
 const htmlpdf = html2pdf(html2canvas, jsPDF);
 
 class Label {
@@ -7255,7 +7258,7 @@ let globals = {
     CVS : null
 };
 
-let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
+let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
     el: '.wrapper',
     data: {
         seen: 0,
@@ -7271,6 +7274,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
     },
     methods: {
       update_saves: function() {
+        // returns a promise, doesn't work
         return get_instance_names().then(instance_names => this.saves =
         instance_names);
       },
@@ -7348,7 +7352,9 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
           delete_row(label.id); 
       },
       clear_dbs: function() {
-        const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
+        __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.clear();
+        /*
+        const instances_db = localforage.createInstance({
           name: 'instances'
         });
         instances_db.getItem('instances').then((instances) => {
@@ -7359,7 +7365,10 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
           }
         });
         instances_db.clear(); 
-        update_saves();
+        */
+        this.update_saves();
+      },
+      delete_instance: function(db_name) {
       },
       save_data: function(db_name = new Date().toISOString()) {
         const db = create_instance(db_name);
@@ -7370,7 +7379,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
         db.setItem('id', globals.ID);
         db.setItem('plan', globals.PLAN);
         //get_instance_names().then((instance_names) => console.log(instance_names));
-        update_saves();
+        this.update_saves();
       },
       load_data: function (db_name) {
         let db = get_instance(db_name);
@@ -7404,6 +7413,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
             }
             );
             vue._data.labels = globals.LABELS;
+            globals.CVS.draw_canvas();
         });
         db.getItem('id').then( (value) => {
             globals['ID'] = value;
@@ -7421,7 +7431,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_8_vue__["a" /* default */]({
         this.floor = floor;
         globals.FLOOR = this.floor;
         globals.CVS.draw_canvas();
-      }
+      },
    }
 });
 
@@ -7477,13 +7487,13 @@ function init() {
     };
     // Handling the reply when we send the exported floor plan
     electron.ipcRenderer.on('export_image', (e, args) => {
-        __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.dialog.alert(args);
+        __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.alert(args);
     });
 }
 
 
 function edit_name(e) {
-    __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.dialog.open({
+    __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
         message: 'Enter new name for label:',
         input: '<input type="text" name="label_name" placeholder="Label name"/>',
         callback: (val) => {
@@ -7575,7 +7585,7 @@ function handle_mousedown(evt) {
 
     // If right click, go to tag editing mode
     if (evt.button === 2 || evt.shiftKey) {
-        __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.dialog.prompt({
+        __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.prompt({
             message: 'Enter ID of label: ',
             callback: (value) => {
                 let label = _.find_id(parseInt(value));
@@ -7635,7 +7645,7 @@ function upload_plan(file_list) {
     const reader = new FileReader();
     let img = new Image();
     reader.addEventListener('load', () => {
-        __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.dialog.open({
+        __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
             message: 'Enter building letter and floor',
             input: [
                 '<input name=\'letter\' type=\'text\' placeholder=\'Letter\'/>',
@@ -7747,7 +7757,7 @@ function export_image() {
         globals.CVS.image.height * ratio);
 
     temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, 1); });
-    __WEBPACK_IMPORTED_MODULE_7_vex_js___default.a.dialog.open({
+    __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
         message: 'Enter building overlay text',
         input: '<input name=\'letter\' type=\'text\' placeholder=\'Building A Level 1\'/>',
         callback: (text) => {
@@ -14823,7 +14833,7 @@ function factory (type, config, load, typed) {
   var algorithm03 = load(__webpack_require__(18));
   var algorithm07 = load(__webpack_require__(33));
   var algorithm12 = load(__webpack_require__(22));
-  var algorithm13 = load(__webpack_require__(10));
+  var algorithm13 = load(__webpack_require__(12));
   var algorithm14 = load(__webpack_require__(8));
 
   var latex = __webpack_require__(6);
@@ -18057,7 +18067,7 @@ var DimensionError = __webpack_require__(4);
 var ArgumentsError = __webpack_require__(27);
 
 var isInteger = __webpack_require__(2).isInteger;
-var format = __webpack_require__(9).format;
+var format = __webpack_require__(11).format;
 var clone = __webpack_require__(1).clone;
 var array = __webpack_require__(3);
 
@@ -19108,7 +19118,7 @@ exports.factory = factory;
 
 
 var clone = __webpack_require__(1).clone;
-var format = __webpack_require__(9).format;
+var format = __webpack_require__(11).format;
 
 function factory (type, config, load, typed) {
   
@@ -19262,7 +19272,7 @@ exports.factory = factory;
 
 
 var clone = __webpack_require__(1).clone;
-var format = __webpack_require__(9).format;
+var format = __webpack_require__(11).format;
 
 function factory (type, config, load, typed) {
   var latex = __webpack_require__(6);
@@ -19595,7 +19605,7 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(12)(content, options);
+var update = __webpack_require__(10)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
@@ -19615,12 +19625,12 @@ if(false) {
 /* 91 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(11)(undefined);
+exports = module.exports = __webpack_require__(9)(undefined);
 // imports
 
 
 // module
-exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black;\n    display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 100%;\n  position: fixed;\n}\n\nnav li {\n  display: inline-block;\n  min-width: 200px;\n  height: 40px;\n  text-align: center;\n  line-height: 40px;/* centers text vertically */\n  font-size: 24px;\n  border: 1px solid black;\n  border-bottom: none;\n  border-radius: 0.5rem 0.5rem 0 0;\n  margin-right: 2px;\n  padding-left: 10px;\n  padding-right: 10px;\n}\n\nnav li:hover {\n  cursor: pointer;\n  background-color: rgba(240, 220, 200, 1);\n}\n\nnav .active {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n\n.hidden {\n  /*\n  display: none;\n  */\n}\n\n.wrapper {\n  margin-left: 10px;\n  margin-right: 10px;\n  height: 100%;\n  display: flex;\n}\n\n.page-1, .page-2, .page-3 {\n  margin-top: 40px; \n  height: calc(100%-40px);\n  width: 100%;\n } \n\n.page-1 {\n  display: flex;\n  justify-content: space-between;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n", ""]);
+exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black; display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 100%;\n  position: fixed;\n}\n\nnav li {\n  display: inline-block;\n  min-width: 200px;\n  height: 40px;\n  text-align: center;\n  line-height: 40px;/* centers text vertically */\n  font-size: 24px;\n  border: 1px solid black;\n  border-bottom: none;\n  border-radius: 0.5rem 0.5rem 0 0;\n  margin-right: 2px;\n  padding-left: 10px;\n  padding-right: 10px;\n}\n\nnav li:hover {\n  cursor: pointer;\n  background-color: rgba(240, 220, 200, 1);\n}\n\nnav .active {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n\n.hidden {\n  /*\n  display: none;\n  */\n}\n\n.wrapper {\n  margin-left: 10px;\n  margin-right: 10px;\n  height: 100%;\n  display: flex;\n}\n\n.page-1, .page-2, .page-3 {\n  margin-top: 40px; \n  height: calc(100%-40px);\n  width: 100%;\n } \n\n.page-1 {\n  display: flex;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n  padding-bottom: 10px;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n", ""]);
 
 // exports
 
@@ -19735,7 +19745,7 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(12)(content, options);
+var update = __webpack_require__(10)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
@@ -19755,7 +19765,7 @@ if(false) {
 /* 94 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(11)(undefined);
+exports = module.exports = __webpack_require__(9)(undefined);
 // imports
 
 
@@ -19780,7 +19790,7 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(12)(content, options);
+var update = __webpack_require__(10)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
@@ -19800,12 +19810,12 @@ if(false) {
 /* 96 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(11)(undefined);
+exports = module.exports = __webpack_require__(9)(undefined);
 // imports
 
 
 // module
-exports.push([module.i, ".page-2 {\n  text-align: center;\n}\n\n.A4-wrapper {\n  margin: 0 auto;\n  border: 1px solid black;\n  text-align: center;\n  width: 21cm;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 20cm;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .export-title header{\n  display: block;\n  width: 20cm;\n  text-align: left;\n  font-size: 1.5rem;\n  font-weight: 700;\n  padding: 10px;\n}\n\n.export-table .component {\n  max-width: 10cm;\n  max-height: 7cm;\n  display: flex;\n  flex-wrap: wrap;\n  border: 1px solid black;\n  border-collapse: collapse;\n  box-sizing: border-box;\n  justify-content: space-between;\n}\n\n.component:nth-of-type(10n+2), .component:nth-of-type(10n+3) {\n  max-height: 7.5cm;\n}\n \n\n.export-table.component .title-bar {\n  width: 100%; \n}\n\n.export-table .component .col {\n  min-width: 1.5cm;\n}\n\n\n.export-table .component .export-text {\n  max-width: 1.5cm;\n  text-align: center;\n  border-right: 1px solid black;\n  border-bottom: 1px solid black;\n  position: relative;\n}\n\n.export-table .component .export-text .label-title {\n  position: relative;\n  top: 20%;\n}\n\n.export-table .component .export-text .defect-icon {\n  position: relative;\n  top: 60%;\n}\n\n.export-table .component .export-img {\n  justify-content: space-between;\n  max-width: 8.3cm;\n  width: 8.3cm;\n}\n\n.export-table .component .export-textarea {\n  width: 100%;\n  text-align: center;\n}\n\n.export-table .component textarea {\n  width: 90%;\n  max-height: 1.5cm;\n  resize: none;\n  border: none;\n  font-size: 12px;\n  font-family: sans-serif;\n}\n\n.export-table .component textarea:hover {\n  background-color: rgba(240, 240, 240, 1);\n  border: 1px solid black;\n}\n\n.export-table .component .col img {\n  max-width: 7.5cm;\n  max-height: 5.6cm;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
+exports.push([module.i, "/*\n * Dimensions of the page are 21cm x 29.7cm\n * We leave a 0.5cm margin in the left and right directions\n * And hopefully a minimum margin of 0.3cm at each end\n * That means our working area is 20cm x 29cm\n * Vertical height: \n * Header: 1cm\n * 4 rows of 'components': 7cm each -> 28cm\n * Legend\n */\n \n.page-2 {\n  text-align: center;\n}\n\n.A4-wrapper {\n  margin: 0 auto;\n  border: 1px solid black;\n  text-align: center;\n  width: 21cm;\n}\n\n.export-table {\n  margin: 0 auto;\n  width: 20cm;\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: center;\n}\n\n.export-table .export-title header{\n  display: block;\n  width: 20cm;\n  height: 1.2cm;\n  text-align: left;\n  font-size: 1.5rem;\n  font-weight: 700;\n  vertical-align: bottom;\n  display: table-cell;\n}\n\n.export-table .component {\n  max-width: 10cm;\n  max-height: 7cm;\n  display: flex;\n  flex-wrap: wrap;\n  border: 1px solid black;\n  border-collapse: collapse;\n  box-sizing: border-box;\n  justify-content: space-between;\n}\n\n.component:nth-of-type(11n+2), .component:nth-of-type(11n+3) {\n  max-height: 7.5cm;\n}\n \n.export-table.component .title-bar {\n  width: 100%; \n}\n\n.export-table .component .col {\n  min-width: 1.5cm;\n}\n\n.export-table .component .export-text {\n  max-width: 1.5cm;\n  text-align: center;\n  border-right: 1px solid black;\n  border-bottom: 1px solid black;\n  position: relative;\n}\n\n.export-table .component .export-text .label-title {\n  position: relative;\n  top: 20%;\n}\n\n.export-table .component .export-text .defect-icon {\n  position: relative;\n  top: 60%;\n}\n\n.export-table .component .export-img {\n  justify-content: space-between;\n  max-width: 8.3cm;\n  width: 8.3cm;\n  border-bottom: 1px solid black;\n}\n\n.export-table .component .export-textarea {\n  width: 100%;\n  text-align: center;\n}\n\n.export-table .component textarea {\n  width: 98%;\n  max-height: 1.5cm;\n  resize: none;\n  border: none;\n  margin: 0;\n  font-size: 12px;\n  font-family: sans-serif;\n}\n\n.export-table .component textarea:hover {\n  background-color: rgba(240, 240, 240, 1);\n  border: 1px solid black;\n}\n\n.export-table .component .col img {\n  max-width: 7.5cm;\n  max-height: 5.6cm;\n}\n\n.defect-legend {\n  width: 100%;\n  display: flex;\n  align-items: center;\n  justify-content: space-around;\n}\n\n.defect-legend img {\n  vertical-align: middle;\n}\n\n.page-break {\n  height: 50px;\n  width: 100%;\n  break-after: always;\n}\n", ""]);
 
 // exports
 
@@ -19825,14 +19835,14 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(12)(content, options);
+var update = __webpack_require__(10)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
 	// When the styles change, update the <style> tags
 	if(!content.locals) {
-		module.hot.accept("!!../../node_modules/css-loader/index.js!./vex.css", function() {
-			var newContent = require("!!../../node_modules/css-loader/index.js!./vex.css");
+		module.hot.accept("!!../../node_modules/css-loader/index.js!./data-and-saves-page.css", function() {
+			var newContent = require("!!../../node_modules/css-loader/index.js!./data-and-saves-page.css");
 			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
 			update(newContent);
 		});
@@ -19845,12 +19855,12 @@ if(false) {
 /* 98 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(11)(undefined);
+exports = module.exports = __webpack_require__(9)(undefined);
 // imports
 
 
 // module
-exports.push([module.i, "@keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-webkit-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-moz-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-ms-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-o-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-webkit-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-moz-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-ms-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-o-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-webkit-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-moz-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-ms-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-o-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n.vex, .vex *, .vex *:before, .vex *:after {\n  -moz-box-sizing: border-box;\n  -webkit-box-sizing: border-box;\n  box-sizing: border-box; }\n\n.vex {\n  position: fixed;\n  overflow: auto;\n  -webkit-overflow-scrolling: touch;\n  z-index: 1111;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n\n.vex-scrollbar-measure {\n  position: absolute;\n  top: -9999px;\n  width: 50px;\n  height: 50px;\n  overflow: scroll; }\n\n.vex-overlay {\n  background: #000;\n  filter: alpha(opacity=40);\n  -ms-filter: \"progid:DXImageTransform.Microsoft.Alpha(Opacity=40)\"; }\n\n.vex-overlay {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  position: fixed;\n  background: rgba(0, 0, 0, 0.4);\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n  .vex.vex-closing .vex-overlay {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-content {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  background: #fff; }\n  .vex.vex-closing .vex-content {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-close:before {\n  font-family: Arial, sans-serif;\n  content: \"\\D7\"; }\n\n.vex-dialog-form {\n  margin: 0; }\n\n.vex-dialog-button {\n  text-rendering: optimizeLegibility;\n  -moz-appearance: none;\n  -webkit-appearance: none;\n  cursor: pointer;\n  -webkit-tap-highlight-color: transparent; }\n\n.vex-loading-spinner {\n  animation: vex-rotation 0.7s linear infinite;\n  -webkit-animation: vex-rotation 0.7s linear infinite;\n  -moz-animation: vex-rotation 0.7s linear infinite;\n  -ms-animation: vex-rotation 0.7s linear infinite;\n  -o-animation: vex-rotation 0.7s linear infinite;\n  -webkit-backface-visibility: hidden;\n  -moz-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  -webkit-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  position: fixed;\n  z-index: 1112;\n  margin: auto;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0;\n  height: 2em;\n  width: 2em;\n  background: #fff; }\n\nbody.vex-open {\n  overflow: hidden; }\n", ""]);
+exports.push([module.i, ".page-3-wrapper {\n  margin: 0 auto;\n  width: 800px;\n  background-color: rgb(220, 220, 220); \n  height: 100%;\n}\n\n.page-3-wrapper {\n  display: flex;\n  justify-content: space-between; \n  flex-direction: column;\n  padding-bottom: 10px;\n}\n\n.page-3-wrapper li {\n  list-style: none;\n}\n\n.page-3-wrapper table {\n}\n\n.page-3-wrapper table th {\n  text-align: left; \n}\n", ""]);
 
 // exports
 
@@ -19870,7 +19880,52 @@ var transform;
 var options = {}
 options.transform = transform
 // add the styles to the DOM
-var update = __webpack_require__(12)(content, options);
+var update = __webpack_require__(10)(content, options);
+if(content.locals) module.exports = content.locals;
+// Hot Module Replacement
+if(false) {
+	// When the styles change, update the <style> tags
+	if(!content.locals) {
+		module.hot.accept("!!../../node_modules/css-loader/index.js!./vex.css", function() {
+			var newContent = require("!!../../node_modules/css-loader/index.js!./vex.css");
+			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+			update(newContent);
+		});
+	}
+	// When the module is disposed, remove the <style> tags
+	module.hot.dispose(function() { update(); });
+}
+
+/***/ }),
+/* 100 */
+/***/ (function(module, exports, __webpack_require__) {
+
+exports = module.exports = __webpack_require__(9)(undefined);
+// imports
+
+
+// module
+exports.push([module.i, "@keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-webkit-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-moz-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-ms-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@-o-keyframes vex-fadein {\n  0% {\n    opacity: 0; }\n  100% {\n    opacity: 1; } }\n\n@keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-webkit-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-moz-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-ms-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@-o-keyframes vex-fadeout {\n  0% {\n    opacity: 1; }\n  100% {\n    opacity: 0; } }\n\n@keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-webkit-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-moz-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-ms-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n@-o-keyframes vex-rotation {\n  0% {\n    transform: rotate(0deg);\n    -webkit-transform: rotate(0deg);\n    -moz-transform: rotate(0deg);\n    -ms-transform: rotate(0deg);\n    -o-transform: rotate(0deg); }\n  100% {\n    transform: rotate(359deg);\n    -webkit-transform: rotate(359deg);\n    -moz-transform: rotate(359deg);\n    -ms-transform: rotate(359deg);\n    -o-transform: rotate(359deg); } }\n\n.vex, .vex *, .vex *:before, .vex *:after {\n  -moz-box-sizing: border-box;\n  -webkit-box-sizing: border-box;\n  box-sizing: border-box; }\n\n.vex {\n  position: fixed;\n  overflow: auto;\n  -webkit-overflow-scrolling: touch;\n  z-index: 1111;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n\n.vex-scrollbar-measure {\n  position: absolute;\n  top: -9999px;\n  width: 50px;\n  height: 50px;\n  overflow: scroll; }\n\n.vex-overlay {\n  background: #000;\n  filter: alpha(opacity=40);\n  -ms-filter: \"progid:DXImageTransform.Microsoft.Alpha(Opacity=40)\"; }\n\n.vex-overlay {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  position: fixed;\n  background: rgba(0, 0, 0, 0.4);\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0; }\n  .vex.vex-closing .vex-overlay {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-content {\n  animation: vex-fadein 0.5s;\n  -webkit-animation: vex-fadein 0.5s;\n  -moz-animation: vex-fadein 0.5s;\n  -ms-animation: vex-fadein 0.5s;\n  -o-animation: vex-fadein 0.5s;\n  -webkit-backface-visibility: hidden;\n  background: #fff; }\n  .vex.vex-closing .vex-content {\n    animation: vex-fadeout 0.5s;\n    -webkit-animation: vex-fadeout 0.5s;\n    -moz-animation: vex-fadeout 0.5s;\n    -ms-animation: vex-fadeout 0.5s;\n    -o-animation: vex-fadeout 0.5s;\n    -webkit-backface-visibility: hidden; }\n\n.vex-close:before {\n  font-family: Arial, sans-serif;\n  content: \"\\D7\"; }\n\n.vex-dialog-form {\n  margin: 0; }\n\n.vex-dialog-button {\n  text-rendering: optimizeLegibility;\n  -moz-appearance: none;\n  -webkit-appearance: none;\n  cursor: pointer;\n  -webkit-tap-highlight-color: transparent; }\n\n.vex-loading-spinner {\n  animation: vex-rotation 0.7s linear infinite;\n  -webkit-animation: vex-rotation 0.7s linear infinite;\n  -moz-animation: vex-rotation 0.7s linear infinite;\n  -ms-animation: vex-rotation 0.7s linear infinite;\n  -o-animation: vex-rotation 0.7s linear infinite;\n  -webkit-backface-visibility: hidden;\n  -moz-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  -webkit-box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  box-shadow: 0 0 1em rgba(0, 0, 0, 0.1);\n  position: fixed;\n  z-index: 1112;\n  margin: auto;\n  top: 0;\n  right: 0;\n  bottom: 0;\n  left: 0;\n  height: 2em;\n  width: 2em;\n  background: #fff; }\n\nbody.vex-open {\n  overflow: hidden; }\n", ""]);
+
+// exports
+
+
+/***/ }),
+/* 101 */
+/***/ (function(module, exports, __webpack_require__) {
+
+// style-loader: Adds some css to the DOM by adding a <style> tag
+
+// load the styles
+var content = __webpack_require__(102);
+if(typeof content === 'string') content = [[module.i, content, '']];
+// Prepare cssTransformation
+var transform;
+
+var options = {}
+options.transform = transform
+// add the styles to the DOM
+var update = __webpack_require__(10)(content, options);
 if(content.locals) module.exports = content.locals;
 // Hot Module Replacement
 if(false) {
@@ -19887,10 +19942,10 @@ if(false) {
 }
 
 /***/ }),
-/* 100 */
+/* 102 */
 /***/ (function(module, exports, __webpack_require__) {
 
-exports = module.exports = __webpack_require__(11)(undefined);
+exports = module.exports = __webpack_require__(9)(undefined);
 // imports
 
 
@@ -19901,7 +19956,7 @@ exports.push([module.i, "@keyframes vex-flipin-horizontal {\n  0% {\n    opacity
 
 
 /***/ }),
-/* 101 */
+/* 103 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var require;var require;(function(f){if(true){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.vex = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return require(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
@@ -20660,7 +20715,7 @@ module.exports = vex
 });
 
 /***/ }),
-/* 102 */
+/* 104 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var require;var require;(function(f){if(true){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.vexDialog = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return require(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
@@ -21270,7 +21325,7 @@ module.exports = plugin
 });
 
 /***/ }),
-/* 103 */
+/* 105 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var nativeImage = __webpack_require__(38).nativeImage
@@ -21296,7 +21351,7 @@ module.exports = function canvasBuffer (canvas, type, quality) {
 
 
 /***/ }),
-/* 104 */
+/* 106 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -31367,7 +31422,7 @@ Vue$3.compile = compileToFunctions;
 
 
 /***/ }),
-/* 105 */
+/* 107 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (global, factory) {
@@ -31502,7 +31557,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 });
 
 /***/ }),
-/* 106 */
+/* 108 */
 /***/ (function(module, exports) {
 
 class Canvas {
@@ -31624,7 +31679,7 @@ module.exports = Canvas;
 
 
 /***/ }),
-/* 107 */
+/* 109 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_RESULT__;var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;var require;var require;/*
@@ -31750,7 +31805,7 @@ function(t){t.putTotalPages=function(t){for(var e=new RegExp(t,"g"),n=1;n<=this.
  *
  * ====================================================================
  */
-function(t){var e="",n="",r="";t.addMetadata=function(t,i){return n=i||"http://jspdf.default.namespaceuri/",e=t,this.internal.events.subscribe("postPutResources",function(){if(e){var t='<x:xmpmeta xmlns:x="adobe:ns:meta/">',i='<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:jspdf="'+n+'"><jspdf:metadata>',o="</jspdf:metadata></rdf:Description></rdf:RDF>",a="</x:xmpmeta>",s=unescape(encodeURIComponent(t)),c=unescape(encodeURIComponent(i)),l=unescape(encodeURIComponent(e)),u=unescape(encodeURIComponent(o)),h=unescape(encodeURIComponent(a)),f=c.length+l.length+u.length+s.length+h.length;r=this.internal.newObject(),this.internal.write("<< /Type /Metadata /Subtype /XML /Length "+f+" >>"),this.internal.write("stream"),this.internal.write(s+c+l+u+h),this.internal.write("endstream"),this.internal.write("endobj")}else r=""}),this.internal.events.subscribe("putCatalog",function(){r&&this.internal.write("/Metadata "+r+" 0 R")}),this}}(e.API),function(t){if(t.URL=t.URL||t.webkitURL,t.Blob&&t.URL)try{return void new Blob}catch(t){}var e=t.BlobBuilder||t.WebKitBlobBuilder||t.MozBlobBuilder||function(t){var e=function(t){return Object.prototype.toString.call(t).match(/^\[object\s(.*)\]$/)[1]},n=function(){this.data=[]},r=function(t,e,n){this.data=t,this.size=t.length,this.type=e,this.encoding=n},i=n.prototype,o=r.prototype,a=t.FileReaderSync,s=function(t){this.code=this[this.name=t]},c="NOT_FOUND_ERR SECURITY_ERR ABORT_ERR NOT_READABLE_ERR ENCODING_ERR NO_MODIFICATION_ALLOWED_ERR INVALID_STATE_ERR SYNTAX_ERR".split(" "),l=c.length,u=t.URL||t.webkitURL||t,h=u.createObjectURL,f=u.revokeObjectURL,d=u,p=t.btoa,g=t.atob,m=t.ArrayBuffer,w=t.Uint8Array,y=/^[\w-]+:\/*\[?[\w\.:-]+\]?(?::[0-9]+)?/;for(r.fake=o.fake=!0;l--;)s.prototype[c[l]]=l+1;return u.createObjectURL||(d=t.URL=function(t){var e,n=document.createElementNS("http://www.w3.org/1999/xhtml","a");return n.href=t,"origin"in n||("data:"===n.protocol.toLowerCase()?n.origin=null:(e=t.match(y),n.origin=e&&e[1])),n}),d.createObjectURL=function(t){var e,n=t.type;return null===n&&(n="application/octet-stream"),t instanceof r?(e="data:"+n,"base64"===t.encoding?e+";base64,"+t.data:"URI"===t.encoding?e+","+decodeURIComponent(t.data):p?e+";base64,"+p(t.data):e+","+encodeURIComponent(t.data)):h?h.call(u,t):void 0},d.revokeObjectURL=function(t){"data:"!==t.substring(0,5)&&f&&f.call(u,t)},i.append=function(t){var n=this.data;if(w&&(t instanceof m||t instanceof w)){for(var i="",o=new w(t),c=0,l=o.length;c<l;c++)i+=String.fromCharCode(o[c]);n.push(i)}else if("Blob"===e(t)||"File"===e(t)){if(!a)throw new s("NOT_READABLE_ERR");var u=new a;n.push(u.readAsBinaryString(t))}else t instanceof r?"base64"===t.encoding&&g?n.push(g(t.data)):"URI"===t.encoding?n.push(decodeURIComponent(t.data)):"raw"===t.encoding&&n.push(t.data):("string"!=typeof t&&(t+=""),n.push(unescape(encodeURIComponent(t))))},i.getBlob=function(t){return arguments.length||(t=null),new r(this.data.join(""),t,"raw")},i.toString=function(){return"[object BlobBuilder]"},o.slice=function(t,e,n){var i=arguments.length;return i<3&&(n=null),new r(this.data.slice(t,i>1?e:this.data.length),n,this.encoding)},o.toString=function(){return"[object Blob]"},o.close=function(){this.size=0,delete this.data},n}(t);t.Blob=function(t,n){var r=n?n.type||"":"",i=new e;if(t)for(var o=0,a=t.length;o<a;o++)Uint8Array&&t[o]instanceof Uint8Array?i.append(t[o].buffer):i.append(t[o]);var s=i.getBlob(r);return!s.slice&&s.webkitSlice&&(s.slice=s.webkitSlice),s};var n=Object.getPrototypeOf||function(t){return t.__proto__};t.Blob.prototype=n(new t.Blob)}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content||void 0);var i=i||function(t){if("undefined"==typeof navigator||!/MSIE [1-9]\./.test(navigator.userAgent)){var e=t.document,n=function(){return t.URL||t.webkitURL||t},r=e.createElementNS("http://www.w3.org/1999/xhtml","a"),i="download"in r,o=function(t){var e=new MouseEvent("click");t.dispatchEvent(e)},a=/Version\/[\d\.]+.*Safari/.test(navigator.userAgent),s=t.webkitRequestFileSystem,c=t.requestFileSystem||s||t.mozRequestFileSystem,l=function(e){(t.setImmediate||t.setTimeout)(function(){throw e},0)},u="application/octet-stream",h=0,f=500,d=function(e){var r=function(){"string"==typeof e?n().revokeObjectURL(e):e.remove()};t.chrome?r():setTimeout(r,f)},p=function(t,e,n){e=[].concat(e);for(var r=e.length;r--;){var i=t["on"+e[r]];if("function"==typeof i)try{i.call(t,n||t)}catch(t){l(t)}}},g=function(t){return/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(t.type)?new Blob(["\ufeff",t],{type:t.type}):t},m=function(e,l,f){f||(e=g(e));var m,w,y,v=this,b=e.type,x=!1,k=function(){p(v,"writestart progress write writeend".split(" "))},_=function(){if(w&&a&&"undefined"!=typeof FileReader){var r=new FileReader;return r.onloadend=function(){var t=r.result;w.location.href="data:attachment/file"+t.slice(t.search(/[,;]/)),v.readyState=v.DONE,k()},r.readAsDataURL(e),void(v.readyState=v.INIT)}if(!x&&m||(m=n().createObjectURL(e)),w)w.location.href=m;else{var i=t.open(m,"_blank");void 0==i&&a&&(t.location.href=m)}v.readyState=v.DONE,k(),d(m)},C=function(t){return function(){if(v.readyState!==v.DONE)return t.apply(this,arguments)}},A={create:!0,exclusive:!1};return v.readyState=v.INIT,l||(l="download"),i?(m=n().createObjectURL(e),void setTimeout(function(){r.href=m,r.download=l,o(r),k(),d(m),v.readyState=v.DONE})):(t.chrome&&b&&b!==u&&(y=e.slice||e.webkitSlice,e=y.call(e,0,e.size,u),x=!0),s&&"download"!==l&&(l+=".download"),(b===u||s)&&(w=t),c?(h+=e.size,void c(t.TEMPORARY,h,C(function(t){t.root.getDirectory("saved",A,C(function(t){var n=function(){t.getFile(l,A,C(function(t){t.createWriter(C(function(n){n.onwriteend=function(e){w.location.href=t.toURL(),v.readyState=v.DONE,p(v,"writeend",e),d(t)},n.onerror=function(){var t=n.error;t.code!==t.ABORT_ERR&&_()},"writestart progress write abort".split(" ").forEach(function(t){n["on"+t]=v["on"+t]}),n.write(e),v.abort=function(){n.abort(),v.readyState=v.DONE},v.readyState=v.WRITING}),_)}),_)};t.getFile(l,{create:!1},C(function(t){t.remove(),n()}),C(function(t){t.code===t.NOT_FOUND_ERR?n():_()}))}),_)}),_)):void _())},w=m.prototype,y=function(t,e,n){return new m(t,e,n)};return"undefined"!=typeof navigator&&navigator.msSaveOrOpenBlob?function(t,e,n){return n||(t=g(t)),navigator.msSaveOrOpenBlob(t,e||"download")}:(w.abort=function(){var t=this;t.readyState=t.DONE,p(t,"abort")},w.readyState=w.INIT=0,w.WRITING=1,w.DONE=2,w.error=w.onwritestart=w.onprogress=w.onwrite=w.onabort=w.onerror=w.onwriteend=null,y)}}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content);"undefined"!=typeof module&&module.exports?module.exports.saveAs=i:"undefined"!="function"&&null!==__webpack_require__(108)&&null!=__webpack_require__(109)&&!(__WEBPACK_AMD_DEFINE_ARRAY__ = [], __WEBPACK_AMD_DEFINE_RESULT__ = function(){return i}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
+function(t){var e="",n="",r="";t.addMetadata=function(t,i){return n=i||"http://jspdf.default.namespaceuri/",e=t,this.internal.events.subscribe("postPutResources",function(){if(e){var t='<x:xmpmeta xmlns:x="adobe:ns:meta/">',i='<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:jspdf="'+n+'"><jspdf:metadata>',o="</jspdf:metadata></rdf:Description></rdf:RDF>",a="</x:xmpmeta>",s=unescape(encodeURIComponent(t)),c=unescape(encodeURIComponent(i)),l=unescape(encodeURIComponent(e)),u=unescape(encodeURIComponent(o)),h=unescape(encodeURIComponent(a)),f=c.length+l.length+u.length+s.length+h.length;r=this.internal.newObject(),this.internal.write("<< /Type /Metadata /Subtype /XML /Length "+f+" >>"),this.internal.write("stream"),this.internal.write(s+c+l+u+h),this.internal.write("endstream"),this.internal.write("endobj")}else r=""}),this.internal.events.subscribe("putCatalog",function(){r&&this.internal.write("/Metadata "+r+" 0 R")}),this}}(e.API),function(t){if(t.URL=t.URL||t.webkitURL,t.Blob&&t.URL)try{return void new Blob}catch(t){}var e=t.BlobBuilder||t.WebKitBlobBuilder||t.MozBlobBuilder||function(t){var e=function(t){return Object.prototype.toString.call(t).match(/^\[object\s(.*)\]$/)[1]},n=function(){this.data=[]},r=function(t,e,n){this.data=t,this.size=t.length,this.type=e,this.encoding=n},i=n.prototype,o=r.prototype,a=t.FileReaderSync,s=function(t){this.code=this[this.name=t]},c="NOT_FOUND_ERR SECURITY_ERR ABORT_ERR NOT_READABLE_ERR ENCODING_ERR NO_MODIFICATION_ALLOWED_ERR INVALID_STATE_ERR SYNTAX_ERR".split(" "),l=c.length,u=t.URL||t.webkitURL||t,h=u.createObjectURL,f=u.revokeObjectURL,d=u,p=t.btoa,g=t.atob,m=t.ArrayBuffer,w=t.Uint8Array,y=/^[\w-]+:\/*\[?[\w\.:-]+\]?(?::[0-9]+)?/;for(r.fake=o.fake=!0;l--;)s.prototype[c[l]]=l+1;return u.createObjectURL||(d=t.URL=function(t){var e,n=document.createElementNS("http://www.w3.org/1999/xhtml","a");return n.href=t,"origin"in n||("data:"===n.protocol.toLowerCase()?n.origin=null:(e=t.match(y),n.origin=e&&e[1])),n}),d.createObjectURL=function(t){var e,n=t.type;return null===n&&(n="application/octet-stream"),t instanceof r?(e="data:"+n,"base64"===t.encoding?e+";base64,"+t.data:"URI"===t.encoding?e+","+decodeURIComponent(t.data):p?e+";base64,"+p(t.data):e+","+encodeURIComponent(t.data)):h?h.call(u,t):void 0},d.revokeObjectURL=function(t){"data:"!==t.substring(0,5)&&f&&f.call(u,t)},i.append=function(t){var n=this.data;if(w&&(t instanceof m||t instanceof w)){for(var i="",o=new w(t),c=0,l=o.length;c<l;c++)i+=String.fromCharCode(o[c]);n.push(i)}else if("Blob"===e(t)||"File"===e(t)){if(!a)throw new s("NOT_READABLE_ERR");var u=new a;n.push(u.readAsBinaryString(t))}else t instanceof r?"base64"===t.encoding&&g?n.push(g(t.data)):"URI"===t.encoding?n.push(decodeURIComponent(t.data)):"raw"===t.encoding&&n.push(t.data):("string"!=typeof t&&(t+=""),n.push(unescape(encodeURIComponent(t))))},i.getBlob=function(t){return arguments.length||(t=null),new r(this.data.join(""),t,"raw")},i.toString=function(){return"[object BlobBuilder]"},o.slice=function(t,e,n){var i=arguments.length;return i<3&&(n=null),new r(this.data.slice(t,i>1?e:this.data.length),n,this.encoding)},o.toString=function(){return"[object Blob]"},o.close=function(){this.size=0,delete this.data},n}(t);t.Blob=function(t,n){var r=n?n.type||"":"",i=new e;if(t)for(var o=0,a=t.length;o<a;o++)Uint8Array&&t[o]instanceof Uint8Array?i.append(t[o].buffer):i.append(t[o]);var s=i.getBlob(r);return!s.slice&&s.webkitSlice&&(s.slice=s.webkitSlice),s};var n=Object.getPrototypeOf||function(t){return t.__proto__};t.Blob.prototype=n(new t.Blob)}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content||void 0);var i=i||function(t){if("undefined"==typeof navigator||!/MSIE [1-9]\./.test(navigator.userAgent)){var e=t.document,n=function(){return t.URL||t.webkitURL||t},r=e.createElementNS("http://www.w3.org/1999/xhtml","a"),i="download"in r,o=function(t){var e=new MouseEvent("click");t.dispatchEvent(e)},a=/Version\/[\d\.]+.*Safari/.test(navigator.userAgent),s=t.webkitRequestFileSystem,c=t.requestFileSystem||s||t.mozRequestFileSystem,l=function(e){(t.setImmediate||t.setTimeout)(function(){throw e},0)},u="application/octet-stream",h=0,f=500,d=function(e){var r=function(){"string"==typeof e?n().revokeObjectURL(e):e.remove()};t.chrome?r():setTimeout(r,f)},p=function(t,e,n){e=[].concat(e);for(var r=e.length;r--;){var i=t["on"+e[r]];if("function"==typeof i)try{i.call(t,n||t)}catch(t){l(t)}}},g=function(t){return/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(t.type)?new Blob(["\ufeff",t],{type:t.type}):t},m=function(e,l,f){f||(e=g(e));var m,w,y,v=this,b=e.type,x=!1,k=function(){p(v,"writestart progress write writeend".split(" "))},_=function(){if(w&&a&&"undefined"!=typeof FileReader){var r=new FileReader;return r.onloadend=function(){var t=r.result;w.location.href="data:attachment/file"+t.slice(t.search(/[,;]/)),v.readyState=v.DONE,k()},r.readAsDataURL(e),void(v.readyState=v.INIT)}if(!x&&m||(m=n().createObjectURL(e)),w)w.location.href=m;else{var i=t.open(m,"_blank");void 0==i&&a&&(t.location.href=m)}v.readyState=v.DONE,k(),d(m)},C=function(t){return function(){if(v.readyState!==v.DONE)return t.apply(this,arguments)}},A={create:!0,exclusive:!1};return v.readyState=v.INIT,l||(l="download"),i?(m=n().createObjectURL(e),void setTimeout(function(){r.href=m,r.download=l,o(r),k(),d(m),v.readyState=v.DONE})):(t.chrome&&b&&b!==u&&(y=e.slice||e.webkitSlice,e=y.call(e,0,e.size,u),x=!0),s&&"download"!==l&&(l+=".download"),(b===u||s)&&(w=t),c?(h+=e.size,void c(t.TEMPORARY,h,C(function(t){t.root.getDirectory("saved",A,C(function(t){var n=function(){t.getFile(l,A,C(function(t){t.createWriter(C(function(n){n.onwriteend=function(e){w.location.href=t.toURL(),v.readyState=v.DONE,p(v,"writeend",e),d(t)},n.onerror=function(){var t=n.error;t.code!==t.ABORT_ERR&&_()},"writestart progress write abort".split(" ").forEach(function(t){n["on"+t]=v["on"+t]}),n.write(e),v.abort=function(){n.abort(),v.readyState=v.DONE},v.readyState=v.WRITING}),_)}),_)};t.getFile(l,{create:!1},C(function(t){t.remove(),n()}),C(function(t){t.code===t.NOT_FOUND_ERR?n():_()}))}),_)}),_)):void _())},w=m.prototype,y=function(t,e,n){return new m(t,e,n)};return"undefined"!=typeof navigator&&navigator.msSaveOrOpenBlob?function(t,e,n){return n||(t=g(t)),navigator.msSaveOrOpenBlob(t,e||"download")}:(w.abort=function(){var t=this;t.readyState=t.DONE,p(t,"abort")},w.readyState=w.INIT=0,w.WRITING=1,w.DONE=2,w.error=w.onwritestart=w.onprogress=w.onwrite=w.onabort=w.onerror=w.onwriteend=null,y)}}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content);"undefined"!=typeof module&&module.exports?module.exports.saveAs=i:"undefined"!="function"&&null!==__webpack_require__(110)&&null!=__webpack_require__(111)&&!(__WEBPACK_AMD_DEFINE_ARRAY__ = [], __WEBPACK_AMD_DEFINE_RESULT__ = function(){return i}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__)),/*
  * Copyright (c) 2012 chick307 <chick307@gmail.com>
  *
@@ -31832,7 +31887,7 @@ var s=function(){function t(){this.pos=0,this.bufferLength=0,this.eof=!1,this.bu
 
 
 /***/ }),
-/* 108 */
+/* 110 */
 /***/ (function(module, exports) {
 
 module.exports = function() {
@@ -31841,7 +31896,7 @@ module.exports = function() {
 
 
 /***/ }),
-/* 109 */
+/* 111 */
 /***/ (function(module, exports) {
 
 /* WEBPACK VAR INJECTION */(function(__webpack_amd_options__) {/* globals __webpack_amd_options__ */
@@ -31850,7 +31905,7 @@ module.exports = __webpack_amd_options__;
 /* WEBPACK VAR INJECTION */}.call(exports, {}))
 
 /***/ }),
-/* 110 */
+/* 112 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var require;var require;/*
@@ -31865,7 +31920,7 @@ bottomRightOuter:i(d+s,e+r,m,n).bottomRight.subdivide(.5),bottomRightInner:i(d+M
 
 
 /***/ }),
-/* 111 */
+/* 113 */
 /***/ (function(module, exports) {
 
 /**
