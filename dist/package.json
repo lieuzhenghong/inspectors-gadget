@@ -6,12 +6,14 @@
   "dependencies": {
     "css-loader": "^0.28.4",
     "electron-canvas-to-buffer": "^2.0.0",
+    "eslint": "^4.4.1",
     "localforage": "^1.5.0",
     "lodash": "^4.17.4",
     "mathjs": "^3.14.2",
     "style-loader": "^0.18.2",
     "vex-js": "^4.0.0",
     "vue": "^2.4.1",
+    "vue-async-computed": "^3.2.1",
     "webpack": "^3.1.0"
   },
   "devDependencies": {
