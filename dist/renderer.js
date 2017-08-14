@@ -7275,8 +7275,10 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
     methods: {
       update_saves: function() {
         // returns a promise, doesn't work
-        return get_instance_names().then(instance_names => this.saves =
-        instance_names);
+        get_instance_names().then(instance_names => {
+          console.log(instance_names);
+          this.saves = instance_names
+        });
       },
       handle_save_click: function(save) {
         get_instance(save).getItem('plan').then((value) => {
@@ -7352,11 +7354,10 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
           delete_row(label.id); 
       },
       clear_dbs: function() {
-        __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.clear();
-        /*
-        const instances_db = localforage.createInstance({
+        const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
           name: 'instances'
         });
+        console.log('clear_dbs called');
         instances_db.getItem('instances').then((instances) => {
           if (instances !== null) {
             for (let instance_name in instances) {
@@ -7364,26 +7365,23 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
             }
           }
         });
-        instances_db.clear(); 
-        */
-        this.update_saves();
+        instances_db.clear().then(() => this.update_saves()); 
       },
       delete_instance: function(db_name) {
       },
       save_data: function(db_name = new Date().toISOString()) {
         const db = create_instance(db_name);
-        console.log(db);
-        db.setItem('building', globals.BUILDING);
-        db.setItem('floor', globals.FLOOR);
-        db.setItem('labels', globals.LABELS);
-        db.setItem('id', globals.ID);
-        db.setItem('plan', globals.PLAN);
-        //get_instance_names().then((instance_names) => console.log(instance_names));
-        this.update_saves();
+        let p1 = db.setItem('building', globals.BUILDING);
+        let p2 = db.setItem('floor', globals.FLOOR);
+        let p3 = db.setItem('labels', globals.LABELS);
+        let p4 = db.setItem('id', globals.ID);
+        let p5 = db.setItem('plan', globals.PLAN);
+
+        Promise.all([p1, p2, p3, p4, p5]).then(() => this.update_saves());
       },
       load_data: function (db_name) {
+        console.log('called');
         let db = get_instance(db_name);
-        //db.iterate((value, key) => {console.log([key, value])});
 
         db.getItem('building').then((value) => {
             this.building = value;
@@ -7497,7 +7495,6 @@ function edit_name(e) {
         message: 'Enter new name for label:',
         input: '<input type="text" name="label_name" placeholder="Label name"/>',
         callback: (val) => {
-            console.log(e);
             val = val.label_name;
             if (val !== '' && val !== undefined) {
                 e.innerHTML = val;
@@ -7561,7 +7558,7 @@ function handle_mousedown(evt) {
       return m
     },
     concat: (m, dim) => {
-      
+      return n           
     }
   }
   */
@@ -7789,12 +7786,18 @@ function create_instance(instance_name) {
       instances_db.setItem('instances', [instance_name]);
     }
     else {
-      const new_instances = instances.concat([instance_name]);
-      instances_db.setItem('instances', new_instances);
+      // Concatenate the new instance if and only if it's unique
+      let unique = true;
+      for (let instance of instances) {
+        if (instance === instance_name) { unique = false; }
+      }
+      if (unique) {
+        const new_instances = instances.concat([instance_name]);
+        instances_db.setItem('instances', new_instances);
+      }
     }
-  })
+  });
 
-  instances_db.iterate((value, key) => {console.log([key, value])});
   return __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({name: instance_name});
 }
 
