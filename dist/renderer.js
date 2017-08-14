@@ -7184,8 +7184,6 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_8_vex_js__ = __webpack_require__(103);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_8_vex_js___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_8_vex_js__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_9_vue__ = __webpack_require__(106);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_10_vue_async_computed__ = __webpack_require__(107);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_10_vue_async_computed___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_10_vue_async_computed__);
 
 /*jshint esversion: 6 */
 /* jshint node: true */
@@ -7202,9 +7200,19 @@ math.import(__webpack_require__(61));
 
 
 
-
  __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.registerPlugin(__webpack_require__(104));
 __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.defaultOptions.className = 'vex-theme-flat-attack';
+
+const canvasBuffer = __webpack_require__(105);
+const electron = __webpack_require__(38);
+
+
+// My own imports
+const Canvas_Helper = __webpack_require__(107);
+const jsPDF = __webpack_require__(108);
+const html2canvas = __webpack_require__(111);
+const html2pdf = __webpack_require__(112);
+const htmlpdf = html2pdf(html2canvas, jsPDF);
 
 const _ = {
   find_id: function(id) {
@@ -7217,19 +7225,53 @@ const _ = {
   }
 };
 
-const canvasBuffer = __webpack_require__(105);
-const electron = __webpack_require__(38);
+const local_db = {
+  // create_instance :: String -> Instance
+  // Creates a new instance, logs it in a instances database and returns the
+  // created instance.
+  create_instance: (instance_name) => {
+    const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
+      name: 'instances'
+    });
+    
+    instances_db.getItem('instances').then((instances) => {
+      if (instances === null) {
+        instances_db.setItem('instances', [instance_name]);
+      }
+      else {
+        // Concatenate the new instance if and only if it's unique
+        let unique = true;
+        for (let instance of instances) {
+          if (instance === instance_name) { unique = false; }
+        }
+        if (unique) {
+          const new_instances = instances.concat([instance_name]);
+          instances_db.setItem('instances', new_instances);
+        }
+      }
+    });
 
+    return __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({name: instance_name});
+  },
 
-__WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */].use(__WEBPACK_IMPORTED_MODULE_10_vue_async_computed___default.a);
+  // get_instance :: String -> Instance
+  get_instance: (instance_name) => {
+    const instance = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
+      name: instance_name
+    });
+    
+    return instance;
+  },
 
-// My own imports
-const Canvas_Helper = __webpack_require__(108);
-const jsPDF = __webpack_require__(109);
-const html2canvas = __webpack_require__(112);
-const html2pdf = __webpack_require__(113);
-const htmlpdf = html2pdf(html2canvas, jsPDF);
+  // get_instance_names :: None -> Promise -> [String]
+  get_instance_names: () => {
+    const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
+      name: 'instances'
+    });
 
+    return instances_db.getItem('instances');
+  }
+}
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0, src, image) {
     this.id = id;
@@ -7273,9 +7315,14 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
     this.saves = this.update_saves();
   },
   methods: {
+    update_labels: function(labels) {
+      labels.map( (label) => {
+        label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
+      });
+    },
     update_saves: function() {
       // returns a promise, doesn't work
-      get_instance_names().then(instance_names => {
+      local_db.get_instance_names().then(instance_names => {
         this.saves = instance_names;
       });
     },
@@ -7324,33 +7371,255 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
       this.show(this.seen); 
     },
     upload_plan: function(files) {
-      upload_plan(files);
+      const plan = files[0];
+      const reader = new FileReader();
+      let img = new Image();
+      reader.addEventListener('load', () => {
+        __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
+          message: 'Enter building letter and floor',
+          input: [
+            '<input name=\'letter\' type=\'text\' placeholder=\'Letter\'/>',
+            '<input name=\'floor\' type=\'number\' placeholder=\'Floor\'/>',
+          ].join(''),
+          callback: (data) => {
+            if (data.letter === undefined) {
+              this.BUILDING ='A';
+            }
+            if (data.floor === undefined) {
+              this.FLOOR = '1';
+            }
+            else {
+              this.building = data.letter;
+              this.floor = data.floor;
+              this.update_labels(globals.LABELS);
+            }
+            img.src = reader.result;
+            globals.CVS.image = img;
+            globals.PLAN = reader.result;
+            globals.CVS.draw_canvas();
+          }
+        });
+      });
+      reader.readAsDataURL(plan);
     },
     upload_images: function(files) {
-      upload_images(files);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const reader = new FileReader();
+        reader.addEventListener('load', () => {
+          globals.LABELS.push(new Label(
+            globals.ID,
+            null,
+            null, 
+            globals.BUILDING + globals.FLOOR + '-' + (globals.ID).toString(),
+            '',
+            0,
+            reader.result,
+            files[i]
+          ));
+          globals.ID++;
+          globals.CVS.draw_canvas();
+
+          // Sort labels
+          if (i === files.length-1) { // All images have uploaded
+            // Sort all images in name order
+            globals.LABELS = globals.LABELS.sort( (a,b) => {
+              if (a.image.name > b.image.name) {
+                return 1;
+              }
+              else if (a.image.name < b.image.name) {
+                return -1;
+              }
+              else {
+                return 0;
+              }
+            });
+            // Reassign labels to match sort order
+            for (let j = 0; j < globals.LABELS.length; j++) {
+              globals.LABELS[j].id = j+1;
+            }
+            this.update_labels(globals.LABELS);
+          }
+
+        });
+        reader.readAsDataURL(file);
+      }
     },
     export_image: function() {
-      export_image();
+      const export_canvas = document.createElement('canvas');
+      const ctx = export_canvas.getContext('2d');
+      export_canvas.height = 3000;
+      export_canvas.width = Math.round(export_canvas.height * Math.sqrt(2));
+      ctx.clearRect(0, 0, export_canvas.height, export_canvas.width); 
+
+      // Rescale image such that the largest dimension of the image fits nicely
+      const working_height = export_canvas.height - 200;
+      const working_width = export_canvas.width - 200;
+      const max_x = globals.CVS.image.width;
+      const max_y = globals.CVS.image.height;
+      const xratio = working_width / max_x;
+      const yratio = working_height / max_y; 
+      const ratio = Math.min(xratio, yratio);
+      const x_offset = (export_canvas.width - max_x * ratio) / 2;
+      const y_offset = (export_canvas.height - max_y * ratio) / 2;
+
+      // make a deep copy of LABELS so as not to mutate it
+      let temp_labels = JSON.parse(JSON.stringify(globals.LABELS));
+      temp_labels.map( (label) => { 
+        label.x = label.x * ratio + x_offset;
+        label.y = label.y * ratio + y_offset;
+      });
+      ctx.drawImage(globals.CVS.image, 0, 0, globals.CVS.image.width, globals.CVS.image.height,
+        x_offset, y_offset, globals.CVS.image.width * ratio,
+        globals.CVS.image.height * ratio);
+
+      temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, 1); });
+      __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
+        message: 'Enter building overlay text',
+        input: '<input name=\'letter\' type=\'text\' placeholder=\'Building A Level 1\'/>',
+        callback: (text) => {
+          if (text === undefined) {
+            globals.CVS.draw_overlay(export_canvas, ctx);
+          }
+          else {
+            globals.CVS.draw_overlay(export_canvas, ctx, text.letter);
+          }
+          let buffer = canvasBuffer(export_canvas, 'image/png');
+          electron.remote.getGlobal('data').exportedImage = buffer;
+          electron.ipcRenderer.send('export_image', buffer);
+          export_canvas.remove(); // Garbage collection
+        }
+      });
     },
     export_table: function() {
-      export_table();
+      var element = document.getElementById('export-table');
+      htmlpdf(element, {
+        margin:       0,
+        filename:     'export.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { dpi: 192, letterRendering: true },
+        jsPDF:        { unit: 'in', format: 'A4', orientation: 'portrait' }
+      });
     },
-
     // The following functions are for the tables
     toggle_defect: function(label) {
       label.toggle_defect();
     },
-    edit_label_name: function(e_target) {
-      edit_name(e_target);
+    edit_label_name: function(e) {
+      __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
+        message: 'Enter new name for label:',
+        input: '<input type="text" name="label_name" placeholder="Label name"/>',
+        callback: (val) => {
+          val = val.label_name;
+          if (val !== '' && val !== undefined) {
+            e.innerHTML = val;
+            const id = e.closest('tr').id;
+            const label = _.find_id(id);
+            label.title = val.toString();
+            globals.CVS.draw_canvas();
+            //draw_table(globals.LABELS);
+          }
+        }
+      });
     },
-    handle_mousedown: function(e) {
-      handle_mousedown(e);
+    handle_mousedown: function(evt) {
+      function label_clicked(clicked_x, clicked_y, font_size, draw_ratio) {
+        let return_label = null;
+        for (let label of globals.LABELS) {
+          const wid = globals.CVS.context.measureText(label.title).width;
+          const ht = font_size;
+          const l_w = (wid + 10/draw_ratio);
+          const l_h = (ht + 10/draw_ratio);
+          const lx = label.x - l_w/2;
+          const uy = label.y - l_h/2;
+          const rx = label.x + l_w + l_w/2;
+          const ly = label.y + l_h/2;
+          
+          if (clicked_x > lx && clicked_x < rx && clicked_y > uy &&
+                    clicked_y < ly)
+          {
+            return_label = label; 
+            break;
+          }
+        }
+        return return_label;
+      }
+      // Matrix multiplication of affine transformation vector and mouse 
+      // vector. Augmentation is required: see
+      // https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
+      /*
+      [x' y' 1] = [1 0 Tx
+                   0 1 Ty
+                   0 0 1 ] [x y 1]
+      */
+      // These 6 lines take up 500Kb.... ridiculous
+      let t = globals.CVS.transform;
+      t = math.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
+      t = math.reshape(t.concat(0,0,1), [3,3]);
+      const inv = math.inv(t);
+
+      let clicked_x = evt.offsetX * inv[0][0] + evt.offsetY * inv[0][1] + inv[0][2];
+      let clicked_y = evt.offsetX * inv[1][0] + evt.offsetY * inv[1][1] + inv[1][2];
+
+      // If right click, go to tag editing mode
+      if (evt.button === 2 || evt.shiftKey) {
+        __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.prompt({
+          message: 'Enter ID of label: ',
+          callback: (value) => {
+            let label = _.find_id(parseInt(value));
+            if (label !== undefined) {
+              label.x = clicked_x;
+              label.y = clicked_y;
+              globals.CVS.draw_canvas();
+            }
+          }
+        });
+      }
+
+      // If the left mouse button was clicked, find the first label that has yet to
+      // be tagged on the floor plan
+      else if (evt.button === 0) {
+        let label = globals.LABELS.find( (label) => {return label.x === null;});
+        const draw_ratio = globals.CVS.draw_ratio;
+        // WARNING //
+        const font_size = 60 / draw_ratio; 
+        // We must do that so that ctx.measureText can work
+        globals.CVS.context.font = `${font_size}px sans-serif`;
+        // Watch out: every time I tweak font size in Canvas.js, I need to change
+        // this
+        let clicked_label = label_clicked(clicked_x, clicked_y, font_size,
+          draw_ratio);
+        
+        if (label !== undefined && clicked_label === null) { // No label clicked
+          label.x = clicked_x;
+          label.y = clicked_y;
+          globals.CVS.draw_canvas();
+
+          // Show the next image in preview, if one exists
+          let next_label = _.find_id(parseInt(label.id + 1));
+          if (next_label !== undefined) {
+            this.preview_src = next_label.image_src;
+          }
+        }
+        // No label present and no clicked label
+        else if (clicked_label === null) {  
+          //Do nothing
+        }
+        else {
+          this.preview_src = clicked_label.image_src;
+        }
+      }
+
+      else {
+        //There should be nothing here
+      }
     },
     handle_mouseover: function(label) {
       this.preview_src = label.image_src; 
     },
     delete_row: function(label) {
-      delete_row(label.id); 
+      _.remove_id(parseInt(label.id));
+      globals.CVS.draw_canvas();
     },
     clear_dbs: function() {
       const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
@@ -7359,7 +7628,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
       instances_db.getItem('instances').then((instances) => {
         if (instances !== null) {
           for (let instance_name in instances) {
-            get_instance(instance_name).clear(); 
+            local_db.get_instance(instance_name).clear(); 
           }
         }
       });
@@ -7371,7 +7640,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
     },
     */
     save_data: function(db_name = new Date().toISOString()) {
-      const db = create_instance(db_name);
+      const db = local_db.create_instance(db_name);
       let p1 = db.setItem('building', globals.BUILDING);
       let p2 = db.setItem('floor', globals.FLOOR);
       let p3 = db.setItem('labels', globals.LABELS);
@@ -7381,7 +7650,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
       Promise.all([p1, p2, p3, p4, p5]).then(() => this.update_saves());
     },
     load_data: function (db_name) {
-      let db = get_instance(db_name);
+      let db = local_db.get_instance(db_name);
 
       db.getItem('building').then((value) => {
         this.building = value;
@@ -7410,7 +7679,7 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
           );
         }
         );
-        vue._data.labels = globals.LABELS;
+        this.labels = globals.LABELS;
         globals.CVS.draw_canvas();
       });
       db.getItem('id').then( (value) => {
@@ -7477,7 +7746,7 @@ function init() {
     }
     else if (e.keyCode === 76 && globals.KEYS[17]) {
       let instance_name = null;
-      get_instance_names().then((instances) => {
+      local_db.get_instance_names().then((instances) => {
         instance_name = instances[instances.length-1];
         vue.load_data(instance_name);
       });
@@ -7486,347 +7755,6 @@ function init() {
   // Handling the reply when we send the exported floor plan
   electron.ipcRenderer.on('export_image', (e, args) => {
     __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.alert(args);
-  });
-}
-
-
-function edit_name(e) {
-  __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
-    message: 'Enter new name for label:',
-    input: '<input type="text" name="label_name" placeholder="Label name"/>',
-    callback: (val) => {
-      val = val.label_name;
-      if (val !== '' && val !== undefined) {
-        e.innerHTML = val;
-        const id = e.closest('tr').id;
-        /*
-                const id = e.target.closest('tr').id;
-                */
-        const label = _.find_id(id);
-        label.title = val.toString();
-        globals.CVS.draw_canvas();
-        //draw_table(globals.LABELS);
-      }
-    }
-  });
-}
-
-function delete_row(id) {
-  _.remove_id(parseInt(id));
-  globals.CVS.draw_canvas();
-  //draw_table(globals.LABELS);
-}
-
-
-function handle_mousedown(evt) {
-
-  function label_clicked(clicked_x, clicked_y, font_size, draw_ratio) {
-    let return_label = null;
-    for (let label of globals.LABELS) {
-      const wid = globals.CVS.context.measureText(label.title).width;
-      const ht = font_size;
-      const l_w = (wid + 10/draw_ratio);
-      const l_h = (ht + 10/draw_ratio);
-      const lx = label.x - l_w/2;
-      const uy = label.y - l_h/2;
-      const rx = label.x + l_w + l_w/2;
-      const ly = label.y + l_h/2;
-      
-      if (clicked_x > lx && clicked_x < rx && clicked_y > uy &&
-                clicked_y < ly)
-      {
-        return_label = label; 
-        break;
-      }
-    }
-    return return_label;
-  }
-  /*
-  let math = {
-    reshape: (m, dim) => {
-      let n = [];
-      for (let y = 0; y < (dim[0]); y++) {
-        let row = [];
-        for (let x = 0; x < (dim[1]); x++) {
-           row.push(m[y*x]); 
-        }
-        n.push(row)
-      }
-      return n
-    },
-    inv: (m) => {
-      return m
-    },
-    concat: (m, dim) => {
-      return n           
-    }
-  }
-  */
-  // Matrix multiplication of affine transformation vector and mouse 
-  // vector. Augmentation is required: see
-  // https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations
-  /*
-  [x' y' 1] = [1 0 Tx
-                0 1 Ty
-                0 0 1 ] [x y 1]
-  */
-
-  // These 6 lines take up 500Kb.... ridiculous
-  let t = globals.CVS.transform;
-  t = math.reshape([t[0], t[2], t[4], t[1], t[3], t[5]], [2,3]);
-  t = math.reshape(t.concat(0,0,1), [3,3]);
-  const inv = math.inv(t);
-
-  let clicked_x = evt.offsetX * inv[0][0] + evt.offsetY * inv[0][1] + inv[0][2];
-  let clicked_y = evt.offsetX * inv[1][0] + evt.offsetY * inv[1][1] + inv[1][2];
-
-  // If right click, go to tag editing mode
-  if (evt.button === 2 || evt.shiftKey) {
-    __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.prompt({
-      message: 'Enter ID of label: ',
-      callback: (value) => {
-        let label = _.find_id(parseInt(value));
-        if (label !== undefined) {
-          label.x = clicked_x;
-          label.y = clicked_y;
-          globals.CVS.draw_canvas();
-        }
-      }
-    });
-  }
-
-
-  // If the left mouse button was clicked, find the first label that has yet to
-  // be tagged on the floor plan
-  else if (evt.button === 0) {
-    let label = globals.LABELS.find( (label) => {return label.x === null;});
-    const draw_ratio = globals.CVS.draw_ratio;
-    // WARNING //
-    const font_size = 60 / draw_ratio; 
-    // We must do that so that ctx.measureText can work
-    globals.CVS.context.font = `${font_size}px sans-serif`;
-    // Watch out: every time I tweak font size in Canvas.js, I need to change
-    // this
-    let clicked_label = label_clicked(clicked_x, clicked_y, font_size,
-      draw_ratio);
-    
-    if (label !== undefined && clicked_label === null) { // No label clicked
-      label.x = clicked_x;
-      label.y = clicked_y;
-      globals.CVS.draw_canvas();
-
-      // Show the next image in preview, if one exists
-      let next_label = _.find_id(parseInt(label.id + 1));
-      if (next_label !== undefined) {
-        vue._data.preview_src = next_label.image_src;
-      }
-    }
-
-    // No label present and no clicked label
-    else if (clicked_label === null) {  
-      //Do nothing
-    }
-
-    else {
-      vue._data.preview_src = clicked_label.image_src;
-    }
-  }
-
-  else {
-    //There should be nothing here
-  }
-}
-
-function upload_plan(file_list) {
-  const plan = file_list[0];
-  const reader = new FileReader();
-  let img = new Image();
-  reader.addEventListener('load', () => {
-    __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
-      message: 'Enter building letter and floor',
-      input: [
-        '<input name=\'letter\' type=\'text\' placeholder=\'Letter\'/>',
-        '<input name=\'floor\' type=\'number\' placeholder=\'Floor\'/>',
-      ].join(''),
-      callback: (data) => {
-        if (data.letter === undefined) {
-          globals.BUILDING ='A';
-        }
-        if (data.floor === undefined) {
-          globals.FLOOR = '1';
-        }
-        else {
-          globals.BUILDING = data.letter;
-          globals.FLOOR = data.floor;
-          vue._data.building = globals.BUILDING;
-          vue._data.floor = globals.FLOOR;
-          update_labels(globals.LABELS);
-        }
-        img.src = reader.result;
-        globals.CVS.image = img;
-        globals.PLAN = reader.result;
-        globals.CVS.draw_canvas();
-      }
-    });
-  });
-  reader.readAsDataURL(plan);
-}
-
-function upload_images(file_list) {
-  // FileList has no method map nor forEach
-  
-  for (let i = 0; i < file_list.length; i++) {
-    const file = file_list[i];
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      globals.LABELS.push(new Label(
-        globals.ID,
-        null,
-        null, 
-        globals.BUILDING + globals.FLOOR + '-' + (globals.ID).toString(),
-        '',
-        0,
-        reader.result,
-        file_list[i]
-      ));
-      globals.ID++;
-      globals.CVS.draw_canvas();
-
-      // Sort labels
-
-      if (i === file_list.length-1) { // All images have uploaded
-        // Sort all images in name order
-        globals.LABELS = globals.LABELS.sort( (a,b) => {
-          if (a.image.name > b.image.name) {
-            return 1;
-          }
-          else if (a.image.name < b.image.name) {
-            return -1;
-          }
-          else {
-            return 0;
-          }
-        });
-        // Reassign labels to match sort order
-        for (let j = 0; j < globals.LABELS.length; j++) {
-          globals.LABELS[j].id = j+1;
-        }
-        update_labels(globals.LABELS);
-      }
-
-    });
-    reader.readAsDataURL(file);
-  }
-}
-
-function update_labels(labels) {
-  labels.map( (label) => {
-    label.title = `${globals.BUILDING}${globals.FLOOR}-${label.id}`;
-  });
-}
-
-function export_image() {
-  const export_canvas = document.createElement('canvas');
-  const ctx = export_canvas.getContext('2d');
-  export_canvas.height = 3000;
-  export_canvas.width = Math.round(export_canvas.height * Math.sqrt(2));
-  ctx.clearRect(0, 0, export_canvas.height, export_canvas.width); 
-
-  // Rescale image such that the largest dimension of the image fits nicely
-  const working_height = export_canvas.height - 200;
-  const working_width = export_canvas.width - 200;
-  const max_x = globals.CVS.image.width;
-  const max_y = globals.CVS.image.height;
-  const xratio = working_width / max_x;
-  const yratio = working_height / max_y; 
-  const ratio = Math.min(xratio, yratio);
-  const x_offset = (export_canvas.width - max_x * ratio) / 2;
-  const y_offset = (export_canvas.height - max_y * ratio) / 2;
-
-  // make a deep copy of LABELS so as not to mutate it
-  let temp_labels = JSON.parse(JSON.stringify(globals.LABELS));
-  temp_labels.map( (label) => { 
-    label.x = label.x * ratio + x_offset;
-    label.y = label.y * ratio + y_offset;
-  });
-  ctx.drawImage(globals.CVS.image, 0, 0, globals.CVS.image.width, globals.CVS.image.height,
-    x_offset, y_offset, globals.CVS.image.width * ratio,
-    globals.CVS.image.height * ratio);
-
-  temp_labels.map( (label) => { globals.CVS.draw_label(label, ctx, 1); });
-  __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.open({
-    message: 'Enter building overlay text',
-    input: '<input name=\'letter\' type=\'text\' placeholder=\'Building A Level 1\'/>',
-    callback: (text) => {
-      if (text === undefined) {
-        globals.CVS.draw_overlay(export_canvas, ctx);
-      }
-      else {
-        globals.CVS.draw_overlay(export_canvas, ctx, text.letter);
-      }
-      let buffer = canvasBuffer(export_canvas, 'image/png');
-      electron.remote.getGlobal('data').exportedImage = buffer;
-      electron.ipcRenderer.send('export_image', buffer);
-      export_canvas.remove(); // Garbage collection
-    }
-  });
-}
-
-// create_instance :: String -> Instance
-// Creates a new instance, logs it in a instances database and returns the
-// created instance.
-//
-function create_instance(instance_name) {
-  const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
-    name: 'instances'
-  });
-  
-  instances_db.getItem('instances').then((instances) => {
-    if (instances === null) {
-      instances_db.setItem('instances', [instance_name]);
-    }
-    else {
-      // Concatenate the new instance if and only if it's unique
-      let unique = true;
-      for (let instance of instances) {
-        if (instance === instance_name) { unique = false; }
-      }
-      if (unique) {
-        const new_instances = instances.concat([instance_name]);
-        instances_db.setItem('instances', new_instances);
-      }
-    }
-  });
-
-  return __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({name: instance_name});
-}
-
-// get_instance :: String -> Instance
-function get_instance(instance_name) {
-  const instance = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
-    name: instance_name
-  });
-  
-  return instance;
-}
-
-// get_instance_names :: None -> Promise -> [String]
-function get_instance_names() {
-  const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
-    name: 'instances'
-  });
-
-  return instances_db.getItem('instances');
-}
-
-function export_table() {
-  var element = document.getElementById('export-table');
-  htmlpdf(element, {
-    margin:       0,
-    filename:     'export.pdf',
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { dpi: 192, letterRendering: true },
-    jsPDF:        { unit: 'in', format: 'A4', orientation: 'portrait' }
   });
 }
 
@@ -31426,141 +31354,6 @@ Vue$3.compile = compileToFunctions;
 
 /***/ }),
 /* 107 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (global, factory) {
-  if (true) {
-    !(__WEBPACK_AMD_DEFINE_ARRAY__ = [module, exports], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory),
-				__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
-				(__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-  } else if (typeof exports !== "undefined") {
-    factory(module, exports);
-  } else {
-    var mod = {
-      exports: {}
-    };
-    factory(mod, mod.exports);
-    global.AsyncComputed = mod.exports;
-  }
-})(this, function (module, exports) {
-  'use strict';
-
-  Object.defineProperty(exports, "__esModule", {
-    value: true
-  });
-  var prefix = '_async_computed$';
-
-  var AsyncComputed = {
-    install: function install(Vue, pluginOptions) {
-      pluginOptions = pluginOptions || {};
-
-      Vue.config.optionMergeStrategies.asyncComputed = Vue.config.optionMergeStrategies.computed;
-
-      Vue.mixin({
-        beforeCreate: function beforeCreate() {
-          var optionData = this.$options.data;
-
-          if (!this.$options.computed) this.$options.computed = {};
-
-          for (var key in this.$options.asyncComputed || {}) {
-            this.$options.computed[prefix + key] = getterFor(this.$options.asyncComputed[key]);
-          }
-
-          this.$options.data = function vueAsyncComputedInjectedDataFn() {
-            var data = (typeof optionData === 'function' ? optionData.call(this) : optionData) || {};
-            for (var _key in this.$options.asyncComputed || {}) {
-              data[_key] = null;
-            }
-            return data;
-          };
-        },
-        created: function created() {
-          var _this = this;
-
-          for (var key in this.$options.asyncComputed || {}) {
-            this[key] = defaultFor.call(this, this.$options.asyncComputed[key], pluginOptions);
-          }
-
-          var _loop = function _loop(_key2) {
-            var promiseId = 0;
-            _this.$watch(prefix + _key2, function (newPromise) {
-              var thisPromise = ++promiseId;
-
-              if (!newPromise || !newPromise.then) {
-                newPromise = Promise.resolve(newPromise);
-              }
-
-              newPromise.then(function (value) {
-                if (thisPromise !== promiseId) return;
-                _this[_key2] = value;
-              }).catch(function (err) {
-                if (thisPromise !== promiseId) return;
-
-                if (pluginOptions.errorHandler === false) return;
-
-                var handler = pluginOptions.errorHandler === undefined ? console.error.bind(console, 'Error evaluating async computed property:') : pluginOptions.errorHandler;
-
-                if (pluginOptions.useRawError) {
-                  handler(err);
-                } else {
-                  handler(err.stack);
-                }
-              });
-            }, { immediate: true });
-          };
-
-          for (var _key2 in this.$options.asyncComputed || {}) {
-            _loop(_key2);
-          }
-        }
-      });
-    }
-  };
-
-  function getterFor(fn) {
-    if (typeof fn === 'function') return fn;
-
-    var getter = fn.get;
-
-    if (fn.hasOwnProperty('watch')) {
-      getter = function getter() {
-        fn.watch.call(this);
-        return fn.get.call(this);
-      };
-    }
-    return getter;
-  }
-
-  function defaultFor(fn, pluginOptions) {
-    var defaultValue = null;
-
-    if ('default' in fn) {
-      defaultValue = fn.default;
-    } else if ('default' in pluginOptions) {
-      defaultValue = pluginOptions.default;
-    }
-
-    if (typeof defaultValue === 'function') {
-      return defaultValue.call(this);
-    } else {
-      return defaultValue;
-    }
-  }
-
-  exports.default = AsyncComputed;
-
-
-  /* istanbul ignore if */
-  if (typeof window !== 'undefined' && window.Vue) {
-    // Auto install in dist mode
-    window.Vue.use(AsyncComputed);
-  }
-  module.exports = exports['default'];
-});
-
-/***/ }),
-/* 108 */
 /***/ (function(module, exports) {
 
 class Canvas {
@@ -31682,7 +31475,7 @@ module.exports = Canvas;
 
 
 /***/ }),
-/* 109 */
+/* 108 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_RESULT__;var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;var require;var require;/*
@@ -31808,7 +31601,7 @@ function(t){t.putTotalPages=function(t){for(var e=new RegExp(t,"g"),n=1;n<=this.
  *
  * ====================================================================
  */
-function(t){var e="",n="",r="";t.addMetadata=function(t,i){return n=i||"http://jspdf.default.namespaceuri/",e=t,this.internal.events.subscribe("postPutResources",function(){if(e){var t='<x:xmpmeta xmlns:x="adobe:ns:meta/">',i='<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:jspdf="'+n+'"><jspdf:metadata>',o="</jspdf:metadata></rdf:Description></rdf:RDF>",a="</x:xmpmeta>",s=unescape(encodeURIComponent(t)),c=unescape(encodeURIComponent(i)),l=unescape(encodeURIComponent(e)),u=unescape(encodeURIComponent(o)),h=unescape(encodeURIComponent(a)),f=c.length+l.length+u.length+s.length+h.length;r=this.internal.newObject(),this.internal.write("<< /Type /Metadata /Subtype /XML /Length "+f+" >>"),this.internal.write("stream"),this.internal.write(s+c+l+u+h),this.internal.write("endstream"),this.internal.write("endobj")}else r=""}),this.internal.events.subscribe("putCatalog",function(){r&&this.internal.write("/Metadata "+r+" 0 R")}),this}}(e.API),function(t){if(t.URL=t.URL||t.webkitURL,t.Blob&&t.URL)try{return void new Blob}catch(t){}var e=t.BlobBuilder||t.WebKitBlobBuilder||t.MozBlobBuilder||function(t){var e=function(t){return Object.prototype.toString.call(t).match(/^\[object\s(.*)\]$/)[1]},n=function(){this.data=[]},r=function(t,e,n){this.data=t,this.size=t.length,this.type=e,this.encoding=n},i=n.prototype,o=r.prototype,a=t.FileReaderSync,s=function(t){this.code=this[this.name=t]},c="NOT_FOUND_ERR SECURITY_ERR ABORT_ERR NOT_READABLE_ERR ENCODING_ERR NO_MODIFICATION_ALLOWED_ERR INVALID_STATE_ERR SYNTAX_ERR".split(" "),l=c.length,u=t.URL||t.webkitURL||t,h=u.createObjectURL,f=u.revokeObjectURL,d=u,p=t.btoa,g=t.atob,m=t.ArrayBuffer,w=t.Uint8Array,y=/^[\w-]+:\/*\[?[\w\.:-]+\]?(?::[0-9]+)?/;for(r.fake=o.fake=!0;l--;)s.prototype[c[l]]=l+1;return u.createObjectURL||(d=t.URL=function(t){var e,n=document.createElementNS("http://www.w3.org/1999/xhtml","a");return n.href=t,"origin"in n||("data:"===n.protocol.toLowerCase()?n.origin=null:(e=t.match(y),n.origin=e&&e[1])),n}),d.createObjectURL=function(t){var e,n=t.type;return null===n&&(n="application/octet-stream"),t instanceof r?(e="data:"+n,"base64"===t.encoding?e+";base64,"+t.data:"URI"===t.encoding?e+","+decodeURIComponent(t.data):p?e+";base64,"+p(t.data):e+","+encodeURIComponent(t.data)):h?h.call(u,t):void 0},d.revokeObjectURL=function(t){"data:"!==t.substring(0,5)&&f&&f.call(u,t)},i.append=function(t){var n=this.data;if(w&&(t instanceof m||t instanceof w)){for(var i="",o=new w(t),c=0,l=o.length;c<l;c++)i+=String.fromCharCode(o[c]);n.push(i)}else if("Blob"===e(t)||"File"===e(t)){if(!a)throw new s("NOT_READABLE_ERR");var u=new a;n.push(u.readAsBinaryString(t))}else t instanceof r?"base64"===t.encoding&&g?n.push(g(t.data)):"URI"===t.encoding?n.push(decodeURIComponent(t.data)):"raw"===t.encoding&&n.push(t.data):("string"!=typeof t&&(t+=""),n.push(unescape(encodeURIComponent(t))))},i.getBlob=function(t){return arguments.length||(t=null),new r(this.data.join(""),t,"raw")},i.toString=function(){return"[object BlobBuilder]"},o.slice=function(t,e,n){var i=arguments.length;return i<3&&(n=null),new r(this.data.slice(t,i>1?e:this.data.length),n,this.encoding)},o.toString=function(){return"[object Blob]"},o.close=function(){this.size=0,delete this.data},n}(t);t.Blob=function(t,n){var r=n?n.type||"":"",i=new e;if(t)for(var o=0,a=t.length;o<a;o++)Uint8Array&&t[o]instanceof Uint8Array?i.append(t[o].buffer):i.append(t[o]);var s=i.getBlob(r);return!s.slice&&s.webkitSlice&&(s.slice=s.webkitSlice),s};var n=Object.getPrototypeOf||function(t){return t.__proto__};t.Blob.prototype=n(new t.Blob)}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content||void 0);var i=i||function(t){if("undefined"==typeof navigator||!/MSIE [1-9]\./.test(navigator.userAgent)){var e=t.document,n=function(){return t.URL||t.webkitURL||t},r=e.createElementNS("http://www.w3.org/1999/xhtml","a"),i="download"in r,o=function(t){var e=new MouseEvent("click");t.dispatchEvent(e)},a=/Version\/[\d\.]+.*Safari/.test(navigator.userAgent),s=t.webkitRequestFileSystem,c=t.requestFileSystem||s||t.mozRequestFileSystem,l=function(e){(t.setImmediate||t.setTimeout)(function(){throw e},0)},u="application/octet-stream",h=0,f=500,d=function(e){var r=function(){"string"==typeof e?n().revokeObjectURL(e):e.remove()};t.chrome?r():setTimeout(r,f)},p=function(t,e,n){e=[].concat(e);for(var r=e.length;r--;){var i=t["on"+e[r]];if("function"==typeof i)try{i.call(t,n||t)}catch(t){l(t)}}},g=function(t){return/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(t.type)?new Blob(["\ufeff",t],{type:t.type}):t},m=function(e,l,f){f||(e=g(e));var m,w,y,v=this,b=e.type,x=!1,k=function(){p(v,"writestart progress write writeend".split(" "))},_=function(){if(w&&a&&"undefined"!=typeof FileReader){var r=new FileReader;return r.onloadend=function(){var t=r.result;w.location.href="data:attachment/file"+t.slice(t.search(/[,;]/)),v.readyState=v.DONE,k()},r.readAsDataURL(e),void(v.readyState=v.INIT)}if(!x&&m||(m=n().createObjectURL(e)),w)w.location.href=m;else{var i=t.open(m,"_blank");void 0==i&&a&&(t.location.href=m)}v.readyState=v.DONE,k(),d(m)},C=function(t){return function(){if(v.readyState!==v.DONE)return t.apply(this,arguments)}},A={create:!0,exclusive:!1};return v.readyState=v.INIT,l||(l="download"),i?(m=n().createObjectURL(e),void setTimeout(function(){r.href=m,r.download=l,o(r),k(),d(m),v.readyState=v.DONE})):(t.chrome&&b&&b!==u&&(y=e.slice||e.webkitSlice,e=y.call(e,0,e.size,u),x=!0),s&&"download"!==l&&(l+=".download"),(b===u||s)&&(w=t),c?(h+=e.size,void c(t.TEMPORARY,h,C(function(t){t.root.getDirectory("saved",A,C(function(t){var n=function(){t.getFile(l,A,C(function(t){t.createWriter(C(function(n){n.onwriteend=function(e){w.location.href=t.toURL(),v.readyState=v.DONE,p(v,"writeend",e),d(t)},n.onerror=function(){var t=n.error;t.code!==t.ABORT_ERR&&_()},"writestart progress write abort".split(" ").forEach(function(t){n["on"+t]=v["on"+t]}),n.write(e),v.abort=function(){n.abort(),v.readyState=v.DONE},v.readyState=v.WRITING}),_)}),_)};t.getFile(l,{create:!1},C(function(t){t.remove(),n()}),C(function(t){t.code===t.NOT_FOUND_ERR?n():_()}))}),_)}),_)):void _())},w=m.prototype,y=function(t,e,n){return new m(t,e,n)};return"undefined"!=typeof navigator&&navigator.msSaveOrOpenBlob?function(t,e,n){return n||(t=g(t)),navigator.msSaveOrOpenBlob(t,e||"download")}:(w.abort=function(){var t=this;t.readyState=t.DONE,p(t,"abort")},w.readyState=w.INIT=0,w.WRITING=1,w.DONE=2,w.error=w.onwritestart=w.onprogress=w.onwrite=w.onabort=w.onerror=w.onwriteend=null,y)}}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content);"undefined"!=typeof module&&module.exports?module.exports.saveAs=i:"undefined"!="function"&&null!==__webpack_require__(110)&&null!=__webpack_require__(111)&&!(__WEBPACK_AMD_DEFINE_ARRAY__ = [], __WEBPACK_AMD_DEFINE_RESULT__ = function(){return i}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
+function(t){var e="",n="",r="";t.addMetadata=function(t,i){return n=i||"http://jspdf.default.namespaceuri/",e=t,this.internal.events.subscribe("postPutResources",function(){if(e){var t='<x:xmpmeta xmlns:x="adobe:ns:meta/">',i='<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:jspdf="'+n+'"><jspdf:metadata>',o="</jspdf:metadata></rdf:Description></rdf:RDF>",a="</x:xmpmeta>",s=unescape(encodeURIComponent(t)),c=unescape(encodeURIComponent(i)),l=unescape(encodeURIComponent(e)),u=unescape(encodeURIComponent(o)),h=unescape(encodeURIComponent(a)),f=c.length+l.length+u.length+s.length+h.length;r=this.internal.newObject(),this.internal.write("<< /Type /Metadata /Subtype /XML /Length "+f+" >>"),this.internal.write("stream"),this.internal.write(s+c+l+u+h),this.internal.write("endstream"),this.internal.write("endobj")}else r=""}),this.internal.events.subscribe("putCatalog",function(){r&&this.internal.write("/Metadata "+r+" 0 R")}),this}}(e.API),function(t){if(t.URL=t.URL||t.webkitURL,t.Blob&&t.URL)try{return void new Blob}catch(t){}var e=t.BlobBuilder||t.WebKitBlobBuilder||t.MozBlobBuilder||function(t){var e=function(t){return Object.prototype.toString.call(t).match(/^\[object\s(.*)\]$/)[1]},n=function(){this.data=[]},r=function(t,e,n){this.data=t,this.size=t.length,this.type=e,this.encoding=n},i=n.prototype,o=r.prototype,a=t.FileReaderSync,s=function(t){this.code=this[this.name=t]},c="NOT_FOUND_ERR SECURITY_ERR ABORT_ERR NOT_READABLE_ERR ENCODING_ERR NO_MODIFICATION_ALLOWED_ERR INVALID_STATE_ERR SYNTAX_ERR".split(" "),l=c.length,u=t.URL||t.webkitURL||t,h=u.createObjectURL,f=u.revokeObjectURL,d=u,p=t.btoa,g=t.atob,m=t.ArrayBuffer,w=t.Uint8Array,y=/^[\w-]+:\/*\[?[\w\.:-]+\]?(?::[0-9]+)?/;for(r.fake=o.fake=!0;l--;)s.prototype[c[l]]=l+1;return u.createObjectURL||(d=t.URL=function(t){var e,n=document.createElementNS("http://www.w3.org/1999/xhtml","a");return n.href=t,"origin"in n||("data:"===n.protocol.toLowerCase()?n.origin=null:(e=t.match(y),n.origin=e&&e[1])),n}),d.createObjectURL=function(t){var e,n=t.type;return null===n&&(n="application/octet-stream"),t instanceof r?(e="data:"+n,"base64"===t.encoding?e+";base64,"+t.data:"URI"===t.encoding?e+","+decodeURIComponent(t.data):p?e+";base64,"+p(t.data):e+","+encodeURIComponent(t.data)):h?h.call(u,t):void 0},d.revokeObjectURL=function(t){"data:"!==t.substring(0,5)&&f&&f.call(u,t)},i.append=function(t){var n=this.data;if(w&&(t instanceof m||t instanceof w)){for(var i="",o=new w(t),c=0,l=o.length;c<l;c++)i+=String.fromCharCode(o[c]);n.push(i)}else if("Blob"===e(t)||"File"===e(t)){if(!a)throw new s("NOT_READABLE_ERR");var u=new a;n.push(u.readAsBinaryString(t))}else t instanceof r?"base64"===t.encoding&&g?n.push(g(t.data)):"URI"===t.encoding?n.push(decodeURIComponent(t.data)):"raw"===t.encoding&&n.push(t.data):("string"!=typeof t&&(t+=""),n.push(unescape(encodeURIComponent(t))))},i.getBlob=function(t){return arguments.length||(t=null),new r(this.data.join(""),t,"raw")},i.toString=function(){return"[object BlobBuilder]"},o.slice=function(t,e,n){var i=arguments.length;return i<3&&(n=null),new r(this.data.slice(t,i>1?e:this.data.length),n,this.encoding)},o.toString=function(){return"[object Blob]"},o.close=function(){this.size=0,delete this.data},n}(t);t.Blob=function(t,n){var r=n?n.type||"":"",i=new e;if(t)for(var o=0,a=t.length;o<a;o++)Uint8Array&&t[o]instanceof Uint8Array?i.append(t[o].buffer):i.append(t[o]);var s=i.getBlob(r);return!s.slice&&s.webkitSlice&&(s.slice=s.webkitSlice),s};var n=Object.getPrototypeOf||function(t){return t.__proto__};t.Blob.prototype=n(new t.Blob)}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content||void 0);var i=i||function(t){if("undefined"==typeof navigator||!/MSIE [1-9]\./.test(navigator.userAgent)){var e=t.document,n=function(){return t.URL||t.webkitURL||t},r=e.createElementNS("http://www.w3.org/1999/xhtml","a"),i="download"in r,o=function(t){var e=new MouseEvent("click");t.dispatchEvent(e)},a=/Version\/[\d\.]+.*Safari/.test(navigator.userAgent),s=t.webkitRequestFileSystem,c=t.requestFileSystem||s||t.mozRequestFileSystem,l=function(e){(t.setImmediate||t.setTimeout)(function(){throw e},0)},u="application/octet-stream",h=0,f=500,d=function(e){var r=function(){"string"==typeof e?n().revokeObjectURL(e):e.remove()};t.chrome?r():setTimeout(r,f)},p=function(t,e,n){e=[].concat(e);for(var r=e.length;r--;){var i=t["on"+e[r]];if("function"==typeof i)try{i.call(t,n||t)}catch(t){l(t)}}},g=function(t){return/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(t.type)?new Blob(["\ufeff",t],{type:t.type}):t},m=function(e,l,f){f||(e=g(e));var m,w,y,v=this,b=e.type,x=!1,k=function(){p(v,"writestart progress write writeend".split(" "))},_=function(){if(w&&a&&"undefined"!=typeof FileReader){var r=new FileReader;return r.onloadend=function(){var t=r.result;w.location.href="data:attachment/file"+t.slice(t.search(/[,;]/)),v.readyState=v.DONE,k()},r.readAsDataURL(e),void(v.readyState=v.INIT)}if(!x&&m||(m=n().createObjectURL(e)),w)w.location.href=m;else{var i=t.open(m,"_blank");void 0==i&&a&&(t.location.href=m)}v.readyState=v.DONE,k(),d(m)},C=function(t){return function(){if(v.readyState!==v.DONE)return t.apply(this,arguments)}},A={create:!0,exclusive:!1};return v.readyState=v.INIT,l||(l="download"),i?(m=n().createObjectURL(e),void setTimeout(function(){r.href=m,r.download=l,o(r),k(),d(m),v.readyState=v.DONE})):(t.chrome&&b&&b!==u&&(y=e.slice||e.webkitSlice,e=y.call(e,0,e.size,u),x=!0),s&&"download"!==l&&(l+=".download"),(b===u||s)&&(w=t),c?(h+=e.size,void c(t.TEMPORARY,h,C(function(t){t.root.getDirectory("saved",A,C(function(t){var n=function(){t.getFile(l,A,C(function(t){t.createWriter(C(function(n){n.onwriteend=function(e){w.location.href=t.toURL(),v.readyState=v.DONE,p(v,"writeend",e),d(t)},n.onerror=function(){var t=n.error;t.code!==t.ABORT_ERR&&_()},"writestart progress write abort".split(" ").forEach(function(t){n["on"+t]=v["on"+t]}),n.write(e),v.abort=function(){n.abort(),v.readyState=v.DONE},v.readyState=v.WRITING}),_)}),_)};t.getFile(l,{create:!1},C(function(t){t.remove(),n()}),C(function(t){t.code===t.NOT_FOUND_ERR?n():_()}))}),_)}),_)):void _())},w=m.prototype,y=function(t,e,n){return new m(t,e,n)};return"undefined"!=typeof navigator&&navigator.msSaveOrOpenBlob?function(t,e,n){return n||(t=g(t)),navigator.msSaveOrOpenBlob(t,e||"download")}:(w.abort=function(){var t=this;t.readyState=t.DONE,p(t,"abort")},w.readyState=w.INIT=0,w.WRITING=1,w.DONE=2,w.error=w.onwritestart=w.onprogress=w.onwrite=w.onabort=w.onerror=w.onwriteend=null,y)}}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||(void 0).content);"undefined"!=typeof module&&module.exports?module.exports.saveAs=i:"undefined"!="function"&&null!==__webpack_require__(109)&&null!=__webpack_require__(110)&&!(__WEBPACK_AMD_DEFINE_ARRAY__ = [], __WEBPACK_AMD_DEFINE_RESULT__ = function(){return i}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__)),/*
  * Copyright (c) 2012 chick307 <chick307@gmail.com>
  *
@@ -31890,7 +31683,7 @@ var s=function(){function t(){this.pos=0,this.bufferLength=0,this.eof=!1,this.bu
 
 
 /***/ }),
-/* 110 */
+/* 109 */
 /***/ (function(module, exports) {
 
 module.exports = function() {
@@ -31899,7 +31692,7 @@ module.exports = function() {
 
 
 /***/ }),
-/* 111 */
+/* 110 */
 /***/ (function(module, exports) {
 
 /* WEBPACK VAR INJECTION */(function(__webpack_amd_options__) {/* globals __webpack_amd_options__ */
@@ -31908,7 +31701,7 @@ module.exports = __webpack_amd_options__;
 /* WEBPACK VAR INJECTION */}.call(exports, {}))
 
 /***/ }),
-/* 112 */
+/* 111 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var require;var require;/*
@@ -31923,7 +31716,7 @@ bottomRightOuter:i(d+s,e+r,m,n).bottomRight.subdivide(.5),bottomRightInner:i(d+M
 
 
 /***/ }),
-/* 113 */
+/* 112 */
 /***/ (function(module, exports) {
 
 /**
