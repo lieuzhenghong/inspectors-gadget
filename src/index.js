@@ -177,9 +177,11 @@ let vue = new Vue({
       });
       instances_db.clear().then(() => this.update_saves()); 
     },
+    /*
     delete_instance: function(db_name) {
       //TODO
     },
+    */
     save_data: function(db_name = new Date().toISOString()) {
       const db = create_instance(db_name);
       let p1 = db.setItem('building', globals.BUILDING);

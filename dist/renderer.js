@@ -7365,9 +7365,11 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
       });
       instances_db.clear().then(() => this.update_saves()); 
     },
+    /*
     delete_instance: function(db_name) {
       //TODO
     },
+    */
     save_data: function(db_name = new Date().toISOString()) {
       const db = create_instance(db_name);
       let p1 = db.setItem('building', globals.BUILDING);
@@ -7471,7 +7473,7 @@ function init() {
       vue.toggle();      
     }
     else if (e.keyCode === 83 && globals.KEYS[17]) {
-      save_data();
+      vue.save_data();
     }
     else if (e.keyCode === 76 && globals.KEYS[17]) {
       let instance_name = null;
