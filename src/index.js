@@ -85,7 +85,8 @@ const local_db = {
 
     return instances_db.getItem('instances');
   }
-}
+};
+
 class Label {
   constructor(id, x=null, y=null, title, caption='', defect=0, src, image) {
     this.id = id;
@@ -141,7 +142,7 @@ let vue = new Vue({
       });
     },
     handle_save_click: function(save) {
-      get_instance(save).getItem('plan').then((value) => {
+      local_db.get_instance(save).getItem('plan').then((value) => {
         this.save_preview_src = value;
       });
     },
