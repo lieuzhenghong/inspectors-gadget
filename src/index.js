@@ -88,7 +88,6 @@ let vue = new Vue({
       update_saves: function() {
         // returns a promise, doesn't work
         get_instance_names().then(instance_names => {
-          console.log(instance_names);
           this.saves = instance_names
         });
       },
@@ -169,7 +168,6 @@ let vue = new Vue({
         const instances_db = localforage.createInstance({
           name: 'instances'
         });
-        console.log('clear_dbs called');
         instances_db.getItem('instances').then((instances) => {
           if (instances !== null) {
             for (let instance_name in instances) {
@@ -192,7 +190,6 @@ let vue = new Vue({
         Promise.all([p1, p2, p3, p4, p5]).then(() => this.update_saves());
       },
       load_data: function (db_name) {
-        console.log('called');
         let db = get_instance(db_name);
 
         db.getItem('building').then((value) => {
