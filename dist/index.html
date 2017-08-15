@@ -136,9 +136,25 @@
 
   <div class = 'page-3' v-show='seen === 2'>
     <div class = 'page-3-wrapper'>  
-      <img width='400px' height='300px'
-        v-bind:src='save_preview_src'
-      >
+      <div id = 'save-row'>
+        <table>
+          <tbody>
+          <tr>
+            <th> Save name </th>
+            <th> Save </th>
+            <th> Load</th>
+          </tr>
+            <tr v-for='(save, index) in saves'>
+              <td v-on:mouseover='handle_save_click(save)'> {{save}}
+              <td> <button v-on:click='save_data(save)'>Save</button>
+              <td> <button v-on:click='load_data(save)'>Load</button>
+            </tr>
+          </tbody>
+        </table>
+        <img width='400px' height='300px'
+          v-bind:src='save_preview_src'
+        >
+      </div>
         <ul>
           <li>
             Building:
@@ -149,19 +165,27 @@
             <input v-model='floor'>
           </li>
         </ul>
-        <table>
-          <th> Save name </th>
-          <th> Save </th>
-          <th> Load</th>
-          <tr v-for='(save, index) in saves'>
-            <td v-on:click='handle_save_click(save)'> {{save}}
-            <td> <button v-on:click='save_data(save)'>Save</button>
-            <td> <button v-on:click='load_data(save)'>Load</button>
-          </tr>
-        </table>
+
+        <div class = 'table-wrapper'>
+
+          <table>
+
+            <tbody>
+            <tr>
+              <th> Label name
+              <th> Caption
+              <th> Defect level
+            </tr>
+            <tr v-for='(label, index) in defective_labels'>
+              <td> {{label.title}}
+              <td> {{label.caption}}
+              <td> {{defect_text(label)}}
+            </tr>
+            </tbody>
+          </table>
+        </div>
         <div class = 'button-wrapper'>
-          <button class='label' v-on:click='update_saves()'> Refresh </button>
-          <button class='label' v-on:click='save_data()'> Save </button>
+          <button class='label' v-on:click='save_data()'> New save </button>
           <button class='label' v-on:click='clear_dbs()'> Delete all saves </button>
         </div>
       </div>

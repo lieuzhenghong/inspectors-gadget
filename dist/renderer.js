@@ -7315,6 +7315,11 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
   created: function() {
     this.saves = this.update_saves();
   },
+  computed: {
+    defective_labels: function() {
+      return (this.labels.filter((label) => {return label.defect > 0;}));
+    },
+  },
   methods: {
     update_labels: function(labels) {
       labels.map( (label) => {
@@ -7349,6 +7354,10 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
           }
         }
       });
+    },
+    defect_text: function(label) {
+      return (label.defect === 0 ? 'ND' : label.defect === 1 ?
+        'NS' : 'S');
     },
     defect_src: function (label) {
       return (label.defect == 0 ?
@@ -19792,7 +19801,7 @@ exports = module.exports = __webpack_require__(9)(undefined);
 
 
 // module
-exports.push([module.i, ".page-3-wrapper {\n  margin: 0 auto;\n  width: 800px;\n  background-color: rgb(220, 220, 220); \n  height: 100%;\n}\n\n.page-3-wrapper {\n  display: flex;\n  justify-content: space-between; \n  flex-direction: column;\n  padding-bottom: 10px;\n}\n\n.page-3-wrapper li {\n  list-style: none;\n}\n\n.page-3-wrapper table {\n}\n\n.page-3-wrapper table th {\n  text-align: left; \n}\n", ""]);
+exports.push([module.i, ".page-3-wrapper {\n  margin: 0 auto;\n  width: 1000px;\n  background-color: rgb(220, 220, 220); \n  height: 100%;\n}\n\n.page-3-wrapper {\n  display: flex;\n  justify-content: space-between; \n  flex-direction: column;\n  padding-bottom: 10px;\n}\n\n.page-3-wrapper li {\n  list-style: none;\n}\n\n\n.page-3-wrapper table th {\n  text-align: left; \n}\n\n.table-wrapper {\n  display: flex;\n  flex-direction: row;\n}\n\n#save-row {\n  display: flex;\n  flex-direction: row;\n  justify-content: space-around;\n}\n\n#save-row table {\n  display: inline-block;\n  max-height: 300px;\n  overflow-y: scroll;\n  border: 1px solid black;\n  border-collapse: collapse;\n}\n\n#save-row table tr, #save-row table td, #save-row table th {\n  border: 1px solid black;\n  border-collapse: collapse;\n}\n\n#save-row table td, #save-row table th {\n  padding: 5px;\n}\n", ""]);
 
 // exports
 

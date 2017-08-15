@@ -1,6 +1,6 @@
 .page-3-wrapper {
   margin: 0 auto;
-  width: 800px;
+  width: 1000px;
   background-color: rgb(220, 220, 220); 
   height: 100%;
 }
@@ -16,9 +16,35 @@
   list-style: none;
 }
 
-.page-3-wrapper table {
-}
 
 .page-3-wrapper table th {
   text-align: left; 
+}
+
+.table-wrapper {
+  display: flex;
+  flex-direction: row;
+}
+
+#save-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+}
+
+#save-row table {
+  display: inline-block;
+  max-height: 300px;
+  overflow-y: scroll;
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+#save-row table tr, #save-row table td, #save-row table th {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+#save-row table td, #save-row table th {
+  padding: 5px;
 }

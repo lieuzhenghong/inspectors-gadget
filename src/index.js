@@ -129,6 +129,11 @@ let vue = new Vue({
   created: function() {
     this.saves = this.update_saves();
   },
+  computed: {
+    defective_labels: function() {
+      return (this.labels.filter((label) => {return label.defect > 0;}));
+    },
+  },
   methods: {
     update_labels: function(labels) {
       labels.map( (label) => {
@@ -163,6 +168,10 @@ let vue = new Vue({
           }
         }
       });
+    },
+    defect_text: function(label) {
+      return (label.defect === 0 ? 'ND' : label.defect === 1 ?
+        'NS' : 'S');
     },
     defect_src: function (label) {
       return (label.defect == 0 ?
