@@ -29,16 +29,6 @@
   padding-bottom: 4px;
 }
 
-#tag-tables a {
-  text-align: center;
-  color: red;
-  text-decoration: underline;
-}
-
-#tag-tables a:hover {
-  cursor: pointer;
-}
-
 #tag-tables td img:hover {
   cursor: pointer;
 }

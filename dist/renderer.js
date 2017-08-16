@@ -7332,9 +7332,40 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
         this.saves = instance_names;
       });
     },
-    handle_save_click: function(save) {
+    handle_save_mouseover: function(save) {
       local_db.get_instance(save).getItem('plan').then((value) => {
         this.save_preview_src = value;
+      });
+    },
+    rename_save: function(save) {
+      // Renaming a save is quite involved
+      // 1. Prompt for new name of save
+      // 2. Create a new instance
+      // 3. Populate the new instance with the values of the old instance
+      // 4. Add a pointer to the new instance in instances_db
+      // 5. Delete the old instance and the pointer to it in instances_db
+      const instance = local_db.get_instance(save);
+      __WEBPACK_IMPORTED_MODULE_8_vex_js___default.a.dialog.prompt({
+        message: 'Enter new name for save. If save name already exists, ' +
+                 'it will override the previous save!',
+        callback: (new_name) => {
+          const new_instance = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
+            name: new_name
+          });
+          instance.iterate( (value, key) => {
+            new_instance.setItem(key, value);
+          });
+          // Add pointer to the new save in index_db
+          const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
+            name: 'instances'
+          });
+          instances_db.getItem('instances').then((instances) => {
+            instances_db.setItem('instances', instances.concat(new_name));
+            // Clear the old key and the reference to it in instances_db
+            this.delete_instance(save);
+            this.update_saves();
+          });
+        }
       });
     },
     sort_data: function(sort_by) {
@@ -7644,11 +7675,20 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
       });
       instances_db.clear().then(() => this.update_saves()); 
     },
-    /*
     delete_instance: function(db_name) {
-      //TODO
+      const instances_db = __WEBPACK_IMPORTED_MODULE_0_localforage___default.a.createInstance({
+        name: 'instances'
+      });
+      instances_db.getItem('instances').then((instances) => {
+        let idx = instances.indexOf(db_name);
+        let new_instances = instances;
+        new_instances.splice(idx, 1);
+        instances_db.setItem('instances', new_instances).then(() => {
+          local_db.get_instance(db_name).clear();
+          this.update_saves();
+        });
+      });
     },
-    */
     save_data: function(db_name = new Date().toISOString()) {
       const db = local_db.create_instance(db_name);
       let p1 = db.setItem('building', globals.BUILDING);
@@ -7657,7 +7697,9 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
       let p4 = db.setItem('id', globals.ID);
       let p5 = db.setItem('plan', globals.PLAN);
 
-      Promise.all([p1, p2, p3, p4, p5]).then(() => this.update_saves());
+      Promise.all([p1, p2, p3, p4, p5]).then(() => {
+        this.update_saves();
+      });
     },
     load_data: function (db_name) {
       let db = local_db.get_instance(db_name);
@@ -19571,7 +19613,7 @@ exports = module.exports = __webpack_require__(9)(undefined);
 
 
 // module
-exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black; display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 100%;\n  position: fixed;\n}\n\nnav li {\n  display: inline-block;\n  min-width: 200px;\n  height: 40px;\n  text-align: center;\n  line-height: 40px;/* centers text vertically */\n  font-size: 24px;\n  border: 1px solid black;\n  border-bottom: none;\n  border-radius: 0.5rem 0.5rem 0 0;\n  margin-right: 2px;\n  padding-left: 10px;\n  padding-right: 10px;\n}\n\nnav li:hover {\n  cursor: pointer;\n  background-color: rgba(240, 220, 200, 1);\n}\n\nnav .active {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n\n.hidden {\n  /*\n  display: none;\n  */\n}\n\n.wrapper {\n  margin-left: 10px;\n  margin-right: 10px;\n  height: 100%;\n  display: flex;\n}\n\n.page-1, .page-2, .page-3 {\n  margin-top: 40px; \n  height: calc(100%-40px);\n  width: 100%;\n } \n\n.page-1 {\n  display: flex;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n  padding-bottom: 10px;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n", ""]);
+exports.push([module.i, "* {\n margin: 0;\n padding: 0;\n box-sizing: border-box;\n}\n\nhtml, body {\n    margin: 0;\n    padding: 0;\n    font-family: sans-serif;\n    height: 100%;\n    width: 100%;\n}\n\n\ncanvas {\n    align-self: flex-start;\n    padding: 0;\n    margin: 0;\n    border: 1px solid black; display: block;\n    background-color: rgba(220, 220, 220, 1);\n}\n\nnav {\n  width: 100%;\n  position: fixed;\n}\n\nnav li {\n  display: inline-block;\n  min-width: 200px;\n  height: 40px;\n  text-align: center;\n  line-height: 40px;/* centers text vertically */\n  font-size: 24px;\n  border: 1px solid black;\n  border-bottom: none;\n  border-radius: 0.5rem 0.5rem 0 0;\n  margin-right: 2px;\n  padding-left: 10px;\n  padding-right: 10px;\n}\n\nnav li:hover {\n  cursor: pointer;\n  background-color: rgba(240, 220, 200, 1);\n}\n\nnav .active {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n\n.hidden {\n  /*\n  display: none;\n  */\n}\n\n.wrapper {\n  margin-left: 10px;\n  margin-right: 10px;\n  height: 100%;\n  display: flex;\n}\n\n.page-1, .page-2, .page-3 {\n  margin-top: 40px; \n  height: calc(100%-40px);\n  width: 100%;\n } \n\n.page-1 {\n  display: flex;\n}\n\n.col1, .col2 {\n  display: flex;\n  justify-content: space-between;\n  flex-direction: column;\n  padding-bottom: 10px;\n}\n\n.col1 {\n  width:100%;\n}\n\n.col2 {\n  width: 400px;\n }\n\n.button {\n  width: 0.1px;\n  height: 0.1px;\n  opacity: 0;\n  overflow: hidden;\n  z-index: -1;\n}\n\n.button + label, .label {\n  font-size: 30px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n}\n.button + label, .label{\n  cursor:pointer;\n}\n.button + label:hover, .label:hover{\n  background-color: rgba(240, 220, 200, 1);\n}\n\n#img-preview {\n  min-height: 300px;\n  min-width: 300px;\n  border: 2px solid black;\n}\n\n.edit-bar {\n}\n\n.nav {\n  font-size: 30px;\n  width: 80px;\n  height: 80px;\n  display: inline-block;\n  border: 2px solid black;\n  padding: 10px;\n  background-color: rgba(255, 255, 255, 1.0);\n  color: black;\n  text-decoration: none;\n  cursor:pointer;\n}\n\n.nav:hover {\n  background-color: rgba(240, 220, 200, 1);\n}\n\n.delete {\n  text-align: center;\n  color: red;\n  text-decoration: underline;\n}\n\n.delete:hover {\n  cursor: pointer;\n}\n\n", ""]);
 
 // exports
 
@@ -19711,7 +19753,7 @@ exports = module.exports = __webpack_require__(9)(undefined);
 
 
 // module
-exports.push([module.i, "#tag-tables,  #tag-tables tr, #tag-tables td {\n  width: 400px;\n  font-family: monospace;\n  text-align: center;\n  border-collapse: collapse;\n  border: 1px solid black;\n}\n\n#tag-tables thead {\n  display: block;\n}\n\n#tag-tables tbody {\n  display: block;\n  height: 425px;\n  max-height: 425px;\n  overflow-y:scroll;\n}\n\n#tag-tables tr:hover {\n  background-color: rgba(200, 200, 200, 1);\n}\n#tag-tables td .editable {\n  text-decoration: underline; \n}\n\n#tag-tables td {\n  padding-top: 4px;\n  padding-bottom: 4px;\n}\n\n#tag-tables a {\n  text-align: center;\n  color: red;\n  text-decoration: underline;\n}\n\n#tag-tables a:hover {\n  cursor: pointer;\n}\n\n#tag-tables td img:hover {\n  cursor: pointer;\n}\n", ""]);
+exports.push([module.i, "#tag-tables,  #tag-tables tr, #tag-tables td {\n  width: 400px;\n  font-family: monospace;\n  text-align: center;\n  border-collapse: collapse;\n  border: 1px solid black;\n}\n\n#tag-tables thead {\n  display: block;\n}\n\n#tag-tables tbody {\n  display: block;\n  height: 425px;\n  max-height: 425px;\n  overflow-y:scroll;\n}\n\n#tag-tables tr:hover {\n  background-color: rgba(200, 200, 200, 1);\n}\n#tag-tables td .editable {\n  text-decoration: underline; \n}\n\n#tag-tables td {\n  padding-top: 4px;\n  padding-bottom: 4px;\n}\n\n#tag-tables td img:hover {\n  cursor: pointer;\n}\n", ""]);
 
 // exports
 

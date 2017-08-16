@@ -139,3 +139,13 @@ nav .active {
   background-color: rgba(240, 220, 200, 1);
 }
 
+.delete {
+  text-align: center;
+  color: red;
+  text-decoration: underline;
+}
+
+.delete:hover {
+  cursor: pointer;
+}
+

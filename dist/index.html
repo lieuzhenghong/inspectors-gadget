@@ -78,7 +78,7 @@
                     <img v-bind:src='defect_src(label)' width='30'>
                   </td>
                   <td>
-                    <a class='editable' v-on:click='delete_row(label)'> X
+                    <a class='editable delete' v-on:click='delete_row(label)'> X
                     </a>
                   </td>
                 </tr>
@@ -142,12 +142,16 @@
           <tr>
             <th> Save name </th>
             <th> Save </th>
-            <th> Load</th>
+            <th> Load </th>
+            <th> Delete </th>
           </tr>
-            <tr v-for='(save, index) in saves'>
-              <td v-on:mouseover='handle_save_click(save)'> {{save}}
+            <tr v-for='(save, index) in saves'
+                v-on:mouseover='handle_save_mouseover(save)'
+            >
+              <td v-on:click='rename_save(save)'> {{save}}
               <td> <button v-on:click='save_data(save)'>Save</button>
               <td> <button v-on:click='load_data(save)'>Load</button>
+              <td> <a class='editable delete' v-on:click='delete_instance(save)'>X</a>
             </tr>
           </tbody>
         </table>

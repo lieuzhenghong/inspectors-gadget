@@ -146,9 +146,40 @@ let vue = new Vue({
         this.saves = instance_names;
       });
     },
-    handle_save_click: function(save) {
+    handle_save_mouseover: function(save) {
       local_db.get_instance(save).getItem('plan').then((value) => {
         this.save_preview_src = value;
+      });
+    },
+    rename_save: function(save) {
+      // Renaming a save is quite involved
+      // 1. Prompt for new name of save
+      // 2. Create a new instance
+      // 3. Populate the new instance with the values of the old instance
+      // 4. Add a pointer to the new instance in instances_db
+      // 5. Delete the old instance and the pointer to it in instances_db
+      const instance = local_db.get_instance(save);
+      vex.dialog.prompt({
+        message: 'Enter new name for save. If save name already exists, ' +
+                 'it will override the previous save!',
+        callback: (new_name) => {
+          const new_instance = localforage.createInstance({
+            name: new_name
+          });
+          instance.iterate( (value, key) => {
+            new_instance.setItem(key, value);
+          });
+          // Add pointer to the new save in index_db
+          const instances_db = localforage.createInstance({
+            name: 'instances'
+          });
+          instances_db.getItem('instances').then((instances) => {
+            instances_db.setItem('instances', instances.concat(new_name));
+            // Clear the old key and the reference to it in instances_db
+            this.delete_instance(save);
+            this.update_saves();
+          });
+        }
       });
     },
     sort_data: function(sort_by) {
@@ -458,11 +489,20 @@ let vue = new Vue({
       });
       instances_db.clear().then(() => this.update_saves()); 
     },
-    /*
     delete_instance: function(db_name) {
-      //TODO
+      const instances_db = localforage.createInstance({
+        name: 'instances'
+      });
+      instances_db.getItem('instances').then((instances) => {
+        let idx = instances.indexOf(db_name);
+        let new_instances = instances;
+        new_instances.splice(idx, 1);
+        instances_db.setItem('instances', new_instances).then(() => {
+          local_db.get_instance(db_name).clear();
+          this.update_saves();
+        });
+      });
     },
-    */
     save_data: function(db_name = new Date().toISOString()) {
       const db = local_db.create_instance(db_name);
       let p1 = db.setItem('building', globals.BUILDING);
@@ -471,7 +511,9 @@ let vue = new Vue({
       let p4 = db.setItem('id', globals.ID);
       let p5 = db.setItem('plan', globals.PLAN);
 
-      Promise.all([p1, p2, p3, p4, p5]).then(() => this.update_saves());
+      Promise.all([p1, p2, p3, p4, p5]).then(() => {
+        this.update_saves();
+      });
     },
     load_data: function (db_name) {
       let db = local_db.get_instance(db_name);
