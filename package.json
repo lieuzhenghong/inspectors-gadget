@@ -1,22 +1,20 @@
 {
   "name": "inspectors-gadget",
-  "version": "0.3.2",
+  "version": "1.0.0",
   "description": "A report generation tool for building inspectors",
   "main": "index.js",
   "dependencies": {
-    "css-loader": "^0.28.4",
+  },
+  "devDependencies": {
     "electron-canvas-to-buffer": "^2.0.0",
-    "eslint": "^4.4.1",
     "localforage": "^1.5.0",
     "lodash": "^4.17.4",
     "mathjs": "^3.14.2",
-    "style-loader": "^0.18.2",
     "vex-js": "^4.0.0",
     "vue": "^2.4.1",
-    "webpack": "^3.1.0"
-  },
-  "devDependencies": {
+    "webpack": "^3.1.0",
     "css-loader": "^0.28.4",
+    "eslint": "^4.4.1",
     "electron": "~1.6.11",
     "style-loader": "^0.18.2",
     "webpack": "^3.1.0",
