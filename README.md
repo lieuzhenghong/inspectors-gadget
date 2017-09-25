@@ -34,14 +34,16 @@ width="100%">
 ### Upload photos and tag floor plan
 
 <img
-src="https://thumbs.gfycat.com/DeadDependableBluebottle-size_restricted.gif">
+src="https://thumbs.gfycat.com/DeadDependableBluebottle-size_restricted.gif"
+width="100%">
 
 The smart tagging feature shows you a preview of the photo while
 you're tagging it so you don't need to switch windows.
 
 ### Move tag position
 <img
-src="https://thumbs.gfycat.com/BackUnevenIberianemeraldlizard-size_restricted.gif">
+src="https://thumbs.gfycat.com/BackUnevenIberianemeraldlizard-size_restricted.gif"
+width="100%">
 
 If you have made a mistake in placing a tag, simply right-click to
 reposition the tag.
@@ -49,7 +51,8 @@ reposition the tag.
 ### Comment on building defects
 <img
 src="
-https://thumbs.gfycat.com/WiltedAdolescentIraniangroundjay-size_restricted.gif">
+https://thumbs.gfycat.com/WiltedAdolescentIraniangroundjay-size_restricted.gif"
+width="100%">
 
 Annotate building photos within the application itself.
 
@@ -65,20 +68,6 @@ same project.
 <img src="/docs/img/report.png">
 
 The final product: an automatically-generated building inspection report.
-
-## Getting started
-
-### Windows
-
-Download Inspector's Gadget from the [releases page](https://github.com/lieuzhenghong/inspectors-gadget/releases) and run `inspectors-gadget.exe`.
-
-### All other OSes
-
-```bash
-git clone "https://github.com/lieuzhenghong/inspectors-gadget"
-cd inspectors-gadget
-npm run start
-```
 
 ## Real-world usage results
 
@@ -99,4 +88,17 @@ Given by the client for the period August–September 2017
 >  7) Report format easier for [professional engineer's] to do final review and
 >     approval for submission.
 
+## Getting started
+
+### Windows
+
+Download Inspector's Gadget from the [releases page](https://github.com/lieuzhenghong/inspectors-gadget/releases) and run `inspectors-gadget.exe`.
+
+### All other OSes
+
+```bash
+git clone "https://github.com/lieuzhenghong/inspectors-gadget"
+cd inspectors-gadget
+npm run start
+```
 [![Build Status](https://travis-ci.org/lieuzhenghong/inspectors-gadget.svg?branch=master)](https://travis-ci.org/lieuzhenghong/inspectors-gadget)
