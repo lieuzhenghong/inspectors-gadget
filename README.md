@@ -81,12 +81,12 @@ npm run start
 
 ## Real-world usage results
 
-Given by the client for the period August-September 2017
+Given by the client for the period August–September 2017
 
-> Reports generated : 340
-> Hours taken to generate report without software: 4x340 
-> Hours taken to generate report with software: 1x340
-> Man-hours saved: **1020** (3x340)
+> - Reports generated : 340
+> - Hours taken to generate report without software: 4x340 
+> - Hours taken to generate report with software: 1x340
+> - Man-hours saved: **1020** (3x340)
 
 > Intangible benefits: 
 >  1) Improved quality of work
