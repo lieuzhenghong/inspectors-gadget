@@ -28,7 +28,8 @@ application streamlines the process by 75%.
 ### Upload floor plan 
 
 <img
-src="https://thumbs.gfycat.com/ComposedGregariousCapybara-size_restricted.gif">
+src="https://thumbs.gfycat.com/ComposedGregariousCapybara-size_restricted.gif"
+width="100%">
 
 ### Upload photos and tag floor plan
 
