@@ -28,22 +28,19 @@ application streamlines the process by 75%.
 ### Upload floor plan 
 
 <img
-src="https://thumbs.gfycat.com/ComposedGregariousCapybara-size_restricted.gif"
->
+src="https://thumbs.gfycat.com/ComposedGregariousCapybara-size_restricted.gif">
 
 ### Upload photos and tag floor plan
 
 <img
-src="https://thumbs.gfycat.com/DeadDependableBluebottle-size_restricted.gif"
->
+src="https://thumbs.gfycat.com/DeadDependableBluebottle-size_restricted.gif">
 
 The smart tagging feature shows you a preview of the photo while
 you're tagging it so you don't need to switch windows.
 
 ### Move tag position
 <img
-src="https://thumbs.gfycat.com/BackUnevenIberianemeraldlizard-size_restricted.gif"
->
+src="https://thumbs.gfycat.com/BackUnevenIberianemeraldlizard-size_restricted.gif">
 
 If you have made a mistake in placing a tag, simply right-click to
 reposition the tag.
@@ -51,18 +48,14 @@ reposition the tag.
 ### Comment on building defects
 <img
 src="
-https://thumbs.gfycat.com/WiltedAdolescentIraniangroundjay-size_restricted.gif
-"
->
+https://thumbs.gfycat.com/WiltedAdolescentIraniangroundjay-size_restricted.gif">
 
 Annotate building photos within the application itself.
 
 ### Save and load floor plans
 <img
 src="
-https://thumbs.gfycat.com/FarflungPastelKinglet-size_restricted.gif
-"
->
+https://thumbs.gfycat.com/FarflungPastelKinglet-size_restricted.gif">
 
 You can work on mutiple projects at once and even have multiple versions of the
 same project.
