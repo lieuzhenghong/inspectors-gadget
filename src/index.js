@@ -607,15 +607,8 @@ function init() {
     else if (e.keyCode === 9 && globals.KEYS[17]) { //Control-Tab
       vue.toggle();      
     }
-    else if (e.keyCode === 83 && globals.KEYS[17]) {
+    else if (e.keyCode === 83 && globals.KEYS[17]) { // Control-S Save
       vue.save_data();
-    }
-    else if (e.keyCode === 76 && globals.KEYS[17]) {
-      let instance_name = null;
-      local_db.get_instance_names().then((instances) => {
-        instance_name = instances[instances.length-1];
-        vue.load_data(instance_name);
-      });
     }
   };
   // Handling the reply when we send the exported floor plan
