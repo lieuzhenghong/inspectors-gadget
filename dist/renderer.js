@@ -7369,22 +7369,29 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
       });
     },
     sort_data: function(sort_by) {
-      this.labels = this.labels.sort( (a,b) => {
-        if (typeof a[sort_by] === 'number') {
+      if (typeof(this.labels[sort_by]) === 'number') {
+        this.labels.sort( (a,b) => {
           return (a[sort_by] - b[sort_by]);
-        }
-        else {
-          if (a[sort_by] > b[sort_by]) {
-            return 1;
-          }
-          else if (a[sort_by] < b[sort_by]) {
-            return -1;
-          }
-          else {
-            return 0;
-          }
-        }
-      });
+        })
+      }
+      else if (sort_by === 'filename') {
+        this.labels.sort ((a, b) => {
+          let A = a.image.name;
+          let B = b.image.name;
+          if (A < B) { return -1 }
+          if (A > B) { return 1 }
+          return 0
+        })
+      }
+      else {
+        this.labels.sort ((a, b) => {
+          let A = a[sort_by];
+          let B = b[sort_by];
+          if (A < B) { return -1 }
+          if (A > B) { return 1 }
+          return 0
+        })
+      }
     },
     defect_text: function(label) {
       return (label.defect === 0 ? 'ND' : label.defect === 1 ?
@@ -7793,15 +7800,8 @@ function init() {
     else if (e.keyCode === 9 && globals.KEYS[17]) { //Control-Tab
       vue.toggle();      
     }
-    else if (e.keyCode === 83 && globals.KEYS[17]) {
+    else if (e.keyCode === 83 && globals.KEYS[17]) { // Control-S Save
       vue.save_data();
-    }
-    else if (e.keyCode === 76 && globals.KEYS[17]) {
-      let instance_name = null;
-      local_db.get_instance_names().then((instances) => {
-        instance_name = instances[instances.length-1];
-        vue.load_data(instance_name);
-      });
     }
   };
   // Handling the reply when we send the exported floor plan
