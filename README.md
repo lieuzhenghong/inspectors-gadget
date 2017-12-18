@@ -61,8 +61,8 @@ Annotate building photos within the application itself.
 src="
 https://thumbs.gfycat.com/FarflungPastelKinglet-size_restricted.gif">
 
-You can work on mutiple projects at once and even have multiple versions of the
-same project.
+The save and load feature lets you work on multiple projects at once and even
+have multiple versions of the same project.
 
 ### Exported report
 <img src="/docs/img/report.png">
@@ -85,14 +85,19 @@ Given by the client for the period August–September 2017
 >  4) Overall improvement of 85% on cycle time per report                        
 >  5) Easy summary of common defects
 >  6) Easy access to information for analysis and conclusion
->  7) Report format easier for [professional engineer's] to do final review and
+>  7) Report format easier for [professional engineers] to do final review and
 >     approval for submission.
 
 ## Getting started
 
 ### Windows
 
-Download Inspector's Gadget from the [releases page](https://github.com/lieuzhenghong/inspectors-gadget/releases) and run `inspectors-gadget.exe`.
+Download Inspector's Gadget from the [releases
+page](https://github.com/lieuzhenghong/inspectors-gadget/releases) and run
+`inspectors-gadget.exe`.
+
+To build for Windows (on Linux), download the latest [electron
+release](https://github.com/electron/electron/releases), rename it to `inspectors-gadget-win`, then run `build.sh`. Make sure to increment the version number in both `package.json` and `dist/package.json`.
 
 ### All other OSes
 
