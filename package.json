@@ -1,6 +1,6 @@
 {
   "name": "inspectors-gadget",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A report generation tool for building inspectors",
   "main": "index.js",
   "dependencies": {
