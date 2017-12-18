@@ -7368,6 +7368,12 @@ let vue = new __WEBPACK_IMPORTED_MODULE_9_vue__["a" /* default */]({
         }
       });
     },
+    reset_ids: function() {
+      for (let i = 0; i < this.labels.length; i++) {
+        let label = this.labels[i];
+        label.id = i+1;
+      }
+    },
     sort_data: function(sort_by) {
       if (typeof(this.labels[sort_by]) === 'number') {
         this.labels.sort( (a,b) => {
