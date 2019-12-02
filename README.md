@@ -50,16 +50,14 @@ reposition the tag.
 
 ### Comment on building defects
 <img
-src="
-https://thumbs.gfycat.com/WiltedAdolescentIraniangroundjay-size_restricted.gif"
+src="https://thumbs.gfycat.com/WiltedAdolescentIraniangroundjay-size_restricted.gif"
 width="100%">
 
 Annotate building photos within the application itself.
 
 ### Save and load floor plans
 <img
-src="
-https://thumbs.gfycat.com/FarflungPastelKinglet-size_restricted.gif">
+src="https://thumbs.gfycat.com/FarflungPastelKinglet-size_restricted.gif">
 
 The save and load feature lets you work on multiple projects at once and even
 have multiple versions of the same project.
